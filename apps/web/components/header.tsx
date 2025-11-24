@@ -55,12 +55,7 @@ export default function Header() {
         <div className="mx-auto extra-big-container">
           <div className="flex items-center justify-between">
             <Link href="/" className="">
-              <Image
-                src={MainLogo}
-                alt="Meridian Partners Logo"
-                className="h-12 w-auto"
-                priority
-              />
+              <span className="text-2xl font-bold text-blue-400">DAC INVESTORS</span>
             </Link>
 
             <nav className="hidden lg:flex items-center space-x-8">
