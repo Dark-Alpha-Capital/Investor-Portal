@@ -1,0 +1,61 @@
+{
+  "id": "three_round_images",
+  "type": "SharedSlice",
+  "name": "ThreeRoundImages",
+  "description": "ThreeRoundImages",
+  "variations": [
+    {
+      "id": "default",
+      "name": "Default",
+      "docURL": "...",
+      "version": "initial",
+      "description": "Default",
+      "imageUrl": "",
+      "primary": {
+        "heading": {
+          "type": "Text",
+          "config": {
+            "label": "Heading",
+            "placeholder": ""
+          }
+        },
+        "button_link": {
+          "type": "Link",
+          "config": {
+            "label": "Button Link",
+            "placeholder": "",
+            "select": null,
+            "allowTargetBlank": true,
+            "allowText": true,
+            "repeat": false
+          }
+        },
+        "cards": {
+          "type": "Group",
+          "config": {
+            "label": "cards",
+            "repeat": true,
+            "fields": {
+              "card_image": {
+                "type": "Image",
+                "config": {
+                  "label": "Card Image",
+                  "constraint": {},
+                  "thumbnails": []
+                }
+              },
+              "card_title": {
+                "type": "Text",
+                "config": {
+                  "label": "Card Title",
+                  "placeholder": ""
+                }
+              }
+            }
+          }
+        }
+      },
+      "items": {}
+    }
+  ]
+}

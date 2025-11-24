@@ -1,0 +1,56 @@
+{
+  "id": "story_testimonials",
+  "type": "SharedSlice",
+  "name": "StoryTestimonials",
+  "description": "StoryTestimonials",
+  "variations": [
+    {
+      "id": "default",
+      "name": "Default",
+      "docURL": "...",
+      "version": "initial",
+      "description": "Default",
+      "imageUrl": "",
+      "primary": {
+        "heading": {
+          "type": "Text",
+          "config": {
+            "label": "Heading",
+            "placeholder": ""
+          }
+        },
+        "content": {
+          "type": "StructuredText",
+          "config": {
+            "label": "Content",
+            "placeholder": "",
+            "allowTargetBlank": true,
+            "multi": "paragraph,preformatted,heading1,heading2,heading3,heading4,heading5,heading6,strong,em,hyperlink,image,embed,list-item,o-list-item,rtl"
+          }
+        },
+        "founder_name": {
+          "type": "Text",
+          "config": {
+            "label": "Founder Name",
+            "placeholder": ""
+          }
+        },
+        "founder_designation": {
+          "type": "Text",
+          "config": {
+            "label": "Founder Designation",
+            "placeholder": ""
+          }
+        },
+        "tagline": {
+          "type": "Text",
+          "config": {
+            "label": "Tagline",
+            "placeholder": ""
+          }
+        }
+      },
+      "items": {}
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "format": "page",
+  "id": "homepage",
+  "label": "Homepage",
+  "repeatable": false,
+  "status": true,
+  "json": {
+    "Main": {
+      "slices": {
+        "type": "Slices",
+        "fieldset": "Slice Zone",
+        "config": {
+          "choices": {
+            "updated_hero_section": {
+              "type": "SharedSlice"
+            },
+            "hero_image_background": {
+              "type": "SharedSlice"
+            },
+            "story_testimonials": {
+              "type": "SharedSlice"
+            },
+            "meet_team": {
+              "type": "SharedSlice"
+            },
+            "investment_hero": {
+              "type": "SharedSlice"
+            },
+            "three_content_cards": {
+              "type": "SharedSlice"
+            },
+            "three_round_images": {
+              "type": "SharedSlice"
+            },
+            "muted_background_content": {
+              "type": "SharedSlice"
+            },
+            "side_heading_content": {
+              "type": "SharedSlice"
+            },
+            "image_heading_toggle": {
+              "type": "SharedSlice"
+            },
+            "content_heading": {
+              "type": "SharedSlice"
+            },
+            "reuseable_cards": {
+              "type": "SharedSlice"
+            },
+            "rounded_image_content": {
+              "type": "SharedSlice"
+            },
+            "scroll_cards": {
+              "type": "SharedSlice"
+            }
+          }
+        }
+      }
+    },
+    "SEO & Metadata": {
+      "meta_title": {
+        "config": {
+          "label": "Meta Title",
+          "placeholder": "A title of the page used for social media and search engines"
+        },
+        "type": "Text"
+      },
+      "meta_description": {
+        "config": {
+          "label": "Meta Description",
+          "placeholder": "A brief summary of the page"
+        },
+        "type": "Text"
+      },
+      "meta_image": {
+        "config": {
+          "constraint": {
+            "height": 1260,
+            "width": 2400
+          },
+          "label": "Meta Image",
+          "thumbnails": []
+        },
+        "type": "Image"
+      }
+    }
+  }
+}
