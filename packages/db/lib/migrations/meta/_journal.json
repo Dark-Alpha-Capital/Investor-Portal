@@ -15,6 +15,27 @@
       "when": 1763989231051,
       "tag": "0001_curious_freak",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1763996343885,
+      "tag": "0002_nosy_kate_bishop",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1763999388724,
+      "tag": "0003_zippy_maximus",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1764001771957,
+      "tag": "0004_magical_typhoid_mary",
+      "breakpoints": true
     }
   ]
 }

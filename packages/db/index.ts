@@ -1,7 +1,14 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Kysely, PostgresDialect } from "kysely";
 import { Pool } from "pg";
-import { user, session, account, verification } from "./schema";
+import {
+  user,
+  session,
+  account,
+  verification,
+  onboarding,
+  onboardingDocument,
+} from "./schema";
 
 // Support both POSTGRES_URL (Vercel) and DATABASE_URL
 const databaseUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
@@ -26,12 +33,14 @@ export const dbClient = new Kysely<any>({
   dialect,
 });
 
-// Drizzle database instance for chat tables
+// Drizzle database instance
 export const db = drizzle(pool, {
   schema: {
     user,
     session,
     account,
     verification,
+    onboarding,
+    onboardingDocument,
   },
 });
