@@ -31,6 +31,7 @@ import {
   FileCheck,
 } from "lucide-react";
 import { format } from "date-fns";
+import { DocumentActions } from "./components/document-actions";
 
 type Params = {
   userId: Promise<string>;
@@ -805,14 +806,11 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
                                   </div>
                                 </div>
                                 {doc.fileUrl && (
-                                  <a
-                                    href={doc.fileUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-primary hover:underline text-sm"
-                                  >
-                                    View Document
-                                  </a>
+                                  <DocumentActions
+                                    documentId={doc.id}
+                                    fileName={doc.fileName}
+                                    fileType={doc.fileType}
+                                  />
                                 )}
                               </div>
                             </CardContent>
