@@ -231,11 +231,7 @@ export function DealForm({ initialData, onSubmit, isLoading }: DealFormProps) {
                   <FormItem>
                     <FormLabel>Target Raise</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="1000000"
-                        {...field}
-                      />
+                      <Input type="number" placeholder="1000000" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -249,11 +245,7 @@ export function DealForm({ initialData, onSubmit, isLoading }: DealFormProps) {
                   <FormItem>
                     <FormLabel>Minimum Investment</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="50000"
-                        {...field}
-                      />
+                      <Input type="number" placeholder="50000" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -413,4 +405,3 @@ export function DealForm({ initialData, onSubmit, isLoading }: DealFormProps) {
     </Form>
   );
 }
-

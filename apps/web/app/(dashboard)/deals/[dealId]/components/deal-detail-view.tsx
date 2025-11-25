@@ -175,7 +175,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
   };
 
   const handleExpressInterest = async (
-    status: "interested" | "soft_committed",
+    status: "interested" | "soft_committed" | "pass" | "meeting_requested",
     amount?: number
   ) => {
     setIsSubmitting(true);

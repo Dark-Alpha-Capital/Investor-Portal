@@ -18,8 +18,15 @@ type Deal = {
   minInvestment: string | null;
   targetIrr: string | null;
   targetMoic: string | null;
-  status: string;
-  visibility: string;
+  status:
+    | "draft"
+    | "coming_soon"
+    | "live"
+    | "closing"
+    | "funded"
+    | "exited"
+    | "cancelled";
+  visibility: "public" | "accredited" | "invite_only";
   coverImageUrl: string | null;
   launchDate: string | null;
   closeDate: string | null;
@@ -106,12 +113,31 @@ export function EditDealForm({ dealId }: EditDealFormProps) {
     );
   }
 
+  // Convert null values to undefined for form compatibility
+  const formData = {
+    name: deal.name,
+    slug: deal.slug ?? undefined,
+    description: deal.description ?? undefined,
+    teaserSummary: deal.teaserSummary ?? undefined,
+    sector: deal.sector ?? undefined,
+    geography: deal.geography ?? undefined,
+    dealType: deal.dealType ?? undefined,
+    targetRaise: deal.targetRaise ?? undefined,
+    minInvestment: deal.minInvestment ?? undefined,
+    targetIrr: deal.targetIrr ?? undefined,
+    targetMoic: deal.targetMoic ?? undefined,
+    status: deal.status,
+    visibility: deal.visibility,
+    coverImageUrl: deal.coverImageUrl ?? undefined,
+    launchDate: deal.launchDate ?? undefined,
+    closeDate: deal.closeDate ?? undefined,
+  };
+
   return (
     <DealForm
-      initialData={deal}
+      initialData={formData}
       onSubmit={handleSubmit}
       isLoading={isSaving}
     />
   );
 }
-

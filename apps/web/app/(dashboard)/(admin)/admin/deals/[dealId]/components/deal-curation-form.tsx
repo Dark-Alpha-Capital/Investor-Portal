@@ -71,7 +71,7 @@ export function DealCurationForm({ dealId }: DealCurationFormProps) {
       if (invitesData.success) {
         setInvites(invitesData.invites);
         // Pre-select investors who already have invites
-        const invitedUserIds = new Set(
+        const invitedUserIds = new Set<string>(
           invitesData.invites.map((invite: DealInvite) => invite.userId)
         );
         setSelectedInvestors(invitedUserIds);
@@ -265,4 +265,3 @@ export function DealCurationForm({ dealId }: DealCurationFormProps) {
     </div>
   );
 }
-
