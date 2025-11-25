@@ -43,6 +43,13 @@
       "when": 1764076088127,
       "tag": "0005_thin_mandroid",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1764080147920,
+      "tag": "0006_wooden_jamie_braddock",
+      "breakpoints": true
     }
   ]
 }

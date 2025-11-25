@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
+import { InvestmentManagement } from "./investment-management";
 
 type Deal = {
   id: string;
@@ -341,7 +342,9 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalCommitted.toString())}</div>
+            <div className="text-2xl font-bold">
+              {formatCurrency(totalCommitted.toString())}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -350,9 +353,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="invites">
-            Invites ({invites.length})
-          </TabsTrigger>
+          <TabsTrigger value="invites">Invites ({invites.length})</TabsTrigger>
           <TabsTrigger value="interests">
             Interests ({interests.length})
           </TabsTrigger>
@@ -432,9 +433,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">
-                    Target Raise
-                  </p>
+                  <p className="text-sm text-muted-foreground">Target Raise</p>
                   <p className="font-medium">
                     {formatCurrency(deal.targetRaise)}
                   </p>
@@ -484,7 +483,9 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                 </div>
                 {deal.updatedAt && (
                   <div>
-                    <p className="text-sm text-muted-foreground">Last Updated</p>
+                    <p className="text-sm text-muted-foreground">
+                      Last Updated
+                    </p>
                     <p className="font-medium">{formatDate(deal.updatedAt)}</p>
                   </div>
                 )}
@@ -523,7 +524,9 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Avatar>
-                              <AvatarImage src={invite.user.image || undefined} />
+                              <AvatarImage
+                                src={invite.user.image || undefined}
+                              />
                               <AvatarFallback>
                                 {invite.user.name.charAt(0).toUpperCase()}
                               </AvatarFallback>
@@ -623,119 +626,14 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
 
         {/* Investments Tab */}
         <TabsContent value="investments" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Investments</CardTitle>
-              <CardDescription>
-                Active investments in this deal
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {investments.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">
-                  No investments have been made in this deal yet.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {/* Summary */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted rounded-lg">
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Total Committed
-                      </p>
-                      <p className="text-2xl font-bold">
-                        {formatCurrency(totalCommitted.toString())}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Total Funded
-                      </p>
-                      <p className="text-2xl font-bold">
-                        {formatCurrency(totalFunded.toString())}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Current Value
-                      </p>
-                      <p className="text-2xl font-bold">
-                        {formatCurrency(totalCurrentValue.toString())}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Investments Table */}
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Investor</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Committed</TableHead>
-                        <TableHead>Funded</TableHead>
-                        <TableHead>Current Value</TableHead>
-                        <TableHead>Ownership</TableHead>
-                        <TableHead>Committed Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {investments.map((investment) => (
-                        <TableRow key={investment.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <Avatar>
-                                <AvatarImage
-                                  src={investment.user.image || undefined}
-                                />
-                                <AvatarFallback>
-                                  {investment.user.name.charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <Link
-                                href={`/admin/users/${investment.user.id}`}
-                                className="font-medium hover:underline"
-                              >
-                                {investment.user.name}
-                              </Link>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                investmentStatusColors[
-                                  investment.status
-                                ] as any
-                              }
-                            >
-                              {investment.status.replace(/_/g, " ")}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {formatCurrency(investment.committedAmount)}
-                          </TableCell>
-                          <TableCell>
-                            {formatCurrency(investment.fundedAmount)}
-                          </TableCell>
-                          <TableCell>
-                            {formatCurrency(investment.currentValue)}
-                          </TableCell>
-                          <TableCell>
-                            {formatPercentage(investment.ownershipPercentage)}
-                          </TableCell>
-                          <TableCell>
-                            {formatDate(investment.committedDate)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <InvestmentManagement
+            dealId={dealId}
+            investments={investments}
+            interests={interests}
+            onRefresh={fetchDealData}
+          />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
-

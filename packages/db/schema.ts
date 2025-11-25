@@ -442,6 +442,47 @@ export const investment = pgTable("investment", {
     .defaultNow()
     .$onUpdate(() => new Date()),
 });
+
+// --- E. INVESTMENT DOCUMENTS (K-1s, Quarterly Reports, etc.) ---
+// Documents linked to investments (tax forms, reports, statements)
+export const investmentDocument = pgTable(
+  "investment_document",
+  {
+    id: text("id").primaryKey(),
+    investmentId: text("investment_id")
+      .notNull()
+      .references(() => investment.id, { onDelete: "cascade" }),
+
+    // Document type
+    documentType: text("document_type").notNull(), // e.g., "k1", "quarterly_report", "annual_report", "tax_statement"
+
+    // Document metadata
+    fileName: text("file_name").notNull(),
+    fileSize: text("file_size").notNull(),
+    fileType: text("file_type").notNull(), // MIME type
+    fileUrl: text("file_url"), // URL to stored file (S3, etc.)
+    filePath: text("file_path"), // Local file path if stored on server
+
+    // Period information (for reports)
+    periodStart: timestamp("period_start"), // e.g., Q1 2024 start date
+    periodEnd: timestamp("period_end"), // e.g., Q1 2024 end date
+    year: text("year"), // e.g., "2024" for annual documents
+
+    // Additional metadata
+    uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("investment_document_investmentId_idx").on(table.investmentId),
+    index("investment_document_documentType_idx").on(table.documentType),
+    index("investment_document_year_idx").on(table.year),
+  ]
+);
+
 // Add these to your existing 'relations' block
 
 export const dealRelations = relations(deal, ({ many }) => ({
@@ -450,7 +491,7 @@ export const dealRelations = relations(deal, ({ many }) => ({
   invites: many(dealInvite), // Who is allowed to see?
 }));
 
-export const investmentRelations = relations(investment, ({ one }) => ({
+export const investmentRelations = relations(investment, ({ one, many }) => ({
   user: one(user, {
     fields: [investment.userId],
     references: [user.id],
@@ -459,7 +500,18 @@ export const investmentRelations = relations(investment, ({ one }) => ({
     fields: [investment.dealId],
     references: [deal.id],
   }),
+  documents: many(investmentDocument), // Documents linked to this investment
 }));
+
+export const investmentDocumentRelations = relations(
+  investmentDocument,
+  ({ one }) => ({
+    investment: one(investment, {
+      fields: [investmentDocument.investmentId],
+      references: [investment.id],
+    }),
+  })
+);
 
 export const dealInterestRelations = relations(dealInterest, ({ one }) => ({
   user: one(user, {

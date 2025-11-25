@@ -12,11 +12,6 @@ const DealsPage = async () => {
     redirect("/login");
   }
 
-  // Redirect admins to admin deals page
-  if (session.user.role === "admin") {
-    redirect("/admin/deals");
-  }
-
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       <div className="mb-8">

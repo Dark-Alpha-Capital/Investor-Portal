@@ -1,18 +1,86 @@
-import { Card } from "@/components/ui/card";
-import { CheckCircle2 } from "lucide-react";
+"use client";
+
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CheckCircle2, DollarSign, TrendingUp, FileText } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+
+type PortfolioMetrics = {
+  capitalCommitted: number;
+  capitalDeployed: number;
+  currentValue: number;
+  totalInvestments: number;
+};
+
+type Investment = {
+  id: string;
+  dealId: string;
+  dealName: string;
+  committedAmount: string;
+  fundedAmount: string;
+  currentValue: string;
+  distributions: string;
+  status: string;
+  committedDate: string;
+  ownershipPercentage: string | null;
+};
+
+const formatCurrency = (value: number): string => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+};
 
 export function DashboardMain() {
+  const [portfolio, setPortfolio] = useState<PortfolioMetrics | null>(null);
+  const [investments, setInvestments] = useState<Investment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPortfolio();
+  }, []);
+
+  const fetchPortfolio = async () => {
+    try {
+      const response = await fetch("/api/investments/portfolio");
+      const data = await response.json();
+
+      if (data.success) {
+        setPortfolio(data.portfolio);
+        setInvestments(data.investments || []);
+      }
+    } catch (error) {
+      console.error("Error fetching portfolio:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome to your investor portal
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
+            <p className="text-muted-foreground">
+              Welcome to your investor portal
+            </p>
+          </div>
+          <Link href="/dashboard/documents">
+            <Button variant="outline">
+              <FileText className="mr-2 h-4 w-4" />
+              Documents
+            </Button>
+          </Link>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Portfolio Metrics */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
           <Card className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center">
@@ -29,34 +97,126 @@ export function DashboardMain() {
           </Card>
 
           <Card className="p-6">
-            <h3 className="font-semibold mb-2">Investment Opportunities</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Browse available investment opportunities
-            </p>
-            <p className="text-2xl font-bold">0</p>
-            <p className="text-xs text-muted-foreground">Active deals</p>
+            <div className="flex items-center gap-3 mb-2">
+              <DollarSign className="w-5 h-5 text-muted-foreground" />
+              <h3 className="font-semibold">Capital Committed</h3>
+            </div>
+            {isLoading ? (
+              <Skeleton className="h-8 w-32" />
+            ) : (
+              <>
+                <p className="text-2xl font-bold">
+                  {formatCurrency(portfolio?.capitalCommitted || 0)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Money signed for
+                </p>
+              </>
+            )}
           </Card>
 
           <Card className="p-6">
-            <h3 className="font-semibold mb-2">Portfolio</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              View your investment portfolio
-            </p>
-            <p className="text-2xl font-bold">$0</p>
-            <p className="text-xs text-muted-foreground">Total invested</p>
+            <div className="flex items-center gap-3 mb-2">
+              <DollarSign className="w-5 h-5 text-muted-foreground" />
+              <h3 className="font-semibold">Capital Deployed</h3>
+            </div>
+            {isLoading ? (
+              <Skeleton className="h-8 w-32" />
+            ) : (
+              <>
+                <p className="text-2xl font-bold">
+                  {formatCurrency(portfolio?.capitalDeployed || 0)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Money wired
+                </p>
+              </>
+            )}
+          </Card>
+
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <TrendingUp className="w-5 h-5 text-muted-foreground" />
+              <h3 className="font-semibold">Current Value</h3>
+            </div>
+            {isLoading ? (
+              <Skeleton className="h-8 w-32" />
+            ) : (
+              <>
+                <p className="text-2xl font-bold">
+                  {formatCurrency(portfolio?.currentValue || 0)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">NAV</p>
+              </>
+            )}
           </Card>
         </div>
 
-        <Card className="mt-6 p-6">
-          <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No recent activity to display</p>
-          </div>
+        {/* Investments List */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Your Investments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-4">
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+              </div>
+            ) : investments.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No investments yet</p>
+                <Link
+                  href="/deals"
+                  className="text-primary hover:underline mt-2 inline-block"
+                >
+                  Browse investment opportunities
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {investments.map((investment) => (
+                  <div
+                    key={investment.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex-1">
+                      <h4 className="font-semibold">{investment.dealName}</h4>
+                      <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
+                        <span>
+                          Committed:{" "}
+                          {formatCurrency(
+                            parseFloat(investment.committedAmount)
+                          )}
+                        </span>
+                        <span>
+                          Deployed:{" "}
+                          {formatCurrency(
+                            parseFloat(investment.fundedAmount || "0")
+                          )}
+                        </span>
+                        {investment.currentValue && (
+                          <span>
+                            Value:{" "}
+                            {formatCurrency(
+                              parseFloat(investment.currentValue)
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Link href={`/deals/${investment.dealId}`}>
+                      <Button variant="outline" size="sm">
+                        View Deal
+                      </Button>
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
         </Card>
       </div>
     </div>
   );
 }
-
-
-
