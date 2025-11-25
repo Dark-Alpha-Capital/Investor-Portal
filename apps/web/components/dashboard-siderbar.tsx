@@ -6,6 +6,7 @@ import {
   Settings,
   Shield,
   User,
+  Briefcase,
 } from "lucide-react";
 
 import {
@@ -38,6 +39,11 @@ const items = [
     title: "Admin",
     url: "/admin",
     icon: Shield,
+  },
+  {
+    title: "Deals",
+    url: "/admin/deals",
+    icon: Briefcase,
   },
 ];
 

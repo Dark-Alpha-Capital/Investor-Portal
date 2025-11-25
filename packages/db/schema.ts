@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   pgTable,
+  decimal,
   text,
   timestamp,
   boolean,
@@ -102,6 +103,10 @@ export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
   onboardings: many(onboarding),
+  // NEW:
+  investments: many(investment), // "My Portfolio"
+  dealInterests: many(dealInterest), // "My Watchlist"
+  dealInvites: many(dealInvite), // "Curated for Me"
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -276,3 +281,193 @@ export const onboardingDocumentRelations = relations(
     }),
   })
 );
+
+// 1. Status of the Deal itself (Admin controlled)
+export const deal_status_enum = pgEnum("deal_status", [
+  "draft", // Internal only
+  "coming_soon", // Visible, no docs yet
+  "live", // Open for investment
+  "closing", // Finalizing
+  "funded", // Active / Operating
+  "exited", // Sold / IPO
+  "cancelled",
+]);
+
+// 2. Visibility Level (For curation)
+export const deal_visibility_enum = pgEnum("deal_visibility", [
+  "public", // All registered users can see
+  "accredited", // Only users with accredited status
+  "invite_only", // Strictly curated (requires an entry in deal_invite)
+]);
+
+// 3. Status of a specific User's Investment
+export const investment_status_enum = pgEnum("investment_status", [
+  "committed", // Signed docs, money not wired yet
+  "active", // Money wired, currently deployed
+  "transferred", // Sold to someone else
+  "liquidated", // Deal exited, money returned
+  "written_off", // Loss
+]);
+
+// 4. User's interest level in a prospective deal
+export const interest_status_enum = pgEnum("interest_status", [
+  "interested", // "I want to know more"
+  "soft_committed", // "Put me down for $50k"
+  "pass", // "Not for me"
+  "meeting_requested",
+]);
+
+// --- A. THE DEAL TABLE (Prospective & Active) ---
+export const deal = pgTable("deal", {
+  id: text("id").primaryKey(),
+
+  // Basic Info
+  name: text("name").notNull(),
+  slug: text("slug").unique(), // For pretty URLs /deals/project-alpha
+  description: text("description"),
+  teaserSummary: text("teaser_summary"), // Short text for card view
+
+  // Categorization (Matches your Onboarding/Preference logic)
+  sector: text("sector"),
+  geography: text("geography"),
+  dealType: text("deal_type"), // e.g., "Equity", "Debt", "Real Estate"
+
+  // Financial Highlights (For the Deal Card)
+  targetRaise: decimal("target_raise", { precision: 20, scale: 2 }),
+  minInvestment: decimal("min_investment", { precision: 20, scale: 2 }),
+  targetIrr: decimal("target_irr", { precision: 5, scale: 2 }), // e.g. 15.50
+  targetMoic: decimal("target_moic", { precision: 5, scale: 2 }), // e.g. 2.50
+
+  // State
+  status: deal_status_enum("status").default("draft").notNull(),
+  visibility: deal_visibility_enum("visibility")
+    .default("invite_only")
+    .notNull(),
+
+  // Media
+  coverImageUrl: text("cover_image_url"),
+
+  // Dates
+  launchDate: timestamp("launch_date"),
+  closeDate: timestamp("close_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+// --- B. DEAL ACCESS / INVITES (For "Curated" features) ---
+// If a deal is "invite_only", a user MUST exist here to see it.
+export const dealInvite = pgTable(
+  "deal_invite",
+  {
+    id: text("id").primaryKey(),
+    dealId: text("deal_id")
+      .notNull()
+      .references(() => deal.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+
+    // Optional: Personalized note ("Hey John, this fits your RE thesis")
+    curationNote: text("curation_note"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("deal_invite_user_idx").on(t.userId),
+    index("deal_invite_deal_idx").on(t.dealId),
+  ]
+);
+
+// --- C. PROSPECTIVE INTEREST (The Marketplace Workflow) ---
+// Tracks when a user clicks "I'm Interested" or requests docs
+export const dealInterest = pgTable("deal_interest", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id")
+    .notNull()
+    .references(() => deal.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+
+  status: interest_status_enum("status").default("interested").notNull(),
+  proposedAmount: decimal("proposed_amount", { precision: 20, scale: 2 }),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+// --- D. CURRENT INVESTMENTS (The Portfolio/Holdings) ---
+// This is the source of truth for "My Portfolio"
+export const investment = pgTable("investment", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id")
+    .notNull()
+    .references(() => deal.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id),
+
+  // The "Commitment" - What they signed for
+  committedAmount: decimal("committed_amount", {
+    precision: 20,
+    scale: 2,
+  }).notNull(),
+  committedDate: timestamp("committed_date").notNull(),
+
+  // The "Funded" - What they actually wired
+  fundedAmount: decimal("funded_amount", { precision: 20, scale: 2 }).default(
+    "0"
+  ),
+
+  // Metrics for Dashboard (Calculated periodically via admin/script)
+  currentValue: decimal("current_value", { precision: 20, scale: 2 }), // NAV
+  distributions: decimal("distributions", { precision: 20, scale: 2 }).default(
+    "0"
+  ), // Cash returned
+
+  status: investment_status_enum("status").default("active").notNull(),
+
+  // Ownership specific
+  ownershipPercentage: decimal("ownership_percentage", {
+    precision: 10,
+    scale: 6,
+  }),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+// Add these to your existing 'relations' block
+
+export const dealRelations = relations(deal, ({ many }) => ({
+  investments: many(investment), // Who invested?
+  interests: many(dealInterest), // Who is interested?
+  invites: many(dealInvite), // Who is allowed to see?
+}));
+
+export const investmentRelations = relations(investment, ({ one }) => ({
+  user: one(user, {
+    fields: [investment.userId],
+    references: [user.id],
+  }),
+  deal: one(deal, {
+    fields: [investment.dealId],
+    references: [deal.id],
+  }),
+}));
+
+export const dealInterestRelations = relations(dealInterest, ({ one }) => ({
+  user: one(user, {
+    fields: [dealInterest.userId],
+    references: [user.id],
+  }),
+  deal: one(deal, {
+    fields: [dealInterest.dealId],
+    references: [deal.id],
+  }),
+}));

@@ -8,6 +8,10 @@ import {
   verification,
   onboarding,
   onboardingDocument,
+  deal,
+  dealInvite,
+  dealInterest,
+  investment,
 } from "./schema";
 
 // Support both POSTGRES_URL (Vercel) and DATABASE_URL
@@ -42,5 +46,9 @@ export const db = drizzle(pool, {
     verification,
     onboarding,
     onboardingDocument,
+    deal,
+    dealInvite,
+    dealInterest,
+    investment,
   },
 });
