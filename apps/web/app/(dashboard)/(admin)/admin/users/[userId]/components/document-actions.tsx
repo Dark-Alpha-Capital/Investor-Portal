@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,10 +23,10 @@ export function DocumentActions({
   fileName,
   fileType,
 }: DocumentActionsProps) {
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-  const [isLoadingDownload, setIsLoadingDownload] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [isPreviewPending, startPreviewTransition] = useTransition();
+  const [isDownloadPending, startDownloadTransition] = useTransition();
 
   const getSignedUrl = async () => {
     try {
@@ -46,25 +46,24 @@ export function DocumentActions({
     }
   };
 
-  const handlePreview = async () => {
-    setIsLoadingPreview(true);
-    try {
-      const url = await getSignedUrl();
-      if (url) {
-        setSignedUrl(url);
-        setIsDialogOpen(true);
-        toast.success("Document loaded", {
-          description: "The signed URL will expire in 15 minutes",
+  const handlePreview = () => {
+    startPreviewTransition(async () => {
+      try {
+        const url = await getSignedUrl();
+        if (url) {
+          setSignedUrl(url);
+          setIsDialogOpen(true);
+          toast.success("Document loaded", {
+            description: "The signed URL will expire in 15 minutes",
+          });
+        }
+      } catch (error) {
+        toast.error("Failed to preview document", {
+          description:
+            error instanceof Error ? error.message : "An error occurred",
         });
       }
-    } catch (error) {
-      toast.error("Failed to preview document", {
-        description:
-          error instanceof Error ? error.message : "An error occurred",
-      });
-    } finally {
-      setIsLoadingPreview(false);
-    }
+    });
   };
 
   // Reset signed URL when dialog closes
@@ -78,48 +77,47 @@ export function DocumentActions({
     }
   }, [isDialogOpen]);
 
-  const handleDownload = async () => {
-    setIsLoadingDownload(true);
-    try {
-      // Use the proxy endpoint to download the file
-      // This avoids CORS issues and ensures proper download behavior
-      const downloadUrl = `/api/documents/download?documentId=${encodeURIComponent(documentId)}`;
+  const handleDownload = () => {
+    startDownloadTransition(async () => {
+      try {
+        // Use the proxy endpoint to download the file
+        // This avoids CORS issues and ensures proper download behavior
+        const downloadUrl = `/api/documents/download?documentId=${encodeURIComponent(documentId)}`;
 
-      // Fetch the file through our proxy endpoint
-      const response = await fetch(downloadUrl);
+        // Fetch the file through our proxy endpoint
+        const response = await fetch(downloadUrl);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to download file");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || "Failed to download file");
+        }
+
+        // Get the blob from the response
+        const blob = await response.blob();
+
+        // Create a blob URL and trigger download
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+
+        // Cleanup
+        window.URL.revokeObjectURL(blobUrl);
+        document.body.removeChild(link);
+
+        toast.success("Document downloaded", {
+          description: "The file has been downloaded successfully",
+        });
+      } catch (error) {
+        console.error("Download error:", error);
+        toast.error("Failed to download document", {
+          description:
+            error instanceof Error ? error.message : "An error occurred",
+        });
       }
-
-      // Get the blob from the response
-      const blob = await response.blob();
-
-      // Create a blob URL and trigger download
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-
-      // Cleanup
-      window.URL.revokeObjectURL(blobUrl);
-      document.body.removeChild(link);
-
-      toast.success("Document downloaded", {
-        description: "The file has been downloaded successfully",
-      });
-    } catch (error) {
-      console.error("Download error:", error);
-      toast.error("Failed to download document", {
-        description:
-          error instanceof Error ? error.message : "An error occurred",
-      });
-    } finally {
-      setIsLoadingDownload(false);
-    }
+    });
   };
 
   // Determine how to render the preview based on file type
@@ -190,9 +188,9 @@ export function DocumentActions({
           variant="outline"
           size="sm"
           onClick={handlePreview}
-          disabled={isLoadingPreview || isLoadingDownload}
+          disabled={isPreviewPending || isDownloadPending}
         >
-          {isLoadingPreview ? (
+          {isPreviewPending ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               Loading...
@@ -208,9 +206,9 @@ export function DocumentActions({
           variant="outline"
           size="sm"
           onClick={handleDownload}
-          disabled={isLoadingPreview || isLoadingDownload}
+          disabled={isPreviewPending || isDownloadPending}
         >
-          {isLoadingDownload ? (
+          {isDownloadPending ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               Downloading...

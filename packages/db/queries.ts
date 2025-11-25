@@ -101,3 +101,27 @@ export const getUserWithOnboarding = async (userId: string) => {
     return null;
   }
 };
+
+/**
+ * Update a user's KYC status
+ * @param userId The user ID
+ * @param kycStatus The new KYC status
+ * @returns The updated user or null if update fails
+ */
+export const updateKycStatus = async (
+  userId: string,
+  kycStatus: "review" | "approved" | "pending_docs" | "rejected"
+) => {
+  try {
+    const [updatedUser] = await db
+      .update(user)
+      .set({ kycStatus })
+      .where(eq(user.id, userId))
+      .returning();
+
+    return updatedUser || null;
+  } catch (error) {
+    console.error("Error updating KYC status:", error);
+    return null;
+  }
+};

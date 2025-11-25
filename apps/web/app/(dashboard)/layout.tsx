@@ -26,7 +26,7 @@ export default function RootLayout({
       <body className={`${poppins.variable} antialiased`}>
         <SidebarProvider>
           <DashboardSidebar />
-          <main>{children}</main>
+          <main className="flex-1">{children}</main>
         </SidebarProvider>
         <Toaster />
       </body>

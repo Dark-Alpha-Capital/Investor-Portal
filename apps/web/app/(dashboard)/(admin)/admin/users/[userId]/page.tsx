@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { DocumentActions } from "./components/document-actions";
+import { KycStatusToggle } from "./components/kyc-status-toggle";
 
 type Params = {
   userId: Promise<string>;
@@ -181,6 +182,11 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
             </div>
           </div>
         </div>
+        {!isAdminUser && (
+          <div className="flex flex-col items-end gap-2">
+            <KycStatusToggle userId={user.id} currentStatus={user.kycStatus} />
+          </div>
+        )}
       </div>
 
       {/* Admin User View */}
@@ -424,13 +430,30 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
                 <Card>
                   <CardHeader>
                     <CardTitle>KYC Status</CardTitle>
+                    <CardDescription>
+                      Review documents and update the KYC status accordingly
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        Status
-                      </span>
-                      {getKycStatusBadge(user.kycStatus)}
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Current Status
+                        </span>
+                        {getKycStatusBadge(user.kycStatus)}
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t">
+                        <div>
+                          <p className="text-sm font-medium">Update Status</p>
+                          <p className="text-xs text-muted-foreground">
+                            Change the KYC status after reviewing documents
+                          </p>
+                        </div>
+                        <KycStatusToggle
+                          userId={user.id}
+                          currentStatus={user.kycStatus}
+                        />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
