@@ -1,6 +1,6 @@
 import { db } from ".";
 import { user, onboarding, onboardingDocument } from "./schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or, isNull, ne } from "drizzle-orm";
 
 /**
  *
@@ -123,5 +123,32 @@ export const updateKycStatus = async (
   } catch (error) {
     console.error("Error updating KYC status:", error);
     return null;
+  }
+};
+
+/**
+ * Get all investors (non-admin users) with their KYC status
+ * @returns Array of investors with KYC status
+ */
+export const getAllInvestorsWithKycStatus = async () => {
+  try {
+    const investors = await db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        emailVerified: user.emailVerified,
+        banned: user.banned,
+        createdAt: user.createdAt,
+        kycStatus: user.kycStatus,
+      })
+      .from(user)
+      .where(or(ne(user.role, "admin"), isNull(user.role)));
+
+    return investors;
+  } catch (error) {
+    console.error("Error fetching investors with KYC status:", error);
+    return [];
   }
 };
