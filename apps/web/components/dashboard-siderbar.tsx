@@ -1,9 +1,5 @@
 import {
-  Calendar,
   Home,
-  Inbox,
-  Search,
-  Settings,
   Shield,
   User,
   Briefcase,
@@ -21,9 +17,14 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { SidebarUserNav } from "./sidebar-user-nav";
+import { authSession } from "@/app/(auth)/auth";
 
-// Menu items.
-const items = [
+export async function DashboardSidebar() {
+  const session = await authSession();
+  const isAdmin = session?.user?.role === "admin";
+
+  // Base menu items for all users
+  const baseItems = [
   {
     title: "Dashboard",
     url: "/dashboard",
@@ -34,20 +35,30 @@ const items = [
     url: "/onboarding",
     icon: User,
   },
+    {
+      title: "Deals",
+      url: "/deals",
+      icon: Briefcase,
+    },
+  ];
 
+  // Admin-only items
+  const adminItems = [
   {
     title: "Admin",
     url: "/admin",
     icon: Shield,
   },
   {
-    title: "Deals",
+      title: "Admin Deals",
     url: "/admin/deals",
     icon: Briefcase,
   },
 ];
 
-export function DashboardSidebar() {
+  // Combine items based on user role
+  const items = isAdmin ? [...baseItems, ...adminItems] : baseItems;
+
   return (
     <Sidebar>
       <SidebarContent>
