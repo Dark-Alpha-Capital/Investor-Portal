@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -36,7 +36,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 const RegisterPage = () => {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, startTransition] = useTransition();
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const form = useForm<RegisterFormValues>({
@@ -50,31 +50,29 @@ const RegisterPage = () => {
   });
 
   const onSubmit = async (data: RegisterFormValues) => {
-    setIsLoading(true);
-    try {
-      const result = await authClient.signUp.email({
-        email: data.email,
-        password: data.password,
-        name: data.name,
-      });
+    startTransition(async () => {
+      try {
+        const result = await authClient.signUp.email({
+          email: data.email,
+          password: data.password,
+          name: data.name,
+        });
 
-      if (result.error) {
-        toast.error(result.error.message || "Failed to create account");
-        return;
+        if (result.error) {
+          toast.error(result.error.message || "Failed to create account");
+          return;
+        }
+
+        toast.success("Account created successfully");
+        router.push("/dashboard");
+        router.refresh();
+      } catch (error) {
+        toast.error("An unexpected error occurred");
       }
-
-      toast.success("Account created successfully");
-      router.push("/dashboard");
-      router.refresh();
-    } catch (error) {
-      toast.error("An unexpected error occurred");
-    } finally {
-      setIsLoading(false);
-    }
+    });
   };
 
   const handleGoogleSignUp = async () => {
-    setIsGoogleLoading(true);
     try {
       const data = await authClient.signIn.social({
         provider: "google",
@@ -90,11 +88,8 @@ const RegisterPage = () => {
       router.refresh();
     } catch (error) {
       toast.error("An unexpected error occurred");
-    } finally {
-      setIsGoogleLoading(false);
     }
   };
-
   return (
     <div className="flex h-screen">
       {/* Left Column - Image */}

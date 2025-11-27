@@ -29,7 +29,7 @@ const HeroImageBackground: FC<HeroImageBackgroundProps> = ({ slice }) => {
             {slice.primary.heading}
           </Heading>
 
-          <Heading size="xs" className="font-normal text-primary">
+          <Heading size="xs" className="font-normal text-dark-blue">
             {slice.primary.tagline}
           </Heading>
         </div>
