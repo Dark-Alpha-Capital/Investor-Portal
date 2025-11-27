@@ -4,15 +4,9 @@ import { SliceComponentProps } from "@prismicio/react";
 import { ArrowRight } from "lucide-react";
 import { PrismicNextImage, PrismicNextLink } from "@prismicio/next";
 
-/**
- * Props for `RoundedImageContent`.
- */
 export type RoundedImageContentProps =
   SliceComponentProps<Content.RoundedImageContentSlice>;
 
-/**
- * Component for "RoundedImageContent" Slices.
- */
 const RoundedImageContent: FC<RoundedImageContentProps> = ({ slice }) => {
   return (
     <section

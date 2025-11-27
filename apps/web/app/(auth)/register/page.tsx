@@ -10,14 +10,6 @@ import { FcGoogle } from "react-icons/fc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Form,
   FormControl,
   FormField,
@@ -136,16 +128,14 @@ const RegisterPage = () => {
 
       {/* Right Column - Form */}
       <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold">
-              Create an account
-            </CardTitle>
-            <CardDescription>
+        <div className="w-full max-w-md space-y-6">
+          <div className="space-y-1 text-center">
+            <h2 className="text-2xl font-bold">Create an account</h2>
+            <p className="text-muted-foreground">
               Enter your information to get started
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </p>
+          </div>
+          <div className="space-y-4">
             <Button
               variant="outline"
               className="w-full"
@@ -168,7 +158,10 @@ const RegisterPage = () => {
             </div>
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
                 <FormField
                   control={form.control}
                   name="name"
@@ -250,8 +243,8 @@ const RegisterPage = () => {
                 </Button>
               </form>
             </Form>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
+          </div>
+          <div className="flex flex-col space-y-4">
             <div className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
               <Link
@@ -261,8 +254,8 @@ const RegisterPage = () => {
                 Sign in
               </Link>
             </div>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

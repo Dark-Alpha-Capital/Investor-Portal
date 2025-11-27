@@ -9,15 +9,6 @@ import * as z from "zod";
 import { FcGoogle } from "react-icons/fc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -114,9 +105,7 @@ const LoginPage = () => {
                 />
               </svg>
             </div>
-            <h2 className="text-3xl font-bold text-foreground">
-              Welcome back
-            </h2>
+            <h2 className="text-3xl font-bold text-foreground">Welcome back</h2>
             <p className="text-muted-foreground text-lg">
               Sign in to access your investor portal and manage your investments
             </p>
@@ -126,12 +115,14 @@ const LoginPage = () => {
 
       {/* Right Column - Form */}
       <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
-            <CardDescription>Sign in to your account to continue</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="w-full max-w-md space-y-6">
+          <div className="space-y-1 text-center">
+            <h2 className="text-2xl font-bold">Welcome back</h2>
+            <p className="text-muted-foreground">
+              Sign in to your account to continue
+            </p>
+          </div>
+          <div className="space-y-4">
             <Button
               variant="outline"
               className="w-full"
@@ -154,7 +145,10 @@ const LoginPage = () => {
             </div>
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
                 <FormField
                   control={form.control}
                   name="email"
@@ -200,8 +194,8 @@ const LoginPage = () => {
                 </Button>
               </form>
             </Form>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
+          </div>
+          <div className="flex flex-col space-y-4">
             <div className="text-center text-sm text-muted-foreground">
               Don't have an account?{" "}
               <Link
@@ -211,8 +205,8 @@ const LoginPage = () => {
                 Sign up
               </Link>
             </div>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
