@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ModeToggle } from "./mode-toggle";
 
 export default function Footer() {
   return (
@@ -137,9 +138,7 @@ export default function Footer() {
           <p className="text-sm text-muted-foreground">
             ©2025 Pass the Hat. All rights reserved.
           </p>
-          <Button variant="outline" size="sm" className="mt-4 sm:mt-0">
-            Cookie Preferences
-          </Button>
+          <ModeToggle />
         </div>
       </div>
     </footer>

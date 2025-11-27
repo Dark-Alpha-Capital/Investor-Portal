@@ -17,6 +17,14 @@ export const kyc_status_enum = pgEnum("kyc_status", [
   "rejected",
 ]);
 
+export const document_status_enum = pgEnum("document_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "incorrect_doc",
+  "needs_revision",
+]);
+
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -250,6 +258,11 @@ export const onboardingDocument = pgTable(
 
     // Additional metadata
     uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+
+    // Document review status
+    status: document_status_enum("status").default("pending").notNull(),
+    reviewedAt: timestamp("reviewed_at"),
+    reviewedBy: text("reviewed_by"), // Admin user ID who reviewed
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
