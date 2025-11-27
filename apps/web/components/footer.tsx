@@ -4,21 +4,21 @@ import { Button } from "@/components/ui/button";
 
 export default function Footer() {
   return (
-    <footer className="bg-white border-t border-gray-200">
+    <footer className="border-t">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="py-12 grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <span className="text-2xl font-bold text-gray-900">PASS</span>
-              <div className="w-8 h-6 bg-blue-400 rounded-sm flex items-center justify-center">
-                <div className="w-4 h-3 bg-white rounded-sm"></div>
+              <span className="text-2xl font-bold text-foreground">PASS</span>
+              <div className="w-8 h-6 bg-primary rounded-sm flex items-center justify-center">
+                <div className="w-4 h-3 bg-background rounded-sm"></div>
               </div>
-              <span className="text-2xl font-bold text-blue-400">HAT</span>
+              <span className="text-2xl font-bold text-primary">HAT</span>
             </div>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               An affiliate of Borgman Capital LLC
             </p>
-            <div className="flex items-center space-x-2 text-blue-500">
+            <div className="flex items-center space-x-2 text-primary">
               <Mail className="w-4 h-4" />
               <a
                 href="mailto:PassTheHat@borgmancapital.com"
@@ -34,37 +34,37 @@ export default function Footer() {
             <div className="space-y-3">
               <Link
                 href="/about"
-                className="block text-sm text-gray-700 hover:text-gray-900"
+                className="block text-sm text-foreground hover:text-foreground/80"
               >
                 About
               </Link>
               <Link
                 href="/how-it-works"
-                className="block text-sm text-gray-700 hover:text-gray-900"
+                className="block text-sm text-foreground hover:text-foreground/80"
               >
                 How it Works
               </Link>
               <Link
                 href="/offerings"
-                className="block text-sm text-gray-700 hover:text-gray-900"
+                className="block text-sm text-foreground hover:text-foreground/80"
               >
                 Offerings
               </Link>
               <Link
                 href="/track-record"
-                className="block text-sm text-gray-700 hover:text-gray-900"
+                className="block text-sm text-foreground hover:text-foreground/80"
               >
                 Track Record
               </Link>
               <Link
                 href="/faq"
-                className="block text-sm text-gray-700 hover:text-gray-900"
+                className="block text-sm text-foreground hover:text-foreground/80"
               >
                 FAQ
               </Link>
               <Link
                 href="/investment-process"
-                className="block text-sm text-gray-700 hover:text-gray-900"
+                className="block text-sm text-foreground hover:text-foreground/80"
               >
                 Investment Process
               </Link>
@@ -72,25 +72,25 @@ export default function Footer() {
             <div className="space-y-3">
               <Link
                 href="/privacy-policy"
-                className="block text-sm text-gray-700 hover:text-gray-900"
+                className="block text-sm text-foreground hover:text-foreground/80"
               >
                 Privacy Policy
               </Link>
               <Link
                 href="/terms-conditions"
-                className="block text-sm text-gray-700 hover:text-gray-900"
+                className="block text-sm text-foreground hover:text-foreground/80"
               >
                 Terms & Conditions
               </Link>
               <Link
                 href="/non-disclosure"
-                className="block text-sm text-gray-700 hover:text-gray-900"
+                className="block text-sm text-foreground hover:text-foreground/80"
               >
                 Non-Disclosure Agreement
               </Link>
               <Link
                 href="/support"
-                className="block text-sm text-gray-700 hover:text-gray-900"
+                className="block text-sm text-foreground hover:text-foreground/80"
               >
                 Support
               </Link>
@@ -99,8 +99,8 @@ export default function Footer() {
         </div>
 
         {/* Disclaimer section */}
-        <div className="border-t border-gray-200 py-8">
-          <div className="space-y-4 text-xs text-gray-500 leading-relaxed">
+        <div className="border-t border-border py-8">
+          <div className="space-y-4 text-xs text-muted-foreground leading-relaxed">
             <p>
               This website is for informational purposes only and does not
               constitute an offer to sell any security. This website does not
@@ -133,9 +133,8 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Bottom section */}
-        <div className="border-t border-gray-200 py-6 flex flex-col sm:flex-row justify-between items-center">
-          <p className="text-sm text-gray-500">
+        <div className="border-t border-border py-6 flex flex-col sm:flex-row justify-between items-center">
+          <p className="text-sm text-muted-foreground">
             ©2025 Pass the Hat. All rights reserved.
           </p>
           <Button variant="outline" size="sm" className="mt-4 sm:mt-0">

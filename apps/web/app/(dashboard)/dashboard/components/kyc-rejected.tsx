@@ -13,8 +13,8 @@ export function KycRejectedScreen() {
       <div className="max-w-2xl mx-auto">
         <Card className="p-8">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mx-auto mb-6">
-              <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+            <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <XCircle className="w-8 h-8 text-destructive" />
             </div>
             <h1 className="text-3xl font-bold mb-3">KYC Verification Rejected</h1>
             <p className="text-muted-foreground text-balance">
@@ -72,6 +72,9 @@ export function KycRejectedScreen() {
     </div>
   );
 }
+
+
+
 
 
 

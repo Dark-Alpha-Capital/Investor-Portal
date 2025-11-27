@@ -19,8 +19,8 @@ export function OnboardingComplete() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center py-8 px-4 sm:px-6 lg:px-8">
       <Card className="max-w-lg w-full p-8 text-center">
-        <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-6">
-          <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+        <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+          <CheckCircle2 className="w-8 h-8 text-primary" />
         </div>
 
         <h1 className="text-3xl font-bold mb-3">{"Onboarding Complete!"}</h1>
@@ -34,15 +34,15 @@ export function OnboardingComplete() {
           <h3 className="font-semibold text-sm mb-3">{"What happens next?"}</h3>
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
               {"Your documents will be verified within 1-2 business days"}
             </li>
             <li className="flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
               {"You'll receive an email confirmation once approved"}
             </li>
             <li className="flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
               {"Our team may contact you if additional information is needed"}
             </li>
           </ul>

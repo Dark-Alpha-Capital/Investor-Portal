@@ -57,16 +57,16 @@ const ImageHeadingToggle: FC<ImageHeadingToggleProps> = ({ slice }) => {
         {/* Right side - Content */}
         <div className="order-1 lg:order-2 space-y-6">
           <div>
-            <h2 className="text-2xl lg:text-3xl font-bold text-dark-blue mb-4 leading-tight">
+            <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-4 leading-tight">
               {slice.primary.heading}
             </h2>
-            <p className="text-gray-600 text-sm leading-relaxed">
+            <p className="text-muted-foreground text-sm leading-relaxed">
               {slice.primary.tagline}
             </p>
           </div>
 
           {/* Accordion Sections */}
-          <div className="space-y-0 border border-gray-200 rounded-lg overflow-hidden">
+          <div className="space-y-0 border border-border rounded-lg overflow-hidden">
             {slice.primary.faq.map((section, index) => (
               <Collapsible
                 key={index}
@@ -75,22 +75,22 @@ const ImageHeadingToggle: FC<ImageHeadingToggleProps> = ({ slice }) => {
               >
                 <CollapsibleTrigger className="w-full">
                   <div
-                    className={`flex items-center justify-between py-5 px-6 hover:bg-gray-50 transition-colors ${
+                    className={`flex items-center justify-between py-5 px-6 hover:bg-muted transition-colors ${
                       index !== slice.primary.faq.length - 1
-                    } ${openSections.includes(index.toString()) ? "bg-gray-50" : "bg-white"}`}
+                    } ${openSections.includes(index.toString()) ? "bg-muted" : "bg-card"}`}
                   >
-                    <span className="text-left font-medium text-gray-900 text-base pr-4">
+                    <span className="text-left font-medium text-foreground text-base pr-4">
                       {section.question}
                     </span>
                     {openSections.includes(index.toString()) ? (
-                      <Minus className="h-5 w-5 text-gray-600 flex-shrink-0" />
+                      <Minus className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                     ) : (
-                      <Plus className="h-5 w-5 text-gray-600 flex-shrink-0" />
+                      <Plus className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                     )}
                   </div>
                 </CollapsibleTrigger>
                 {section.answer && (
-                  <CollapsibleContent className="overflow-hidden bg-gray-50 p-6">
+                  <CollapsibleContent className="overflow-hidden bg-muted p-6">
                     <div className="prose">
                       <PrismicRichText field={section.answer} />
                     </div>

@@ -24,7 +24,7 @@ const StoryTestimonials: FC<StoryTestimonialsProps> = ({ slice }) => {
         <div className="flex flex-col items-center text-center mb-4 animate-fade-in-up">
           {/* Hat Logo Container */}
           <div className="flex flex-col items-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-slate-800 rounded-full mb-6 transform transition-transform duration-300 hover:scale-105">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-primary rounded-full mb-6 transform transition-transform duration-300 hover:scale-105">
               <div className="relative">
                 {/* Hat Icon */}
                 <svg
@@ -57,7 +57,7 @@ const StoryTestimonials: FC<StoryTestimonialsProps> = ({ slice }) => {
             {/* Story Badge */}
             <div className="flex flex-col items-center">
               <div className="px-6 py-3 border-2 border-gray-900 rounded-full ">
-                <span className="text-sm font-semibold tracking-wider text-gray-900 uppercase">
+                <span className="text-sm font-semibold tracking-wider text-foreground uppercase">
                   {slice.primary.tagline}
                 </span>
               </div>
@@ -67,7 +67,7 @@ const StoryTestimonials: FC<StoryTestimonialsProps> = ({ slice }) => {
 
         {/* Main Heading */}
         <div className="text-center mb-12 animate-fade-in-up animation-delay-300">
-          <Heading size="sm" className="text-dark-blue font-bold">
+          <Heading size="sm" className="text-foreground font-bold">
             {slice.primary.heading}
           </Heading>
         </div>
@@ -81,20 +81,20 @@ const StoryTestimonials: FC<StoryTestimonialsProps> = ({ slice }) => {
         <div className="text-center animate-fade-in-up animation-delay-700">
           <div className="flex items-center justify-center mb-6">
             {/* Left decorative line */}
-            <div className="flex-1 max-w-32 sm:max-w-48 h-px bg-gray-300"></div>
+            <div className="flex-1 max-w-32 sm:max-w-48 h-px bg-border"></div>
 
             {/* Attribution content - Column Layout */}
             <div className="flex flex-col items-center px-8">
-              <div className="text-lg font-bold text-gray-900 tracking-wide mb-1">
+              <div className="text-lg font-bold text-foreground tracking-wide mb-1">
                 {slice.primary.founder_name}
               </div>
-              <div className="text-base italic text-gray-600 mb-4">
+              <div className="text-base italic text-muted-foreground mb-4">
                 {slice.primary.founder_designation}
               </div>
             </div>
 
             {/* Right decorative line */}
-            <div className="flex-1 max-w-32 sm:max-w-48 h-px bg-gray-300"></div>
+            <div className="flex-1 max-w-32 sm:max-w-48 h-px bg-border"></div>
           </div>
         </div>
       </div>

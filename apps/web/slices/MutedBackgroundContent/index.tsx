@@ -19,12 +19,12 @@ const MutedBackgroundContent: FC<MutedBackgroundContentProps> = ({ slice }) => {
       className="w-full block-space"
     >
       <div className="extra-big-container">
-        <div className="max-w-4xl bg-gray-50 rounded-lg p-6 md:p-8 lg:p-10 mx-auto">
+        <div className="max-w-4xl bg-muted rounded-lg p-6 md:p-8 lg:p-10 mx-auto">
           <div className="prose">
             <PrismicRichText field={slice.primary.content} />
           </div>
-          <div className="mt-6 pt-4 border-t border-gray-200">
-            <cite className="text-gray-600 text-sm md:text-base font-medium not-italic">
+          <div className="mt-6 pt-4 border-t border-border">
+            <cite className="text-muted-foreground text-sm md:text-base font-medium not-italic">
               {slice.primary.author}
             </cite>
           </div>

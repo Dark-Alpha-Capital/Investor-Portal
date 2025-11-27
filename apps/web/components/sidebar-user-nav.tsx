@@ -31,12 +31,12 @@ export function SidebarUserNav() {
         <SidebarMenuItem>
           <SidebarMenuButton className="data-[state=open]:bg-sidebar-accent bg-background data-[state=open]:text-sidebar-accent-foreground h-10 justify-between cursor-not-allowed">
             <div className="flex flex-row gap-2 items-center">
-              <div className="size-6 bg-zinc-500/30 rounded-full animate-pulse" />
-              <span className="bg-zinc-500/30 text-transparent rounded-md animate-pulse w-24">
+              <div className="size-6 bg-muted rounded-full animate-pulse" />
+              <span className="bg-muted text-transparent rounded-md animate-pulse w-24">
                 Loading...
               </span>
             </div>
-            <div className="animate-spin text-zinc-500">
+            <div className="animate-spin text-muted-foreground">
               <LoaderIcon className="size-4" />
             </div>
           </SidebarMenuButton>
@@ -56,8 +56,8 @@ export function SidebarUserNav() {
                 data-testid="user-nav-button"
                 className="data-[state=open]:bg-sidebar-accent bg-background data-[state=open]:text-sidebar-accent-foreground h-10"
               >
-                <div className="size-6 bg-zinc-500/20 rounded-full flex items-center justify-center">
-                  <span className="text-xs text-zinc-500">?</span>
+                <div className="size-6 bg-muted rounded-full flex items-center justify-center">
+                  <span className="text-xs text-muted-foreground">?</span>
                 </div>
                 <span data-testid="user-email" className="truncate">
                   Not signed in

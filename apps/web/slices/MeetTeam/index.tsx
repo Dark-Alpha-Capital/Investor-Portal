@@ -15,12 +15,12 @@ const MeetTeam: FC<MeetTeamProps> = ({ slice }) => {
     <section
       data-slice-type={slice.slice_type}
       data-slice-variation={slice.variation}
-      className="w-full py-16 px-4 bg-gray-50"
+      className="w-full py-16 px-4 bg-muted"
     >
       <div className="big-container">
         {/* Header */}
         <div className="text-center mb-16">
-          <Heading size="sm" className="text-dark-blue font-bold">
+          <Heading size="sm" className="text-foreground font-bold">
             {slice.primary.heading}
           </Heading>
         </div>
@@ -34,13 +34,15 @@ const MeetTeam: FC<MeetTeamProps> = ({ slice }) => {
                   className="w-full h-full object-cover"
                 />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 ">
+              <h3 className="text-xl font-semibold text-foreground ">
                 {member.person_name}
               </h3>
-              <p className="text-sm font-medium text-gray-600 ">
+              <p className="text-sm font-medium text-muted-foreground ">
                 {member.person_designation}
               </p>
-              <p className="text-sm text-gray-500 ">{member.person_company}</p>
+              <p className="text-sm text-muted-foreground ">
+                {member.person_company}
+              </p>
               <div className="prose prose-sm">
                 <PrismicRichText field={member.content} />
               </div>
@@ -49,7 +51,7 @@ const MeetTeam: FC<MeetTeamProps> = ({ slice }) => {
         </div>
 
         <div className="text-center">
-          <Button className="bg-blue-400 hover:bg-blue-500 text-white px-8 py-3 rounded-full text-sm font-medium transition-colors">
+          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-full text-sm font-medium transition-colors">
             MEET OUR TEAM
           </Button>
         </div>

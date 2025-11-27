@@ -344,10 +344,8 @@ export const deal = pgTable("deal", {
     .default("invite_only")
     .notNull(),
 
-  // Media
   coverImageUrl: text("cover_image_url"),
 
-  // Dates
   launchDate: timestamp("launch_date"),
   closeDate: timestamp("close_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -356,8 +354,6 @@ export const deal = pgTable("deal", {
     .$onUpdate(() => new Date()),
 });
 
-// --- B. DEAL ACCESS / INVITES (For "Curated" features) ---
-// If a deal is "invite_only", a user MUST exist here to see it.
 export const dealInvite = pgTable(
   "deal_invite",
   {
@@ -369,7 +365,6 @@ export const dealInvite = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
 
-    // Optional: Personalized note ("Hey John, this fits your RE thesis")
     curationNote: text("curation_note"),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),

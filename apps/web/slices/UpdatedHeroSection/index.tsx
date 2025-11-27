@@ -23,7 +23,7 @@ const UpdatedHeroSection: FC<UpdatedHeroSectionProps> = ({ slice }) => {
       data-slice-type={slice.slice_type}
       data-slice-variation={slice.variation}
     >
-      <div className="relative mix-h-[50vh] bg-gradient-to-br from-slate-100 via-sky-50 to-slate-200 py-12 md:py-20">
+      <div className="relative mix-h-[50vh] bg-gradient-to-br from-muted via-background to-muted py-12 md:py-20">
         <PrismicNextImage
           field={slice.primary.background_image}
           className="object-cover opacity-90 w-full h-full absolute inset-0 z-0"
@@ -35,14 +35,16 @@ const UpdatedHeroSection: FC<UpdatedHeroSectionProps> = ({ slice }) => {
               {slice.primary.heading}
             </Heading>
           </div>
-          <div className="rounded-3xl mt-4 bg-white p-8 shadow-xl md:p-12 lg:p-16">
+          <div className="rounded-3xl mt-4 bg-card p-8 shadow-xl md:p-12 lg:p-16">
             <div className="grid gap-10 md:grid-cols-2 md:gap-16">
               <div className="space-y-6">
-                <h2 className="text-4xl font-bold text-black sm:text-5xl">
+                <h2 className="text-4xl font-bold text-foreground sm:text-5xl">
                   {slice.primary.title}
                 </h2>
 
-                <p className="text-xl text-gray-700">{slice.primary.tagline}</p>
+                <p className="text-xl text-foreground">
+                  {slice.primary.tagline}
+                </p>
               </div>
 
               {/* Right Column */}
@@ -52,7 +54,7 @@ const UpdatedHeroSection: FC<UpdatedHeroSectionProps> = ({ slice }) => {
                 </div>
                 <Button
                   size="lg"
-                  className="mt-4 w-full bg-sky-500 text-white hover:bg-sky-600 sm:w-auto"
+                  className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
                   asChild
                 >
                   <PrismicNextLink field={slice.primary.button_link}>

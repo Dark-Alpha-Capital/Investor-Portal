@@ -21,7 +21,7 @@ const ThreeRoundImages: FC<ThreeRoundImagesProps> = ({ slice }) => {
     >
       <div className="big-container">
         <div className="flex flex-col items-center text-center ">
-          <h1 className="text-dark-blue font-bold text-center">
+          <h1 className="text-foreground font-bold text-center">
             {slice.primary.heading}
           </h1>
 
@@ -39,7 +39,7 @@ const ThreeRoundImages: FC<ThreeRoundImagesProps> = ({ slice }) => {
                       className="object-cover"
                     />
                   </div>
-                  <h3 className="text-lg md:text-xl font-semibold text-gray-600 tracking-wide">
+                  <h3 className="text-lg md:text-xl font-semibold text-muted-foreground tracking-wide">
                     {card.card_title}
                   </h3>
                 </div>

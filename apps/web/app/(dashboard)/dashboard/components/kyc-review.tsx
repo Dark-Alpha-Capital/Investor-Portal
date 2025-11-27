@@ -7,8 +7,8 @@ export function KycReviewScreen() {
       <div className="max-w-2xl mx-auto">
         <Card className="p-8">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Clock className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
+              <Clock className="w-8 h-8 text-muted-foreground" />
             </div>
             <h1 className="text-3xl font-bold mb-3">KYC Under Review</h1>
             <p className="text-muted-foreground text-balance">
@@ -60,6 +60,9 @@ export function KycReviewScreen() {
     </div>
   );
 }
+
+
+
 
 
 

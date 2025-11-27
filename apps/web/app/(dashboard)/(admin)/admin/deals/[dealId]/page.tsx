@@ -66,3 +66,6 @@ const DealDetailPage = async ({ params }: PageProps) => {
 
 export default DealDetailPage;
 
+
+
+

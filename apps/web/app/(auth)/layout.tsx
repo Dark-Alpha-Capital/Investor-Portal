@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
 import "@/app/globals.css";
+import type { Metadata } from "next";
 import { Toaster } from "sonner";
+import { Geist } from "next/font/google";
+import { ThemeProvider } from "@/components/theme-provider";
 
-const poppins = Poppins({
-  variable: "--font-poppins",
+const geist = Geist({
+  variable: "--font-geist",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
@@ -21,8 +22,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${poppins.variable} antialiased`}>
-        {children}
+      <body className={`${geist.variable} antialiased`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
         <Toaster />
       </body>
     </html>

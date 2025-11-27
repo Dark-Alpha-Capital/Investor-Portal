@@ -69,13 +69,13 @@ export default function Header() {
       <header
         className={cn(
           "w-full transition-all duration-300 z-40 fixed top-0",
-          "bg-white py-5"
+          "bg-background py-5"
         )}
       >
         <div className="mx-auto extra-big-container">
           <div className="flex items-center justify-between">
             <Link href="/" className="">
-              <span className="text-2xl font-bold text-blue-400">
+              <span className="text-2xl font-bold text-primary">
                 DAC INVESTORS
               </span>
             </Link>
@@ -98,9 +98,9 @@ export default function Header() {
                     key={item.name}
                     href={item.href}
                     className={cn(
-                      "text-sm font-medium text-black transition-colors hover:text-blue-900 relative",
+                      "text-sm font-medium text-foreground transition-colors hover:text-primary relative",
                       {
-                        "text-blue-900 after:absolute after:bottom-[-0.2rem] after:left-0 after:w-full after:h-0.5 after:bg-blue-900":
+                        "text-primary after:absolute after:bottom-[-0.2rem] after:left-0 after:w-full after:h-0.5 after:bg-primary":
                           item.href === "/"
                             ? pathname === "/"
                             : isAboutRoute
@@ -119,7 +119,7 @@ export default function Header() {
 
             <div className="hidden lg:flex items-center gap-4">
               {isPending ? (
-                <Loader2 className="h-5 w-5 animate-spin text-gray-600" />
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               ) : session?.user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -131,7 +131,7 @@ export default function Header() {
                             session.user.name || session.user.email || "User"
                           }
                         />
-                        <AvatarFallback className="bg-blue-100 text-blue-900">
+                        <AvatarFallback className="bg-primary/20 text-primary">
                           {session.user.name
                             ? session.user.name
                                 .split(" ")
@@ -172,7 +172,7 @@ export default function Header() {
                     )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      className="cursor-pointer text-red-600 focus:text-red-600"
+                      className="cursor-pointer text-destructive focus:text-destructive"
                       onClick={async () => {
                         await authClient.signOut();
                         router.push("/");
@@ -196,7 +196,7 @@ export default function Header() {
 
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className={cn("lg:hidden p-2 rounded-md text-black")}
+              className={cn("lg:hidden p-2 rounded-md text-foreground")}
               aria-label="Open menu"
               aria-expanded={isMobileMenuOpen}
             >
@@ -219,7 +219,7 @@ export default function Header() {
         {/* Backdrop */}
         <div
           className={cn(
-            "fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity duration-300",
+            "fixed inset-0 bg-foreground/50 backdrop-blur-sm transition-opacity duration-300",
             isMobileMenuOpen ? "opacity-100" : "opacity-0"
           )}
           aria-hidden="true"
@@ -228,11 +228,11 @@ export default function Header() {
 
         <div
           className={cn(
-            "fixed inset-y-0 left-0 w-full sm:w-3/4 md:w-2/3 lg:w-1/2 max-w-md bg-white shadow-xl transform transition-transform duration-300 ease-in-out",
+            "fixed inset-y-0 left-0 w-full sm:w-3/4 md:w-2/3 lg:w-1/2 max-w-md bg-background shadow-xl transform transition-transform duration-300 ease-in-out",
             isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
           )}
         >
-          <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between">
+          <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between">
             <div className="flex items-center">
               <Link href="/" className="">
                 <Image
@@ -245,7 +245,7 @@ export default function Header() {
             </div>
             <button
               onClick={() => setIsMobileMenuOpen(false)}
-              className="p-1.5 sm:p-2 rounded-md text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+              className="p-1.5 sm:p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
               aria-label="Close menu"
             >
               <X className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -260,9 +260,9 @@ export default function Header() {
                   <Link
                     href={item.href}
                     className={cn(
-                      "block py-1.5 sm:py-2 px-2 sm:px-3 text-sm sm:text-base font-medium text-slate-700 rounded-md hover:bg-slate-100 transition-colors",
+                      "block py-1.5 sm:py-2 px-2 sm:px-3 text-sm sm:text-base font-medium text-foreground rounded-md hover:bg-muted transition-colors",
                       {
-                        "bg-blue-50 text-blue-600": pathname === item.href,
+                        "bg-primary/10 text-primary": pathname === item.href,
                       }
                     )}
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -274,10 +274,10 @@ export default function Header() {
             </ul>
 
             {/* Auth section in mobile menu */}
-            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-200 space-y-2 sm:space-y-3">
+            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-border space-y-2 sm:space-y-3">
               {isPending ? (
                 <div className="flex items-center justify-center py-2">
-                  <Loader2 className="h-5 w-5 animate-spin text-gray-600" />
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : session?.user ? (
                 <>
@@ -287,7 +287,7 @@ export default function Header() {
                         src={session.user.image || undefined}
                         alt={session.user.name || session.user.email || "User"}
                       />
-                      <AvatarFallback className="bg-blue-100 text-blue-900">
+                      <AvatarFallback className="bg-primary/20 text-primary">
                         {session.user.name
                           ? session.user.name
                               .split(" ")
@@ -299,17 +299,17 @@ export default function Header() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                      <p className="text-sm font-medium text-slate-900">
+                      <p className="text-sm font-medium text-foreground">
                         {session.user.name || "User"}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-muted-foreground">
                         {session.user.email}
                       </p>
                     </div>
                   </div>
                   <Link
                     href="/dashboard"
-                    className="flex items-center py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
+                    className="flex items-center py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-foreground rounded-md hover:bg-muted transition-colors"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
@@ -318,7 +318,7 @@ export default function Header() {
                   {session.user.role === "admin" && (
                     <Link
                       href="/admin"
-                      className="flex items-center py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
+                      className="flex items-center py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-foreground rounded-md hover:bg-muted transition-colors"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
@@ -331,7 +331,7 @@ export default function Header() {
                       setIsMobileMenuOpen(false);
                       router.push("/");
                     }}
-                    className="flex items-center w-full py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                    className="flex items-center w-full py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-destructive rounded-md hover:bg-destructive/10 transition-colors"
                   >
                     <LogOut className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                     Log out
@@ -340,7 +340,7 @@ export default function Header() {
               ) : (
                 <Link
                   href="/login"
-                  className="flex items-center justify-center py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+                  className="flex items-center justify-center py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-primary-foreground bg-primary rounded-md hover:bg-primary/90 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Login
@@ -349,14 +349,14 @@ export default function Header() {
             </div>
 
             {/* CTA buttons in mobile menu */}
-            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-200 space-y-2 sm:space-y-3">
-              <p className="text-xs sm:text-sm font-medium text-slate-500 mb-2 sm:mb-3">
+            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-border space-y-2 sm:space-y-3">
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 sm:mb-3">
                 Quick Actions
               </p>
 
               <Link
                 href="/contact"
-                className="flex items-center py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700 transition-colors"
+                className="flex items-center py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-primary-foreground bg-primary rounded-md hover:bg-primary/90 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
@@ -364,19 +364,19 @@ export default function Header() {
               </Link>
             </div>
 
-            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-200">
-              <p className="text-xs sm:text-sm font-medium text-slate-500 mb-2 sm:mb-3">
+            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-border">
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 sm:mb-3">
                 Contact Us
               </p>
               <Link
                 href="tel:+918561046369"
-                className="block py-1.5 sm:py-2 text-xs sm:text-sm text-slate-700 hover:text-blue-600"
+                className="block py-1.5 sm:py-2 text-xs sm:text-sm text-foreground hover:text-primary"
               >
                 +91 8561046369
               </Link>
               <Link
                 href="mailto:info@onebridgekp.com"
-                className="block py-1.5 sm:py-2 text-xs sm:text-sm text-slate-700 hover:text-blue-600"
+                className="block py-1.5 sm:py-2 text-xs sm:text-sm text-foreground hover:text-primary"
               >
                 pragya@onebridgeknowledgepartners.com
               </Link>
@@ -385,7 +385,7 @@ export default function Header() {
                   href="https://linkedin.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-slate-600 hover:text-blue-600 transition-colors"
+                  className="text-muted-foreground hover:text-primary transition-colors"
                   aria-label="LinkedIn"
                 >
                   <Linkedin className="h-4 w-4 sm:h-5 sm:w-5" />
