@@ -57,6 +57,13 @@
       "when": 1764226952926,
       "tag": "0007_careless_menace",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1764606127022,
+      "tag": "0008_wonderful_inhumans",
+      "breakpoints": true
     }
   ]
 }

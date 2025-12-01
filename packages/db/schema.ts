@@ -414,10 +414,10 @@ export const investment = pgTable("investment", {
   id: text("id").primaryKey(),
   dealId: text("deal_id")
     .notNull()
-    .references(() => deal.id),
+    .references(() => deal.id, { onDelete: "restrict" }),
   userId: text("user_id")
     .notNull()
-    .references(() => user.id),
+    .references(() => user.id, { onDelete: "restrict" }),
 
   // The "Commitment" - What they signed for
   committedAmount: decimal("committed_amount", {
@@ -528,6 +528,17 @@ export const dealInterestRelations = relations(dealInterest, ({ one }) => ({
   }),
   deal: one(deal, {
     fields: [dealInterest.dealId],
+    references: [deal.id],
+  }),
+}));
+
+export const dealInviteRelations = relations(dealInvite, ({ one }) => ({
+  user: one(user, {
+    fields: [dealInvite.userId],
+    references: [user.id],
+  }),
+  deal: one(deal, {
+    fields: [dealInvite.dealId],
     references: [deal.id],
   }),
 }));

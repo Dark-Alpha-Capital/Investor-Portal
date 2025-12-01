@@ -405,7 +405,7 @@ export function KycDocuments({
     const isRequired = requirements.required.includes(type);
 
     return (
-      <div className="space-y-2">
+      <div key={type} className="space-y-2">
         <Label htmlFor={type}>
           {info.title}{" "}
           {isRequired && <span className="text-destructive">{"*"}</span>}
@@ -419,9 +419,7 @@ export function KycDocuments({
             dragOver === type && "border-primary bg-accent",
             hasError && "border-destructive",
             !hasError && !file && "border-border hover:border-muted-foreground",
-            file &&
-              !hasError &&
-              "border-primary bg-primary/10"
+            file && !hasError && "border-primary bg-primary/10"
           )}
           onDrop={(e) => handleDrop(e, type)}
           onDragOver={(e) => handleDragOver(e, type)}

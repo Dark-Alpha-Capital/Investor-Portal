@@ -43,13 +43,40 @@ const LoginPage = () => {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      const result = await authClient.signIn.email({
-        email: data.email,
-        password: data.password,
-      });
+      const result = await authClient.signIn.email(
+        {
+          email: data.email,
+          password: data.password,
+        },
+        {
+          onError: (ctx) => {
+            // Handle the error
+            if (ctx.error.status === 403) {
+              toast.error(
+                "Please verify your email address before signing in."
+              );
+              // Optionally redirect to a page where they can resend verification email
+              router.push(
+                `/verify-email?email=${encodeURIComponent(data.email)}&pending=true`
+              );
+            } else {
+              // Show the original error message
+              toast.error(ctx.error.message || "Failed to sign in");
+            }
+          },
+        }
+      );
 
       if (result.error) {
-        toast.error(result.error.message || "Failed to sign in");
+        // This will be handled by onError callback, but keeping as fallback
+        if (result.error.status === 403) {
+          toast.error("Please verify your email address before signing in.");
+          router.push(
+            `/verify-email?email=${encodeURIComponent(data.email)}&pending=true`
+          );
+        } else {
+          toast.error(result.error.message || "Failed to sign in");
+        }
         return;
       }
 

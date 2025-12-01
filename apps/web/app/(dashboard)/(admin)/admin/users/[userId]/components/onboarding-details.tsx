@@ -55,18 +55,24 @@ export function OnboardingDetails({ onboarding }: OnboardingDetailsProps) {
             <p className="font-medium">{onboarding.organizationName}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Primary Contact</p>
+            <p className="text-xs text-muted-foreground mb-1">
+              Primary Contact
+            </p>
             <p className="font-medium">{onboarding.primaryContactName}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">Contact Title</p>
-            <p className="font-medium">{onboarding.primaryContactTitle || "N/A"}</p>
+            <p className="font-medium">
+              {onboarding.primaryContactTitle || "N/A"}
+            </p>
           </div>
           <div className="flex items-start gap-2">
             <Mail className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
             <div className="min-w-0">
               <p className="text-xs text-muted-foreground mb-1">Email</p>
-              <p className="font-medium truncate">{onboarding.primaryContactEmail}</p>
+              <p className="font-medium truncate">
+                {onboarding.primaryContactEmail}
+              </p>
             </div>
           </div>
           <div className="flex items-start gap-2">
@@ -77,7 +83,9 @@ export function OnboardingDetails({ onboarding }: OnboardingDetailsProps) {
             </div>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Capital Provider Type</p>
+            <p className="text-xs text-muted-foreground mb-1">
+              Capital Provider Type
+            </p>
             <p className="font-medium">{onboarding.capitalProviderType}</p>
           </div>
           <div>
@@ -88,7 +96,9 @@ export function OnboardingDetails({ onboarding }: OnboardingDetailsProps) {
             <div className="flex items-start gap-2">
               <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
               <div className="min-w-0">
-                <p className="text-xs text-muted-foreground mb-1">Geographic Focus</p>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Geographic Focus
+                </p>
                 <p className="font-medium">{onboarding.geographicFocus}</p>
               </div>
             </div>
@@ -106,12 +116,16 @@ export function OnboardingDetails({ onboarding }: OnboardingDetailsProps) {
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Equity Check Size</p>
+            <p className="text-xs text-muted-foreground mb-1">
+              Equity Check Size
+            </p>
             <p className="font-medium">{onboarding.equityCheckSize}</p>
           </div>
           {onboarding.enterpriseValueRange && (
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Enterprise Value Range</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Enterprise Value Range
+              </p>
               <p className="font-medium">{onboarding.enterpriseValueRange}</p>
             </div>
           )}
@@ -122,34 +136,43 @@ export function OnboardingDetails({ onboarding }: OnboardingDetailsProps) {
             </div>
           )}
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Preferred Ownership</p>
+            <p className="text-xs text-muted-foreground mb-1">
+              Preferred Ownership
+            </p>
             <p className="font-medium">{onboarding.preferredOwnership}</p>
           </div>
           {onboarding.typicalHoldPeriod && (
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Typical Hold Period</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Typical Hold Period
+              </p>
               <p className="font-medium">{onboarding.typicalHoldPeriod}</p>
             </div>
           )}
           {onboarding.leverageTolerance && (
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Leverage Tolerance</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Leverage Tolerance
+              </p>
               <p className="font-medium">{onboarding.leverageTolerance}</p>
             </div>
           )}
         </div>
-        {onboarding.transactionTypes && onboarding.transactionTypes.length > 0 && (
-          <div className="mt-3">
-            <p className="text-xs text-muted-foreground mb-2">Transaction Types</p>
-            <div className="flex flex-wrap gap-1.5">
-              {onboarding.transactionTypes.map((type, idx) => (
-                <Badge key={idx} variant="outline" className="text-xs">
-                  {type}
-                </Badge>
-              ))}
+        {onboarding.transactionTypes &&
+          onboarding.transactionTypes.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs text-muted-foreground mb-2">
+                Transaction Types
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {onboarding.transactionTypes.map((type, idx) => (
+                  <Badge key={idx} variant="outline" className="text-xs">
+                    {type}
+                  </Badge>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
 
       <Separator />
@@ -162,18 +185,24 @@ export function OnboardingDetails({ onboarding }: OnboardingDetailsProps) {
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Revenue Characteristics</p>
+            <p className="text-xs text-muted-foreground mb-1">
+              Revenue Characteristics
+            </p>
             <p className="font-medium">{onboarding.revenueCharacteristics}</p>
           </div>
           {onboarding.customerConcentration && (
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Customer Concentration</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Customer Concentration
+              </p>
               <p className="font-medium">{onboarding.customerConcentration}</p>
             </div>
           )}
           {onboarding.marginsAndCashFlow && (
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Margins & Cash Flow</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Margins & Cash Flow
+              </p>
               <p className="font-medium">{onboarding.marginsAndCashFlow}</p>
             </div>
           )}
@@ -183,7 +212,9 @@ export function OnboardingDetails({ onboarding }: OnboardingDetailsProps) {
           </div>
           {onboarding.managementInvolvement && (
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Management Involvement</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Management Involvement
+              </p>
               <p className="font-medium">{onboarding.managementInvolvement}</p>
             </div>
           )}
@@ -194,21 +225,29 @@ export function OnboardingDetails({ onboarding }: OnboardingDetailsProps) {
 
       {/* Sectors & Themes */}
       <div>
-        <h3 className="text-sm font-semibold mb-3 pb-2 border-b">Sectors & Themes</h3>
+        <h3 className="text-sm font-semibold mb-3 pb-2 border-b">
+          Sectors & Themes
+        </h3>
         <div className="space-y-3 text-sm">
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Sectors of Interest</p>
+            <p className="text-xs text-muted-foreground mb-1">
+              Sectors of Interest
+            </p>
             <p className="font-medium">{onboarding.sectorsOfInterest}</p>
           </div>
           {onboarding.sectorsToAvoid && (
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Sectors to Avoid</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Sectors to Avoid
+              </p>
               <p className="font-medium">{onboarding.sectorsToAvoid}</p>
             </div>
           )}
           {onboarding.specificThemes && (
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Specific Themes</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Specific Themes
+              </p>
               <p className="font-medium">{onboarding.specificThemes}</p>
             </div>
           )}
@@ -231,7 +270,9 @@ export function OnboardingDetails({ onboarding }: OnboardingDetailsProps) {
                   <p className="text-xs text-muted-foreground mb-1">
                     Open to Emerging Sponsor
                   </p>
-                  <p className="font-medium">{onboarding.openToEmergingSponsor}</p>
+                  <p className="font-medium">
+                    {onboarding.openToEmergingSponsor}
+                  </p>
                 </div>
               )}
               {onboarding.economicsDescription && (
@@ -239,7 +280,9 @@ export function OnboardingDetails({ onboarding }: OnboardingDetailsProps) {
                   <p className="text-xs text-muted-foreground mb-1">
                     Economics Description
                   </p>
-                  <p className="font-medium">{onboarding.economicsDescription}</p>
+                  <p className="font-medium">
+                    {onboarding.economicsDescription}
+                  </p>
                 </div>
               )}
               {onboarding.governanceExpectations && (
@@ -247,7 +290,9 @@ export function OnboardingDetails({ onboarding }: OnboardingDetailsProps) {
                   <p className="text-xs text-muted-foreground mb-1">
                     Governance Expectations
                   </p>
-                  <p className="font-medium">{onboarding.governanceExpectations}</p>
+                  <p className="font-medium">
+                    {onboarding.governanceExpectations}
+                  </p>
                 </div>
               )}
             </div>
@@ -257,4 +302,3 @@ export function OnboardingDetails({ onboarding }: OnboardingDetailsProps) {
     </div>
   );
 }
-

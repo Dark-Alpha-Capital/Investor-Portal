@@ -25,7 +25,7 @@ const registerSchema = z
     name: z.string().min(2, "Name must be at least 2 characters"),
     email: z.string().email("Please enter a valid email address"),
     password: z.string().min(6, "Password must be at least 6 characters"),
-    confirmPassword: z.string(),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -41,6 +41,7 @@ const RegisterPage = () => {
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
+    mode: "onChange", // Validate on change for better UX
     defaultValues: {
       name: "",
       email: "",
@@ -56,6 +57,7 @@ const RegisterPage = () => {
           email: data.email,
           password: data.password,
           name: data.name,
+          callbackURL: `${window.location.origin}/verify-email`,
         });
 
         if (result.error) {
@@ -63,8 +65,13 @@ const RegisterPage = () => {
           return;
         }
 
-        toast.success("Account created successfully");
-        router.push("/dashboard");
+        toast.success(
+          "Account created successfully! Please check your email to verify your account."
+        );
+        // Redirect to a page that shows verification instructions
+        router.push(
+          `/verify-email?pending=true&email=${encodeURIComponent(data.email)}`
+        );
         router.refresh();
       } catch (error) {
         toast.error("An unexpected error occurred");
@@ -205,6 +212,13 @@ const RegisterPage = () => {
                           placeholder="Create a password"
                           disabled={isLoading || isGoogleLoading}
                           {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            // Re-validate confirmPassword when password changes
+                            if (form.getValues("confirmPassword")) {
+                              form.trigger("confirmPassword");
+                            }
+                          }}
                         />
                       </FormControl>
                       <FormMessage />

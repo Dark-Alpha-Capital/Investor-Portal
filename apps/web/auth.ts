@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { nextCookies } from "better-auth/next-js";
 import { createAuthMiddleware } from "better-auth/api";
 import { admin } from "better-auth/plugins";
+import { sendEmail } from "./lib/mail";
 
 /**
  * Determines user role based on email domain
@@ -24,7 +25,24 @@ export const auth = betterAuth({
     provider: "pg",
   }),
   emailAndPassword: {
+    requireEmailVerification: true,
     enabled: true,
+  },
+  emailVerification: {
+    sendVerificationEmail: async (
+      {
+        user,
+        url,
+        token,
+      }: { user: { email: string }; url: string; token: string },
+      request?: unknown
+    ) => {
+      void sendEmail(
+        user.email,
+        "Verify your email address",
+        `<p>Click the link to verify your email: <a href="${url}">${url}</a></p>`
+      );
+    },
   },
 
   socialProviders: {
