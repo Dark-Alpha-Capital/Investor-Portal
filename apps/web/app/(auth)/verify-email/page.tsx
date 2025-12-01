@@ -1,13 +1,16 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
 
-const VerifyEmailPage = () => {
+// Mark page as dynamic to prevent static generation
+export const dynamic = "force-dynamic";
+
+const VerifyEmailContent = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "success" | "error">(
@@ -96,8 +99,8 @@ const VerifyEmailPage = () => {
               {status === "success"
                 ? "Email Verified"
                 : status === "error"
-                ? "Verification Failed"
-                : "Verifying..."}
+                  ? "Verification Failed"
+                  : "Verifying..."}
             </h2>
             <p className="text-muted-foreground text-lg">{message}</p>
           </div>
@@ -163,8 +166,8 @@ const VerifyEmailPage = () => {
               {status === "success"
                 ? "Email Verified!"
                 : status === "error"
-                ? "Verification Failed"
-                : "Verifying Email..."}
+                  ? "Verification Failed"
+                  : "Verifying Email..."}
             </h2>
             <p className="text-muted-foreground mt-2">{message}</p>
           </div>
@@ -227,8 +230,8 @@ const VerifyEmailPage = () => {
                 <div className="text-center text-sm text-muted-foreground space-y-2">
                   <p>{message}</p>
                   <p className="text-xs">
-                    Didn't receive the email? Check your spam folder or request a
-                    new verification email.
+                    Didn't receive the email? Check your spam folder or request
+                    a new verification email.
                   </p>
                 </div>
                 <Button
@@ -243,9 +246,13 @@ const VerifyEmailPage = () => {
                           email,
                           callbackURL: `${window.location.origin}/verify-email`,
                         });
-                        toast.success("Verification email sent! Please check your inbox.");
+                        toast.success(
+                          "Verification email sent! Please check your inbox."
+                        );
                       } catch (error) {
-                        toast.error("Failed to send verification email. Please try again later.");
+                        toast.error(
+                          "Failed to send verification email. Please try again later."
+                        );
                       }
                     }
                   }}
@@ -277,5 +284,35 @@ const VerifyEmailPage = () => {
   );
 };
 
-export default VerifyEmailPage;
+const VerifyEmailPage = () => {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-full bg-primary/20 flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-primary animate-spin"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+            </div>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
+  );
+};
 
+export default VerifyEmailPage;
