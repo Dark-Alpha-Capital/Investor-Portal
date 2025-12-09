@@ -64,7 +64,7 @@ export function KycStatusToggle({
     if (currentStatus && currentStatus !== selectedStatus) {
       setSelectedStatus(currentStatus as KycStatus);
     }
-  }, [currentStatus]);
+  }, [currentStatus, selectedStatus]);
 
   const handleStatusChange = (newStatus: KycStatus) => {
     if (newStatus === selectedStatus) return;

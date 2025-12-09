@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/auth";
 import { db } from "@repo/db";
 import { investment } from "@repo/db/schema";
 import { eq, and } from "drizzle-orm";
+import { getSession } from "@/lib/get-session";
 
 type RouteParams = {
   params: Promise<{
@@ -36,9 +35,7 @@ type RouteParams = {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { investmentId } = await params;
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json(
@@ -152,9 +149,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { investmentId } = await params;
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json(

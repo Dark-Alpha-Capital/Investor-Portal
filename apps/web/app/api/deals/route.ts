@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/auth";
 import { db } from "@repo/db";
 import { deal } from "@repo/db/schema";
 import { randomUUID } from "crypto";
 import { desc, eq } from "drizzle-orm";
+import { getSession } from "@/lib/get-session";
 
 /**
  * GET /api/deals
@@ -12,9 +11,7 @@ import { desc, eq } from "drizzle-orm";
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
     if (!session?.user || session.user.role !== "admin") {
       return NextResponse.json(
@@ -27,10 +24,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const deals = await db
-      .select()
-      .from(deal)
-      .orderBy(desc(deal.createdAt));
+    const deals = await db.select().from(deal).orderBy(desc(deal.createdAt));
 
     return NextResponse.json({
       success: true,
@@ -55,9 +49,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
     if (!session?.user || session.user.role !== "admin") {
       return NextResponse.json(
@@ -151,4 +143,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

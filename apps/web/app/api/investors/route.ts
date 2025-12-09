@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/auth";
 import { db } from "@repo/db";
 import { user } from "@repo/db/schema";
 import { or, ne, isNull } from "drizzle-orm";
+import { getSession } from "@/lib/get-session";
 
 /**
  * GET /api/investors
@@ -11,9 +10,7 @@ import { or, ne, isNull } from "drizzle-orm";
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
     if (!session?.user || session.user.role !== "admin") {
       return NextResponse.json(
@@ -56,4 +53,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

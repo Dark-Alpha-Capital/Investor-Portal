@@ -5,6 +5,7 @@ import { db } from "@repo/db";
 import { onboardingDocument, onboarding } from "@repo/db/schema";
 import { getSignedUrl } from "@/lib/storage";
 import { eq } from "drizzle-orm";
+import { getSession } from "@/lib/get-session";
 
 /**
  * GET /api/documents/download
@@ -15,9 +16,7 @@ import { eq } from "drizzle-orm";
 export async function GET(request: NextRequest) {
   try {
     // Get authenticated user
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json(
@@ -140,8 +139,8 @@ export async function GET(request: NextRequest) {
         "Content-Disposition": `attachment; filename="${encodeURIComponent(document.fileName)}"`,
         "Content-Length": fileBuffer.byteLength.toString(),
         "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0",
+        Pragma: "no-cache",
+        Expires: "0",
       },
     });
   } catch (error) {
@@ -156,4 +155,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

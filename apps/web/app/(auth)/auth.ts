@@ -27,13 +27,18 @@ export async function authSession(): Promise<Session> {
       return null;
     }
 
+    // Better Auth includes role from the database, but TypeScript may not recognize it
+    const userWithRole = session.user as typeof session.user & {
+      role?: string;
+    };
+
     return {
       user: {
         id: session.user.id,
         type: "regular" as UserType,
         email: session.user.email,
         name: session.user.name ?? undefined,
-        role: session.user.role ?? "user",
+        role: userWithRole.role ?? undefined,
       },
     };
   } catch (error) {

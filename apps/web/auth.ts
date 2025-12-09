@@ -5,8 +5,21 @@ import { user } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
 import { nextCookies } from "better-auth/next-js";
 import { createAuthMiddleware } from "better-auth/api";
-import { admin } from "better-auth/plugins";
+import { admin, customSession } from "better-auth/plugins";
 import { sendEmail } from "./lib/mail";
+
+// Type definitions for database hooks
+// Better Auth passes user data with Record<string, unknown> for extensibility
+type UserData = {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  image?: string | null;
+  [key: string]: unknown;
+};
 
 /**
  * Determines user role based on email domain
@@ -23,6 +36,8 @@ function getUserRoleFromEmail(email: string): string {
 export const auth: ReturnType<typeof betterAuth> = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
+    // Drizzle adapter automatically includes all user table fields in session
+    // including the 'role' field from the schema
   }),
   emailAndPassword: {
     requireEmailVerification: true,
@@ -76,7 +91,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        before: async (userData, ctx) => {
+        before: async (userData: UserData) => {
           // Set role based on email domain when user is created
           const role = getUserRoleFromEmail(userData.email);
           return {
@@ -88,20 +103,10 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
         },
       },
       update: {
-        before: async (data, ctx) => {
+        before: async (data: Partial<UserData>) => {
           // If email is being updated, check and update role accordingly
-          if (data.email && !data.role) {
+          if (data.email && typeof data.email === "string" && !data.role) {
             const role = getUserRoleFromEmail(data.email);
-            return {
-              data: {
-                ...data,
-                role,
-              },
-            };
-          }
-          // If user doesn't have a role yet, set it based on email
-          if (!data.role && ctx?.context?.user?.email) {
-            const role = getUserRoleFromEmail(ctx.context.user.email);
             return {
               data: {
                 ...data,
@@ -118,22 +123,36 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
         after: async (sessionData, ctx) => {
           // When a session is created (user signs in), ensure they have a role
           // This handles existing users who might not have roles set
-          if (
-            ctx?.context?.user &&
-            !ctx.context.user.role &&
-            ctx.context.user.email
-          ) {
-            const role = getUserRoleFromEmail(ctx.context.user.email);
+          const contextUser = ctx?.context?.user as
+            | { id: string; email?: string; role?: string | null }
+            | undefined;
+
+          if (contextUser && !contextUser.role && contextUser.email) {
+            const role = getUserRoleFromEmail(contextUser.email);
             // Update the user's role in the database
             await db
               .update(user)
               .set({ role })
-              .where(eq(user.id, ctx.context.user.id));
+              .where(eq(user.id, contextUser.id));
           }
         },
       },
     },
   },
 
-  plugins: [nextCookies(), admin()],
+  plugins: [
+    nextCookies(),
+    admin(),
+    customSession(async ({ user, session }) => {
+      // Include the role field from the user object
+      // Better Auth with Drizzle adapter includes all user table fields
+      return {
+        user: {
+          ...user,
+          role: (user as typeof user & { role?: string | null }).role ?? null,
+        },
+        session,
+      };
+    }),
+  ],
 });

@@ -5,6 +5,7 @@ import { db } from "@repo/db";
 import { investment, deal, dealInterest } from "@repo/db/schema";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { getSession } from "@/lib/get-session";
 
 /**
  * POST /api/investments
@@ -23,9 +24,7 @@ import { randomUUID } from "crypto";
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json(

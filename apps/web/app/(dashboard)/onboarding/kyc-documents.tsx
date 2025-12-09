@@ -320,9 +320,9 @@ export function KycDocuments({
     let firstErrorKey: string | undefined;
 
     // Validate all required documents for the investor type
-    requirements.required.forEach((docType) => {
+    requirements?.required?.forEach((docType) => {
       if (!documents[docType as DocumentType]) {
-        const docInfo = requirements.documents[docType] as
+        const docInfo = requirements?.documents?.[docType] as
           | DocumentInfo
           | undefined;
         if (docInfo) {
@@ -397,12 +397,12 @@ export function KycDocuments({
   };
 
   const renderFileUpload = (type: DocumentType) => {
-    const info = requirements.documents[type] as DocumentInfo | undefined;
+    const info = requirements?.documents?.[type] as DocumentInfo | undefined;
     if (!info) return null;
 
     const file = documents[type];
     const hasError = !!errors[type];
-    const isRequired = requirements.required.includes(type);
+    const isRequired = requirements?.required?.includes(type);
 
     return (
       <div key={type} className="space-y-2">
@@ -520,7 +520,7 @@ export function KycDocuments({
       </div>
 
       <div className="space-y-6">
-        {Object.keys(requirements.documents).map((docType) =>
+        {Object.keys(requirements?.documents || {}).map((docType) =>
           renderFileUpload(docType as DocumentType)
         )}
       </div>

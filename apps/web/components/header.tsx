@@ -17,6 +17,7 @@ import { usePathname, useRouter } from "next/navigation";
 import MainLogo from "@/public/one-bridge-logo.png";
 import Image from "next/image";
 import { authClient } from "@/lib/auth-client";
+import { useClientSession } from "@/lib/get-client-session";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -29,7 +30,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 export default function Header() {
-  const { data: session, isPending } = authClient.useSession();
+  const { data: session, isPending } = useClientSession();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
@@ -139,7 +140,7 @@ export default function Header() {
                                 .join("")
                                 .toUpperCase()
                                 .slice(0, 2)
-                            : session.user.email?.[0].toUpperCase() || "U"}
+                            : (session.user.email?.[0]?.toUpperCase() ?? "U")}
                         </AvatarFallback>
                       </Avatar>
                     </button>
@@ -162,7 +163,7 @@ export default function Header() {
                         Dashboard
                       </Link>
                     </DropdownMenuItem>
-                    {session.user.role === "admin" && (
+                    {session?.user?.role === "admin" && (
                       <DropdownMenuItem asChild>
                         <Link href="/admin" className="cursor-pointer">
                           <Shield className="mr-2 h-4 w-4" />
@@ -295,7 +296,7 @@ export default function Header() {
                               .join("")
                               .toUpperCase()
                               .slice(0, 2)
-                          : session.user.email?.[0].toUpperCase() || "U"}
+                          : (session.user.email?.[0]?.toUpperCase() ?? "U")}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
@@ -315,7 +316,7 @@ export default function Header() {
                     <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                     Dashboard
                   </Link>
-                  {session.user.role === "admin" && (
+                  {session?.user?.role === "admin" && (
                     <Link
                       href="/admin"
                       className="flex items-center py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-foreground rounded-md hover:bg-muted transition-colors"

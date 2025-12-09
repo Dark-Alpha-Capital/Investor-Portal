@@ -1,6 +1,7 @@
 import React from "react";
-import { headers } from "next/headers";
-import { auth } from "@/auth";
+import { db } from "@repo/db";
+import { user } from "@repo/db/schema";
+import { eq } from "drizzle-orm";
 import {
   Card,
   CardContent,
@@ -21,16 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CheckCircle2, XCircle, Shield, Ban } from "lucide-react";
 
 export async function AdminsTable() {
-  const usersResponse = await auth.api.listUsers({
-    query: {
-      limit: 100,
-      offset: 0,
-    },
-    headers: await headers(),
-  });
-
-  const users = usersResponse.users || [];
-  const admins = users.filter((u) => u.role === "admin");
+  const admins = await db.select().from(user).where(eq(user.role, "admin"));
 
   return (
     <Card>
@@ -136,4 +128,3 @@ export async function AdminsTable() {
     </Card>
   );
 }
-

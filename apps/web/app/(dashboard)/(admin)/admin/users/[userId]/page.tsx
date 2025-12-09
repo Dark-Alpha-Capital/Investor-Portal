@@ -23,8 +23,12 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
     redirect("/login");
   }
 
-  // Check if current user is admin
-  if (session.user.role !== "admin") {
+  // Check if current user is admin (by role or email domain as fallback)
+  const isAdmin =
+    session.user.role === "admin" ||
+    session.user.email?.endsWith("@darkalphacapital.com");
+
+  if (!isAdmin) {
     redirect("/dashboard");
   }
 
@@ -51,6 +55,25 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
   }
 
   const { user, onboarding, documents } = userData;
+
+  if (!user) {
+    return (
+      <div className="container mx-auto p-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <h2 className="text-lg font-semibold mb-2">User Not Found</h2>
+              <p className="text-sm text-muted-foreground">
+                The user you're looking for doesn't exist.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const isAdminUser = user.role === "admin";
 
   return (
@@ -130,7 +153,10 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
                     <TabsContent value="overview" className="mt-4">
                       <OnboardingOverview
                         onboarding={onboarding}
-                        user={user}
+                        user={{
+                          id: user.id,
+                          kycStatus: user.kycStatus,
+                        }}
                         documentsCount={documents.length}
                       />
                     </TabsContent>

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@repo/db";
 import { deal, dealInterest, user } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
+import { getSession } from "@/lib/get-session";
 
 type RouteParams = {
   params: Promise<{
@@ -18,11 +19,20 @@ type RouteParams = {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { dealId } = await params;
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
-    if (!session?.user || session.user.role !== "admin") {
+    if (!session?.user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized",
+          message: "Authentication required",
+        },
+        { status: 401 }
+      );
+    }
+
+    if (session.user.role !== "admin") {
       return NextResponse.json(
         {
           success: false,
@@ -88,11 +98,3 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     );
   }
 }
-
-
-
-
-
-
-
-

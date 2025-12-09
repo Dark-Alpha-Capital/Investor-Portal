@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@repo/db";
 import { deal } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
+import { getSession } from "@/lib/get-session";
 
 type RouteParams = {
   params: Promise<{
@@ -15,15 +16,10 @@ type RouteParams = {
  * GET /api/deals/[dealId]
  * Get a specific deal (admin only)
  */
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { dealId } = await params;
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
     if (!session?.user || session.user.role !== "admin") {
       return NextResponse.json(
@@ -74,15 +70,10 @@ export async function GET(
  * PATCH /api/deals/[dealId]
  * Update a deal (admin only)
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { dealId } = await params;
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
     if (!session?.user || session.user.role !== "admin") {
       return NextResponse.json(
@@ -139,13 +130,15 @@ export async function PATCH(
     const updateData: Partial<typeof deal.$inferInsert> = {};
     if (body.name !== undefined) updateData.name = body.name;
     if (body.slug !== undefined) updateData.slug = body.slug;
-    if (body.description !== undefined) updateData.description = body.description;
+    if (body.description !== undefined)
+      updateData.description = body.description;
     if (body.teaserSummary !== undefined)
       updateData.teaserSummary = body.teaserSummary;
     if (body.sector !== undefined) updateData.sector = body.sector;
     if (body.geography !== undefined) updateData.geography = body.geography;
     if (body.dealType !== undefined) updateData.dealType = body.dealType;
-    if (body.targetRaise !== undefined) updateData.targetRaise = body.targetRaise;
+    if (body.targetRaise !== undefined)
+      updateData.targetRaise = body.targetRaise;
     if (body.minInvestment !== undefined)
       updateData.minInvestment = body.minInvestment;
     if (body.targetIrr !== undefined) updateData.targetIrr = body.targetIrr;
@@ -155,7 +148,9 @@ export async function PATCH(
     if (body.coverImageUrl !== undefined)
       updateData.coverImageUrl = body.coverImageUrl;
     if (body.launchDate !== undefined)
-      updateData.launchDate = body.launchDate ? new Date(body.launchDate) : null;
+      updateData.launchDate = body.launchDate
+        ? new Date(body.launchDate)
+        : null;
     if (body.closeDate !== undefined)
       updateData.closeDate = body.closeDate ? new Date(body.closeDate) : null;
 
@@ -186,15 +181,10 @@ export async function PATCH(
  * DELETE /api/deals/[dealId]
  * Delete a deal (admin only)
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { dealId } = await params;
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
     if (!session?.user || session.user.role !== "admin") {
       return NextResponse.json(
@@ -243,4 +233,3 @@ export async function DELETE(
     );
   }
 }
-

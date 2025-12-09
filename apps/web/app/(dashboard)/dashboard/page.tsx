@@ -14,8 +14,13 @@ const DashboardPage = async () => {
     redirect("/login");
   }
 
-  if (session.user.role === "admin") {
-    return <AdminDashboard />;
+  // Check if user is admin (by role or email domain)
+  const isAdmin =
+    session.user.role === "admin" ||
+    session.user.email?.endsWith("@darkalphacapital.com");
+
+  if (isAdmin) {
+    redirect("/admin");
   }
 
   const userData = await getUserWithKycStatus(session.user.id);
@@ -30,7 +35,9 @@ const DashboardPage = async () => {
   }
 
   // Render different screens based on KYC status
-  switch (userData.kycStatus) {
+  // Ensure kycStatus is properly typed and handled
+  const kycStatus = userData.kycStatus;
+  switch (kycStatus) {
     case "review":
       return <KycReviewScreen />;
     case "pending_docs":
@@ -40,17 +47,9 @@ const DashboardPage = async () => {
     case "approved":
       return <DashboardMain />;
     default:
-      // Default to review screen if status is unknown
+      // Default to review screen if status is unknown or null
       return <KycReviewScreen />;
   }
 };
 
 export default DashboardPage;
-
-function AdminDashboard() {
-  return (
-    <div>
-      <h1>Admin Dashboard</h1>
-    </div>
-  );
-}

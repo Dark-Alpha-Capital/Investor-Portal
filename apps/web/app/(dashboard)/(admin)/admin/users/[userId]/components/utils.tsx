@@ -24,7 +24,11 @@ export const getKycStatusBadge = (status: string | null) => {
   };
 
   const config = statusConfig[status || "review"] || statusConfig.review;
-  return <Badge variant={config.variant}>{config.label}</Badge>;
+  return (
+    <Badge variant={config?.variant || "secondary"}>
+      {config?.label || "Under Review"}
+    </Badge>
+  );
 };
 
 export const getOnboardingStatusBadge = (status: string | null) => {
@@ -70,9 +74,9 @@ export const getOnboardingStatusBadge = (status: string | null) => {
 
   const config = statusConfig[status || "draft"] || statusConfig.draft;
   return (
-    <Badge variant={config.variant} className="gap-1">
-      {config.icon}
-      {config.label}
+    <Badge variant={config?.variant || "secondary"} className="gap-1">
+      {config?.icon}
+      {config?.label}
     </Badge>
   );
 };
@@ -115,9 +119,9 @@ export const getDocumentStatusBadge = (status: string | null) => {
 
   const config = statusConfig[status || "pending"] || statusConfig.pending;
   return (
-    <Badge variant={config.variant} className="gap-1">
-      {config.icon}
-      {config.label}
+    <Badge variant={config?.variant || "secondary"} className="gap-1">
+      {config?.icon}
+      {config?.label}
     </Badge>
   );
 };

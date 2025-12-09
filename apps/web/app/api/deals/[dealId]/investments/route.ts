@@ -22,7 +22,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       headers: await headers(),
     });
 
-    if (!session?.user || session.user.role !== "admin") {
+    if (!session?.user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized",
+          message: "Authentication required",
+        },
+        { status: 401 }
+      );
+    }
+
+    // Type assertion: Better Auth with Drizzle adapter includes all user fields including role
+    const userWithRole = session.user as typeof session.user & {
+      role?: string | null;
+    };
+
+    if (userWithRole.role !== "admin") {
       return NextResponse.json(
         {
           success: false,

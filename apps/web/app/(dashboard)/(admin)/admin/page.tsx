@@ -13,9 +13,12 @@ const AdminPage = async () => {
     redirect("/login");
   }
 
-  console.log(session);
+  // Check if user is admin (by role or email domain as fallback)
+  const isAdmin =
+    session.user.role === "admin" ||
+    session.user.email?.endsWith("@darkalphacapital.com");
 
-  if (session.user.role !== "admin") {
+  if (!isAdmin) {
     redirect("/dashboard");
   }
 

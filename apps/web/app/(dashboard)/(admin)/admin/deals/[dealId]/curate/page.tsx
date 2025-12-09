@@ -46,4 +46,3 @@ const CurateDealPage = async ({ params }: PageProps) => {
 };
 
 export default CurateDealPage;
-

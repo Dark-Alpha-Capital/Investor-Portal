@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/auth";
 import { updateKycStatus } from "@repo/db/queries";
+import { getSession } from "@/lib/get-session";
 
 type RouteParams = {
   params: Promise<{
@@ -14,15 +13,10 @@ type RouteParams = {
  * Updates a user's KYC status
  * Only accessible by admin users
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     // Get authenticated user
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json(
@@ -104,4 +98,3 @@ export async function PATCH(
     );
   }
 }
-

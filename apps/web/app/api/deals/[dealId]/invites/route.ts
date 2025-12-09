@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/auth";
+import { getSession } from "@/lib/get-session";
 import { db } from "@repo/db";
 import { deal, dealInvite, user } from "@repo/db/schema";
 import { eq, and, or, ne, isNull } from "drizzle-orm";
@@ -16,17 +15,23 @@ type RouteParams = {
  * GET /api/deals/[dealId]/invites
  * Get all invites for a deal (admin only)
  */
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { dealId } = await params;
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
-    if (!session?.user || session.user.role !== "admin") {
+    if (!session?.user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized",
+          message: "Authentication required",
+        },
+        { status: 401 }
+      );
+    }
+
+    if (session.user.role !== "admin") {
       return NextResponse.json(
         {
           success: false,
@@ -96,15 +101,10 @@ export async function GET(
  * Add invites for a deal (admin only)
  * Body: { userIds: string[], curationNote?: string }
  */
-export async function POST(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { dealId } = await params;
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
     if (!session?.user || session.user.role !== "admin") {
       return NextResponse.json(
@@ -229,15 +229,10 @@ export async function POST(
  * Remove invites from a deal (admin only)
  * Body: { userIds: string[] }
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { dealId } = await params;
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
 
     if (!session?.user || session.user.role !== "admin") {
       return NextResponse.json(
@@ -294,4 +289,3 @@ export async function DELETE(
     );
   }
 }
-

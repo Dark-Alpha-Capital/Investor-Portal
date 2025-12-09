@@ -36,7 +36,11 @@ const getKycStatusBadge = (status: string | null) => {
   };
 
   const config = statusConfig[status || "review"] || statusConfig.review;
-  return <Badge variant={config.variant}>{config.label}</Badge>;
+  return (
+    <Badge variant={config?.variant || "secondary"}>
+      {config?.label || "Under Review"}
+    </Badge>
+  );
 };
 
 export async function InvestorsTable() {
@@ -110,9 +114,7 @@ export async function InvestorsTable() {
                         <Badge variant="outline">Active</Badge>
                       )}
                     </TableCell>
-                    <TableCell>
-                      {getKycStatusBadge(user.kycStatus)}
-                    </TableCell>
+                    <TableCell>{getKycStatusBadge(user.kycStatus)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {user.emailVerified ? (
@@ -155,4 +157,3 @@ export async function InvestorsTable() {
     </Card>
   );
 }
-

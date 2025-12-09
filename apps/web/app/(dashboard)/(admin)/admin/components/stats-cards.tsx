@@ -1,29 +1,40 @@
 import React from "react";
-import { headers } from "next/headers";
-import { auth } from "@/auth";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2, Shield, User, Ban } from "lucide-react";
+import { db } from "@repo/db";
+import { user } from "@repo/db/schema";
+import { eq, ne, or, isNull, sql } from "drizzle-orm";
 
 export async function StatsCards() {
-  const usersResponse = await auth.api.listUsers({
-    query: {
-      limit: 100,
-      offset: 0,
-    },
-    headers: await headers(),
-  });
+  // Get counts using SQL for better performance
+  const [totalUsersResult] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(user);
+  const totalUsers = Number(totalUsersResult?.count || 0);
 
-  const users = usersResponse.users || [];
-  const totalUsers = users.length;
-  const adminCount = users.filter((u) => u.role === "admin").length;
-  const investorCount = users.filter((u) => u.role !== "admin").length;
-  const verifiedCount = users.filter((u) => u.emailVerified === true).length;
-  const bannedCount = users.filter((u) => u.banned === true).length;
+  const [adminCountResult] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(user)
+    .where(eq(user.role, "admin"));
+  const adminCount = Number(adminCountResult?.count || 0);
+
+  const [investorCountResult] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(user)
+    .where(or(ne(user.role, "admin"), isNull(user.role)));
+  const investorCount = Number(investorCountResult?.count || 0);
+
+  const [verifiedCountResult] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(user)
+    .where(eq(user.emailVerified, true));
+  const verifiedCount = Number(verifiedCountResult?.count || 0);
+
+  const [bannedCountResult] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(user)
+    .where(eq(user.banned, true));
+  const bannedCount = Number(bannedCountResult?.count || 0);
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -84,4 +95,3 @@ export async function StatsCards() {
     </div>
   );
 }
-
