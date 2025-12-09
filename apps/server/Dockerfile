@@ -6,10 +6,13 @@ WORKDIR /app
 FROM base AS deps
 # Copy root package files for workspace setup
 COPY package.json bun.lock* ./
+# Copy workspace packages (needed for workspace dependencies)
+COPY packages/db/package.json ./packages/db/
+COPY packages/typescript-config/package.json ./packages/typescript-config/
 # Copy server package.json
 COPY apps/server/package.json ./apps/server/
-    # Install all dependencies
-    RUN bun install
+# Install all dependencies
+RUN bun install
 
 # Production stage
 FROM base AS production
@@ -20,6 +23,9 @@ COPY --from=deps /app/node_modules ./node_modules
 
 # Copy application code
 COPY package.json bun.lock* ./
+# Copy workspace packages (needed at runtime)
+COPY packages/db ./packages/db
+COPY packages/typescript-config ./packages/typescript-config
 COPY apps/server ./apps/server
 
 # Set working directory to server
