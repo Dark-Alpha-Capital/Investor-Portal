@@ -1,10 +1,14 @@
 "use client";
 
-import type React from "react";
-
-import { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { KycData } from "./onboarding-flow";
 import {
   AlertCircle,
@@ -13,6 +17,7 @@ import {
   CheckCircle2,
   ArrowLeft,
   Loader2,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -256,6 +261,26 @@ export function KycDocuments({
   const [documents, setDocuments] = useState<Partial<KycData>>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [dragOver, setDragOver] = useState<DocumentType | null>(null);
+  const [previewFile, setPreviewFile] = useState<{
+    file: File;
+    type: DocumentType;
+    title: string;
+  } | null>(null);
+
+  // Create object URLs for preview
+  const previewUrl = useMemo(() => {
+    if (!previewFile) return null;
+    return URL.createObjectURL(previewFile.file);
+  }, [previewFile]);
+
+  // Clean up object URLs when component unmounts or preview changes
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   // Get document requirements for the selected investor type
   const requirements =
@@ -470,6 +495,18 @@ export function KycDocuments({
                   type="button"
                   variant="outline"
                   size="sm"
+                  onClick={() =>
+                    setPreviewFile({ file, type, title: info.title })
+                  }
+                  className="gap-2"
+                >
+                  <Eye className="w-4 h-4" />
+                  {"Preview"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => handleFileChange(type, null)}
                 >
                   {"Remove"}
@@ -502,71 +539,154 @@ export function KycDocuments({
     return typeMap[investorType] || "Investor";
   };
 
+  const renderPreview = () => {
+    if (!previewFile || !previewUrl) return null;
+
+    const fileType = previewFile.file.type;
+    const isImage = fileType.startsWith("image/");
+    const isPdf = fileType === "application/pdf";
+    const isWordDoc =
+      fileType === "application/msword" ||
+      fileType ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+    return (
+      <Dialog
+        open={!!previewFile}
+        onOpenChange={(open) => !open && setPreviewFile(null)}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{previewFile.title}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {isImage ? (
+              <div className="flex items-center justify-center p-4">
+                <img
+                  src={previewUrl}
+                  alt={previewFile.file.name}
+                  className="max-w-full max-h-[70vh] object-contain rounded-lg"
+                />
+              </div>
+            ) : isPdf ? (
+              <div className="w-full h-[70vh]">
+                <iframe
+                  src={previewUrl}
+                  className="w-full h-full rounded-lg border"
+                  title={previewFile.file.name}
+                />
+              </div>
+            ) : isWordDoc ? (
+              <div className="flex flex-col items-center justify-center p-8 text-center">
+                <FileText className="w-16 h-16 text-muted-foreground mb-4" />
+                <p className="text-lg font-medium mb-2">
+                  {"Word Document Preview"}
+                </p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {
+                    "Word documents cannot be previewed in the browser. Please download the file to view it."
+                  }
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {"File: "}
+                  <span className="font-mono">{previewFile.file.name}</span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {"Size: "}
+                  {(previewFile.file.size / 1024).toFixed(1)} KB
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-8 text-center">
+                <FileText className="w-16 h-16 text-muted-foreground mb-4" />
+                <p className="text-lg font-medium mb-2">
+                  {"Document Preview Not Available"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {"This file type cannot be previewed in the browser."}
+                </p>
+                <p className="text-xs text-muted-foreground mt-4">
+                  {"File: "}
+                  <span className="font-mono">{previewFile.file.name}</span>
+                </p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold mb-2">{"KYC Verification"}</h2>
-        <p className="text-muted-foreground text-sm">
-          {
-            "Upload the required documents to verify your identity and complete the onboarding process"
-          }
-        </p>
-        {investorType && (
-          <p className="text-sm font-medium mt-2">
-            Investor Type:{" "}
-            <span className="text-primary">{getInvestorTypeDisplayName()}</span>
+    <>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold mb-2">{"KYC Verification"}</h2>
+          <p className="text-muted-foreground text-sm">
+            {
+              "Upload the required documents to verify your identity and complete the onboarding process"
+            }
           </p>
-        )}
-      </div>
-
-      <div className="space-y-6">
-        {Object.keys(requirements?.documents || {}).map((docType) =>
-          renderFileUpload(docType as DocumentType)
-        )}
-      </div>
-
-      <div className="bg-accent border border-border rounded-lg p-4">
-        <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" />
-          {"Important Information"}
-        </h4>
-        <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-          <li>{"All documents must be clear and legible"}</li>
-          <li>{"Documents should not be expired"}</li>
-          <li>{"File size should not exceed 5MB per document"}</li>
-          <li>{"Accepted formats: PDF, JPG, PNG, DOC, DOCX"}</li>
-          <li>{"Your information will be kept secure and confidential"}</li>
-        </ul>
-      </div>
-
-      <div className="flex gap-3 pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          onClick={onBack}
-          disabled={isSubmitting}
-          className="gap-2 bg-transparent"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          {"Back"}
-        </Button>
-        <Button
-          type="submit"
-          size="lg"
-          disabled={isSubmitting}
-          className="flex-1 gap-2"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              {"Submitting..."}
-            </>
-          ) : (
-            "Complete Onboarding"
+          {investorType && (
+            <p className="text-sm font-medium mt-2">
+              Investor Type:{" "}
+              <span className="text-primary">
+                {getInvestorTypeDisplayName()}
+              </span>
+            </p>
           )}
-        </Button>
-      </div>
-    </form>
+        </div>
+
+        <div className="space-y-6">
+          {Object.keys(requirements?.documents || {}).map((docType) =>
+            renderFileUpload(docType as DocumentType)
+          )}
+        </div>
+
+        <div className="bg-accent border border-border rounded-lg p-4">
+          <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" />
+            {"Important Information"}
+          </h4>
+          <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
+            <li>{"All documents must be clear and legible"}</li>
+            <li>{"Documents should not be expired"}</li>
+            <li>{"File size should not exceed 5MB per document"}</li>
+            <li>{"Accepted formats: PDF, JPG, PNG, DOC, DOCX"}</li>
+            <li>{"Your information will be kept secure and confidential"}</li>
+          </ul>
+        </div>
+
+        <div className="flex gap-3 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={onBack}
+            disabled={isSubmitting}
+            className="gap-2 bg-transparent"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            {"Back"}
+          </Button>
+          <Button
+            type="submit"
+            size="lg"
+            disabled={isSubmitting}
+            className="flex-1 gap-2"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {"Submitting..."}
+              </>
+            ) : (
+              "Complete Onboarding"
+            )}
+          </Button>
+        </div>
+      </form>
+      {renderPreview()}
+    </>
   );
 }
