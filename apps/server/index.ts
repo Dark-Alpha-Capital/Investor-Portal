@@ -3,7 +3,6 @@ import health from "./routes/health.ts";
 import onboardingSubmit from "./routes/onboarding-submit.ts";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
-import "dotenv/config";
 
 const app = new Hono()
   .use(logger())

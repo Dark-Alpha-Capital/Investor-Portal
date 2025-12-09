@@ -14,11 +14,11 @@
     "start": "bun run index.ts",
     "dev": "bun run index.ts --watch"
   },
-  
   "dependencies": {
-    "hono": "^4.10.8",
-    "@repo/db": "*",
     "@google-cloud/storage": "^7.7.0",
+    "@repo/db": "*",
+    "dotenv": "^17.2.3",
+    "hono": "^4.10.8",
     "zod": "^3.25.32"
   }
 }
