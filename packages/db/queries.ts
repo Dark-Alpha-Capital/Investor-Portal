@@ -113,11 +113,15 @@ export const updateKycStatus = async (
   kycStatus: "review" | "approved" | "pending_docs" | "rejected"
 ) => {
   try {
+    // Update the user's KYC status
+    await db.update(user).set({ kycStatus }).where(eq(user.id, userId));
+
+    // Fetch the updated user to ensure we have the latest data
     const [updatedUser] = await db
-      .update(user)
-      .set({ kycStatus })
+      .select()
+      .from(user)
       .where(eq(user.id, userId))
-      .returning();
+      .limit(1);
 
     return updatedUser || null;
   } catch (error) {

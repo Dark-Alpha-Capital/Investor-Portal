@@ -2,6 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { getKycStatusBadge } from "./utils";
 import { OnboardingStatusToggle } from "./onboarding-status-toggle";
+import { KycStatusToggle } from "./kyc-status-toggle";
 
 interface UserHeaderProps {
   user: {
@@ -55,21 +56,36 @@ export function UserHeader({ user, onboarding }: UserHeaderProps) {
           </div>
         </div>
       </div>
-      {!isAdminUser && onboarding && (
-        <OnboardingStatusToggle
-          onboardingId={onboarding.id}
-          currentStatus={
-            onboarding.status as
-              | "draft"
-              | "submitted"
-              | "under_review"
-              | "approved"
-              | "rejected"
-              | "needs_more_info"
-              | null
-          }
-        />
-      )}
+      <div className="flex items-center gap-3">
+        {!isAdminUser && (
+          <KycStatusToggle
+            userId={user.id}
+            currentStatus={
+              user.kycStatus as
+                | "review"
+                | "approved"
+                | "pending_docs"
+                | "rejected"
+                | null
+            }
+          />
+        )}
+        {!isAdminUser && onboarding && (
+          <OnboardingStatusToggle
+            onboardingId={onboarding.id}
+            currentStatus={
+              onboarding.status as
+                | "draft"
+                | "submitted"
+                | "under_review"
+                | "approved"
+                | "rejected"
+                | "needs_more_info"
+                | null
+            }
+          />
+        )}
+      </div>
     </div>
   );
 }

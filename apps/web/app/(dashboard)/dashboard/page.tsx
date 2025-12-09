@@ -34,6 +34,8 @@ const DashboardPage = async () => {
     redirect("/onboarding");
   }
 
+  console.log(userData);
+
   // Render different screens based on KYC status
   // Ensure kycStatus is properly typed and handled
   const kycStatus = userData.kycStatus;

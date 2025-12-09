@@ -8,7 +8,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  AlertCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -64,10 +70,16 @@ export function KycStatusToggle({
     if (currentStatus && currentStatus !== selectedStatus) {
       setSelectedStatus(currentStatus as KycStatus);
     }
-  }, [currentStatus, selectedStatus]);
+  }, [currentStatus]);
 
   const handleStatusChange = (newStatus: KycStatus) => {
     if (newStatus === selectedStatus) return;
+
+    // Store the previous status for error recovery
+    const previousStatus = selectedStatus;
+
+    // Optimistically update the UI
+    setSelectedStatus(newStatus);
 
     startTransition(async () => {
       try {
@@ -85,19 +97,19 @@ export function KycStatusToggle({
           throw new Error(data.message || "Failed to update KYC status");
         }
 
-        setSelectedStatus(newStatus);
+        // Refresh the page to get the latest data from the server
         router.refresh();
         toast.success("KYC status updated", {
           description: `Status changed to ${statusConfig[newStatus].label}`,
         });
       } catch (error) {
         console.error("Error updating KYC status:", error);
+        // Revert to previous status on error
+        setSelectedStatus(previousStatus);
         toast.error("Failed to update KYC status", {
           description:
             error instanceof Error ? error.message : "An error occurred",
         });
-        // Revert to previous status on error
-        setSelectedStatus(selectedStatus);
       }
     });
   };
@@ -146,4 +158,3 @@ export function KycStatusToggle({
     </Select>
   );
 }
-
