@@ -7,12 +7,7 @@ import "dotenv/config";
 
 const app = new Hono()
   .use(logger())
-  .use(
-    cors({
-      origin: process.env.CORS_ORIGIN || "http://localhost:3000",
-      credentials: true,
-    })
-  )
+  .use(cors())
   .get("/", (c) => c.json({ message: "Hello World" }))
   .route("/api/health", health)
   .route("/api/onboarding/submit", onboardingSubmit);
