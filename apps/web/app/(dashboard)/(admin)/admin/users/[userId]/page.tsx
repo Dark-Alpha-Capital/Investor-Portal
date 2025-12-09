@@ -90,11 +90,6 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
               banned: user.banned,
               kycStatus: user.kycStatus,
             }}
-            onboarding={
-              onboarding
-                ? { id: onboarding.id, status: onboarding.status }
-                : null
-            }
           />
 
           {isAdminUser ? (
