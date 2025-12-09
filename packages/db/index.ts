@@ -15,8 +15,7 @@ import {
   investmentDocument,
 } from "./schema";
 
-// Support both POSTGRES_URL (Vercel) and DATABASE_URL
-const databaseUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
   throw new Error(

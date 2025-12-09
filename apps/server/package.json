@@ -4,9 +4,21 @@
   "type": "module",
   "private": true,
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@repo/typescript-config": "*"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "scripts": {
+    "start": "bun run index.ts",
+    "dev": "bun run index.ts --watch"
+  },
+  
+  "dependencies": {
+    "hono": "^4.10.8",
+    "@repo/db": "*",
+    "@google-cloud/storage": "^7.7.0",
+    "zod": "^3.25.32"
   }
 }

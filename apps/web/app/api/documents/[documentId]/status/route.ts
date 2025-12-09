@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { authSession } from "@/app/(auth)/auth";
 import { db } from "@repo/db";
 import { onboardingDocument } from "@repo/db/schema";
@@ -91,4 +91,3 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     );
   }
 }
-

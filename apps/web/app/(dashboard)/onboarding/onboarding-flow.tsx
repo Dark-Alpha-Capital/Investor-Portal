@@ -8,6 +8,7 @@ import { StepIndicator } from "./step-indicator";
 import { InvestorQuestionnaire } from "./investor-questionaire";
 import { KycDocuments } from "./kyc-documents";
 import { OnboardingComplete } from "./onboarding-complete";
+import { authClient } from "@/lib/auth-client";
 
 export type InvestorData = {
   // Section 1: Investor / Lender Details
@@ -248,27 +249,65 @@ export function OnboardingFlow() {
       setKycData(data);
 
       try {
-        // Prepare FormData for file uploads
-        const formData = new FormData();
+        // Get current session to obtain userId
+        const session = await authClient.getSession();
 
-        // Add investor data as JSON string
-        formData.append("investorData", JSON.stringify(investorData));
+        if (!session?.data?.user?.id) {
+          throw new Error("You must be logged in to submit onboarding data");
+        }
 
-        // Add KYC data - files and metadata
-        Object.entries(data).forEach(([key, value]) => {
+        const userId = session.data.user.id;
+
+        // Convert files to base64
+        const filesToProcess: Array<{
+          documentType: string;
+          name: string;
+          type: string;
+          size: number;
+          buffer: string; // base64 encoded
+        }> = [];
+
+        for (const [key, value] of Object.entries(data)) {
           if (value instanceof File) {
-            formData.append(key, value);
-          } else if (value !== null) {
-            formData.append(key, String(value));
+            const arrayBuffer = await value.arrayBuffer();
+
+            // Convert ArrayBuffer to base64 (browser-compatible)
+            const bytes = new Uint8Array(arrayBuffer);
+            const binary = bytes.reduce(
+              (acc, byte) => acc + String.fromCharCode(byte),
+              ""
+            );
+            const base64Buffer = btoa(binary);
+
+            filesToProcess.push({
+              documentType: key,
+              name: value.name,
+              type: value.type,
+              size: value.size,
+              buffer: base64Buffer,
+            });
           }
-        });
+        }
 
-        formData.append("submittedAt", new Date().toISOString());
+        // Prepare payload
+        const payload = {
+          userId,
+          investorData,
+          files: filesToProcess,
+        };
 
-        // Submit to API route
-        const response = await fetch("/api/onboarding/submit", {
+        // Get server URL from environment or use default
+        const serverUrl =
+          process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:8080";
+
+        // Submit directly to server
+        const response = await fetch(`${serverUrl}/api/onboarding/submit`, {
           method: "POST",
-          body: formData,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
