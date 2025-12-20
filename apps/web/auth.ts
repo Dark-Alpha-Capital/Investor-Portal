@@ -42,6 +42,26 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
   emailAndPassword: {
     requireEmailVerification: true,
     enabled: true,
+    sendResetPassword: async (
+      {
+        user,
+        url,
+        token,
+      }: { user: { email: string }; url: string; token: string },
+      request?: unknown
+    ) => {
+      void sendEmail(
+        user.email,
+        "Reset your password",
+        `<p>Click the link to reset your password: <a href="${url}">${url}</a></p>
+         <p>This link will expire in 1 hour.</p>
+         <p>If you didn't request this, please ignore this email.</p>`
+      );
+    },
+    onPasswordReset: async ({ user }, request) => {
+      // Log password reset for security monitoring
+      console.log(`Password reset completed for user: ${user.email}`);
+    },
   },
   emailVerification: {
     sendVerificationEmail: async (

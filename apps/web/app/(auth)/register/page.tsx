@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { FcGoogle } from "react-icons/fc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   Form,
   FormControl,
@@ -17,9 +17,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { authClient } from "@/lib/auth-client";
-import { toast } from "sonner";
 import { ModeToggle } from "@/components/mode-toggle";
+import { useSignUpEmail, useGoogleAuth } from "@/hooks/use-auth";
 
 const registerSchema = z
   .object({
@@ -36,9 +35,8 @@ const registerSchema = z
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 const RegisterPage = () => {
-  const router = useRouter();
-  const [isLoading, startTransition] = useTransition();
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const signUpEmail = useSignUpEmail();
+  const googleAuth = useGoogleAuth();
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -52,51 +50,16 @@ const RegisterPage = () => {
   });
 
   const onSubmit = async (data: RegisterFormValues) => {
-    startTransition(async () => {
-      try {
-        const result = await authClient.signUp.email({
-          email: data.email,
-          password: data.password,
-          name: data.name,
-          callbackURL: `${window.location.origin}/verify-email`,
-        });
-
-        if (result.error) {
-          toast.error(result.error.message || "Failed to create account");
-          return;
-        }
-
-        toast.success(
-          "Account created successfully! Please check your email to verify your account."
-        );
-        // Redirect to a page that shows verification instructions
-        router.push(
-          `/verify-email?pending=true&email=${encodeURIComponent(data.email)}`
-        );
-        router.refresh();
-      } catch (error) {
-        toast.error("An unexpected error occurred");
-      }
+    signUpEmail.mutate({
+      name: data.name,
+      email: data.email,
+      password: data.password,
+      callbackURL: `${window.location.origin}/verify-email`,
     });
   };
 
-  const handleGoogleSignUp = async () => {
-    try {
-      const data = await authClient.signIn.social({
-        provider: "google",
-      });
-
-      if (data.error) {
-        toast.error(data.error.message || "Failed to sign up with Google");
-        return;
-      }
-
-      toast.success("Account created successfully");
-      router.push("/dashboard");
-      router.refresh();
-    } catch (error) {
-      toast.error("An unexpected error occurred");
-    }
+  const handleGoogleSignUp = () => {
+    googleAuth.mutate();
   };
   return (
     <div className="flex h-screen">
@@ -145,10 +108,10 @@ const RegisterPage = () => {
               variant="outline"
               className="w-full"
               onClick={handleGoogleSignUp}
-              disabled={isGoogleLoading || isLoading}
+              disabled={googleAuth.isPending || signUpEmail.isPending}
             >
               <FcGoogle className="mr-2 h-4 w-4" />
-              {isGoogleLoading ? "Signing up..." : "Continue with Google"}
+              {googleAuth.isPending ? "Signing up..." : "Continue with Google"}
             </Button>
 
             <div className="relative">
@@ -177,7 +140,9 @@ const RegisterPage = () => {
                         <Input
                           type="text"
                           placeholder="John Doe"
-                          disabled={isLoading || isGoogleLoading}
+                          disabled={
+                            signUpEmail.isPending || googleAuth.isPending
+                          }
                           {...field}
                         />
                       </FormControl>
@@ -195,7 +160,9 @@ const RegisterPage = () => {
                         <Input
                           type="email"
                           placeholder="name@example.com"
-                          disabled={isLoading || isGoogleLoading}
+                          disabled={
+                            signUpEmail.isPending || googleAuth.isPending
+                          }
                           {...field}
                         />
                       </FormControl>
@@ -210,10 +177,11 @@ const RegisterPage = () => {
                     <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <Input
-                          type="password"
+                        <PasswordInput
                           placeholder="Create a password"
-                          disabled={isLoading || isGoogleLoading}
+                          disabled={
+                            signUpEmail.isPending || googleAuth.isPending
+                          }
                           {...field}
                           onChange={(e) => {
                             field.onChange(e);
@@ -235,10 +203,11 @@ const RegisterPage = () => {
                     <FormItem>
                       <FormLabel>Confirm Password</FormLabel>
                       <FormControl>
-                        <Input
-                          type="password"
+                        <PasswordInput
                           placeholder="Confirm your password"
-                          disabled={isLoading || isGoogleLoading}
+                          disabled={
+                            signUpEmail.isPending || googleAuth.isPending
+                          }
                           {...field}
                         />
                       </FormControl>
@@ -249,9 +218,11 @@ const RegisterPage = () => {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={signUpEmail.isPending || googleAuth.isPending}
                 >
-                  {isLoading ? "Creating account..." : "Create account"}
+                  {signUpEmail.isPending
+                    ? "Creating account..."
+                    : "Create account"}
                 </Button>
               </form>
             </Form>
