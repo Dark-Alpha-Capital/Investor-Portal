@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { FcGoogle } from "react-icons/fc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   Form,
   FormControl,
@@ -17,9 +17,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { authClient } from "@/lib/auth-client";
-import { toast } from "sonner";
 import { ModeToggle } from "@/components/mode-toggle";
+import { useSignInEmail, useGoogleAuth } from "@/hooks/use-auth";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -29,9 +28,8 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 const LoginPage = () => {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const signInEmail = useSignInEmail();
+  const googleAuth = useGoogleAuth();
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -42,74 +40,14 @@ const LoginPage = () => {
   });
 
   const onSubmit = async (data: LoginFormValues) => {
-    setIsLoading(true);
-    try {
-      const result = await authClient.signIn.email(
-        {
-          email: data.email,
-          password: data.password,
-        },
-        {
-          onError: (ctx) => {
-            // Handle the error
-            if (ctx.error.status === 403) {
-              toast.error(
-                "Please verify your email address before signing in."
-              );
-              // Optionally redirect to a page where they can resend verification email
-              router.push(
-                `/verify-email?email=${encodeURIComponent(data.email)}&pending=true`
-              );
-            } else {
-              // Show the original error message
-              toast.error(ctx.error.message || "Failed to sign in");
-            }
-          },
-        }
-      );
-
-      if (result.error) {
-        // This will be handled by onError callback, but keeping as fallback
-        if (result.error.status === 403) {
-          toast.error("Please verify your email address before signing in.");
-          router.push(
-            `/verify-email?email=${encodeURIComponent(data.email)}&pending=true`
-          );
-        } else {
-          toast.error(result.error.message || "Failed to sign in");
-        }
-        return;
-      }
-
-      toast.success("Signed in successfully");
-      router.push("/dashboard");
-      router.refresh();
-    } catch (error) {
-      toast.error("An unexpected error occurred");
-    } finally {
-      setIsLoading(false);
-    }
+    signInEmail.mutate({
+      email: data.email,
+      password: data.password,
+    });
   };
 
-  const handleGoogleSignIn = async () => {
-    setIsGoogleLoading(true);
-    try {
-      const data = await authClient.signIn.social({
-        provider: "google",
-      });
-
-      if (data.error) {
-        toast.error(data.error.message || "Failed to sign in with Google");
-        return;
-      }
-
-      router.push("/dashboard");
-      router.refresh();
-    } catch (error) {
-      toast.error("An unexpected error occurred");
-    } finally {
-      setIsGoogleLoading(false);
-    }
+  const handleGoogleSignIn = () => {
+    googleAuth.mutate();
   };
 
   return (
@@ -156,10 +94,10 @@ const LoginPage = () => {
               variant="outline"
               className="w-full"
               onClick={handleGoogleSignIn}
-              disabled={isGoogleLoading || isLoading}
+              disabled={googleAuth.isPending || signInEmail.isPending}
             >
               <FcGoogle className="mr-2 h-4 w-4" />
-              {isGoogleLoading ? "Signing in..." : "Continue with Google"}
+              {googleAuth.isPending ? "Signing in..." : "Continue with Google"}
             </Button>
 
             <div className="relative">
@@ -188,7 +126,9 @@ const LoginPage = () => {
                         <Input
                           type="email"
                           placeholder="name@example.com"
-                          disabled={isLoading || isGoogleLoading}
+                          disabled={
+                            signInEmail.isPending || googleAuth.isPending
+                          }
                           {...field}
                         />
                       </FormControl>
@@ -201,12 +141,21 @@ const LoginPage = () => {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password</FormLabel>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Password</FormLabel>
+                        <Link
+                          href="/forgot-password"
+                          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                        >
+                          Forgot password?
+                        </Link>
+                      </div>
                       <FormControl>
-                        <Input
-                          type="password"
+                        <PasswordInput
                           placeholder="Enter your password"
-                          disabled={isLoading || isGoogleLoading}
+                          disabled={
+                            signInEmail.isPending || googleAuth.isPending
+                          }
                           {...field}
                         />
                       </FormControl>
@@ -217,9 +166,9 @@ const LoginPage = () => {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={signInEmail.isPending || googleAuth.isPending}
                 >
-                  {isLoading ? "Signing in..." : "Sign in"}
+                  {signInEmail.isPending ? "Signing in..." : "Sign in"}
                 </Button>
               </form>
             </Form>

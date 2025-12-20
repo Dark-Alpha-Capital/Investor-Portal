@@ -43,8 +43,13 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "@repo/db": "workspace:*",
     "@tailwindcss/oxide-linux-x64-gnu": "^4",
+    "@tanstack/react-query": "^5.90.12",
+    "@trpc/client": "^11.8.0",
+    "@trpc/server": "^11.8.0",
+    "@trpc/tanstack-react-query": "^11.8.0",
     "better-auth": "^1.4.1",
     "class-variance-authority": "^0.7.1",
+    "client-only": "^0.0.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
@@ -63,10 +68,12 @@
     "react-resizable-panels": "^3.0.2",
     "recharts": "^2.15.3",
     "resend": "^6.5.2",
+    "server-only": "^0.0.1",
     "sonner": "^2.0.3",
+    "superjson": "^2.2.6",
     "tailwind-merge": "^3.3.0",
     "vaul": "^1.1.2",
-    "zod": "^3.25.32"
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@slicemachine/adapter-next": "^0.3.77",

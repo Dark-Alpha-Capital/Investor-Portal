@@ -5,6 +5,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { DashboardSidebar } from "@/components/dashboard-siderbar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { montserrat, raleway, fira_code } from "@/app/fonts";
+import { TRPCReactProvider } from "@/trpc/client";
 
 export const metadata: Metadata = {
   title: "Investors Dark Alpha Capital",
@@ -28,8 +29,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <SidebarProvider>
-            <DashboardSidebar />
-            <main className="flex-1">{children}</main>
+            <TRPCReactProvider>
+              <DashboardSidebar />
+              <main className="flex-1">{children}</main>
+            </TRPCReactProvider>
           </SidebarProvider>
           <Toaster />
         </ThemeProvider>

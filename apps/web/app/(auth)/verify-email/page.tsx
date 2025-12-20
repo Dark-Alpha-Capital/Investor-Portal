@@ -4,17 +4,19 @@ import React, { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { authClient } from "@/lib/auth-client";
-import { toast } from "sonner";
 import { ModeToggle } from "@/components/mode-toggle";
+import { useResendVerificationEmail } from "@/hooks/use-auth";
 
 const VerifyEmailContent = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const resendEmail = useResendVerificationEmail();
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     "loading"
   );
   const [message, setMessage] = useState("");
+
+  const email = searchParams.get("email");
 
   useEffect(() => {
     const error = searchParams.get("error");
@@ -193,27 +195,34 @@ const VerifyEmailContent = () => {
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={async () => {
-                    const email = searchParams.get("email");
+                  onClick={() => {
                     if (email) {
-                      try {
-                        await authClient.sendVerificationEmail({
+                      resendEmail.mutate(
+                        {
                           email,
                           callbackURL: `${window.location.origin}/verify-email`,
-                        });
-                        setMessage(
-                          "A new verification email has been sent. Please check your inbox."
-                        );
-                        setStatus("success");
-                      } catch (error) {
-                        setMessage(
-                          "Failed to send verification email. Please try again later."
-                        );
-                      }
+                        },
+                        {
+                          onSuccess: () => {
+                            setMessage(
+                              "A new verification email has been sent. Please check your inbox."
+                            );
+                            setStatus("loading");
+                          },
+                          onError: () => {
+                            setMessage(
+                              "Failed to send verification email. Please try again later."
+                            );
+                          },
+                        }
+                      );
                     }
                   }}
+                  disabled={resendEmail.isPending || !email}
                 >
-                  Resend Verification Email
+                  {resendEmail.isPending
+                    ? "Sending..."
+                    : "Resend Verification Email"}
                 </Button>
                 <Button
                   variant="ghost"
@@ -237,27 +246,19 @@ const VerifyEmailContent = () => {
                 <Button
                   variant="outline"
                   className="w-full"
-                  disabled={!searchParams.get("email")}
-                  onClick={async () => {
-                    const email = searchParams.get("email");
+                  disabled={resendEmail.isPending || !email}
+                  onClick={() => {
                     if (email) {
-                      try {
-                        await authClient.sendVerificationEmail({
-                          email,
-                          callbackURL: `${window.location.origin}/verify-email`,
-                        });
-                        toast.success(
-                          "Verification email sent! Please check your inbox."
-                        );
-                      } catch (error) {
-                        toast.error(
-                          "Failed to send verification email. Please try again later."
-                        );
-                      }
+                      resendEmail.mutate({
+                        email,
+                        callbackURL: `${window.location.origin}/verify-email`,
+                      });
                     }
                   }}
                 >
-                  Resend Verification Email
+                  {resendEmail.isPending
+                    ? "Sending..."
+                    : "Resend Verification Email"}
                 </Button>
                 <Button
                   variant="ghost"

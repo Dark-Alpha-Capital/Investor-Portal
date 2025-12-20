@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { montserrat, raleway, fira_code } from "@/app/fonts";
+import { TRPCReactProvider } from "@/trpc/client";
 
 export const metadata: Metadata = {
   title: "Investors Dark Alpha Capital",
@@ -25,7 +26,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <TRPCReactProvider>{children}</TRPCReactProvider>
         </ThemeProvider>
         <Toaster />
       </body>
