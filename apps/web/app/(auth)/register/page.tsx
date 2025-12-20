@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/form";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
+import { ModeToggle } from "@/components/mode-toggle";
 
 const registerSchema = z
   .object({
@@ -131,6 +132,8 @@ const RegisterPage = () => {
       {/* Right Column - Form */}
       <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
         <div className="w-full max-w-md space-y-6">
+          <ModeToggle />
+
           <div className="space-y-1 text-center">
             <h2 className="text-2xl font-bold">Create an account</h2>
             <p className="text-muted-foreground">

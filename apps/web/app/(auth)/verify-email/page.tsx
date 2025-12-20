@@ -6,9 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
-
-// Mark page as dynamic to prevent static generation
-export const dynamic = "force-dynamic";
+import { ModeToggle } from "@/components/mode-toggle";
 
 const VerifyEmailContent = () => {
   const searchParams = useSearchParams();
@@ -110,6 +108,8 @@ const VerifyEmailContent = () => {
       {/* Right Column - Content */}
       <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
         <div className="w-full max-w-md space-y-6">
+          <ModeToggle />
+
           <div className="space-y-1 text-center">
             <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
               {status === "success" ? (

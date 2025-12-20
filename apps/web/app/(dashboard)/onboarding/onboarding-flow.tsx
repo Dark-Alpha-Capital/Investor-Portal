@@ -122,7 +122,11 @@ const TOTAL_STEPS = 2;
 const STORAGE_KEY_INVESTOR_DATA = "onboarding_investor_data";
 const STORAGE_KEY_STEP = "onboarding_current_step";
 
-export function OnboardingFlow() {
+type OnboardingFlowProps = {
+  readOnly?: boolean;
+};
+
+export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -236,6 +240,7 @@ export function OnboardingFlow() {
   };
 
   const handleInvestorSubmit = (data: InvestorData) => {
+    if (readOnly) return;
     startNavigation(() => {
       setInvestorData(data);
       const params = new URLSearchParams(searchParams.toString());
@@ -245,6 +250,7 @@ export function OnboardingFlow() {
   };
 
   const handleKycSubmit = async (data: KycData) => {
+    if (readOnly) return;
     startSubmission(async () => {
       setKycData(data);
 
@@ -367,23 +373,29 @@ export function OnboardingFlow() {
             <div className="flex-1"></div>
             <div className="flex-1 text-center">
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">
-                {"Investor Onboarding"}
+                {readOnly
+                  ? "Onboarding Form (View Only)"
+                  : "Investor Onboarding"}
               </h1>
               <p className="text-muted-foreground text-balance">
-                {"Complete your profile to start your investment journey"}
+                {readOnly
+                  ? "View the onboarding form structure and questions"
+                  : "Complete your profile to start your investment journey"}
               </p>
             </div>
-            <div className="flex-1 flex justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleReset}
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                Reset Form
-              </Button>
-            </div>
+            {!readOnly && (
+              <div className="flex-1 flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReset}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  Reset Form
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 

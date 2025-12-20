@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/form";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
+import { ModeToggle } from "@/components/mode-toggle";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -113,7 +114,6 @@ const LoginPage = () => {
 
   return (
     <div className="flex h-screen">
-      {/* Left Column - Image */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/10 via-primary/5 to-background items-center justify-center p-12">
         <div className="w-full h-full flex items-center justify-center">
           <div className="text-center space-y-6 max-w-md">
@@ -143,6 +143,8 @@ const LoginPage = () => {
       {/* Right Column - Form */}
       <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
         <div className="w-full max-w-md space-y-6">
+          <ModeToggle />
+
           <div className="space-y-1 text-center">
             <h2 className="text-2xl font-bold">Welcome back</h2>
             <p className="text-muted-foreground">

@@ -17,8 +17,10 @@
   "dependencies": {
     "@google-cloud/storage": "^7.7.0",
     "@repo/db": "*",
+    "axios": "^1.13.2",
     "dotenv": "^17.2.3",
     "hono": "^4.10.8",
+    "webdav": "^5.8.0",
     "zod": "^3.25.32"
   }
 }
