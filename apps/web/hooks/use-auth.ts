@@ -2,8 +2,9 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
+
+import { authClient } from "@/lib/auth-client";
 
 type SignInEmailInput = {
   email: string;

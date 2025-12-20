@@ -60,6 +60,6 @@ export async function listDealFiles(folderPath: string): Promise<DealFile[]> {
 
 // --- Usage Example ---
 (async () => {
-  const files = await listDealFiles("/Deals/Project_Titan");
+  const files = await listDealFiles("/Deals/Deal_gradient_stuff");
   console.log(files);
 })();

@@ -1,7 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   pgTable,
-  decimal,
+  doublePrecision,
   text,
   timestamp,
   boolean,
@@ -334,22 +334,20 @@ export const interest_status_enum = pgEnum("interest_status", [
 export const deal = pgTable("deal", {
   id: text("id").primaryKey(),
 
-  // Basic Info
   name: text("name").notNull(),
   slug: text("slug").unique(), // For pretty URLs /deals/project-alpha
   description: text("description"),
   teaserSummary: text("teaser_summary"), // Short text for card view
 
-  // Categorization (Matches your Onboarding/Preference logic)
   sector: text("sector"),
   geography: text("geography"),
   dealType: text("deal_type"), // e.g., "Equity", "Debt", "Real Estate"
 
   // Financial Highlights (For the Deal Card)
-  targetRaise: decimal("target_raise", { precision: 20, scale: 2 }),
-  minInvestment: decimal("min_investment", { precision: 20, scale: 2 }),
-  targetIrr: decimal("target_irr", { precision: 5, scale: 2 }), // e.g. 15.50
-  targetMoic: decimal("target_moic", { precision: 5, scale: 2 }), // e.g. 2.50
+  targetRaise: doublePrecision("target_raise"),
+  minInvestment: doublePrecision("min_investment"),
+  targetIrr: doublePrecision("target_irr"), // e.g. 15.50
+  targetMoic: doublePrecision("target_moic"), // e.g. 2.50
 
   // State
   status: deal_status_enum("status").default("draft").notNull(),
@@ -400,7 +398,7 @@ export const dealInterest = pgTable("deal_interest", {
     .references(() => user.id, { onDelete: "cascade" }),
 
   status: interest_status_enum("status").default("interested").notNull(),
-  proposedAmount: decimal("proposed_amount", { precision: 20, scale: 2 }),
+  proposedAmount: doublePrecision("proposed_amount"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
@@ -420,30 +418,20 @@ export const investment = pgTable("investment", {
     .references(() => user.id, { onDelete: "restrict" }),
 
   // The "Commitment" - What they signed for
-  committedAmount: decimal("committed_amount", {
-    precision: 20,
-    scale: 2,
-  }).notNull(),
+  committedAmount: doublePrecision("committed_amount").notNull(),
   committedDate: timestamp("committed_date").notNull(),
 
   // The "Funded" - What they actually wired
-  fundedAmount: decimal("funded_amount", { precision: 20, scale: 2 }).default(
-    "0"
-  ),
+  fundedAmount: doublePrecision("funded_amount").default(0),
 
   // Metrics for Dashboard (Calculated periodically via admin/script)
-  currentValue: decimal("current_value", { precision: 20, scale: 2 }), // NAV
-  distributions: decimal("distributions", { precision: 20, scale: 2 }).default(
-    "0"
-  ), // Cash returned
+  currentValue: doublePrecision("current_value"), // NAV
+  distributions: doublePrecision("distributions").default(0), // Cash returned
 
   status: investment_status_enum("status").default("active").notNull(),
 
   // Ownership specific
-  ownershipPercentage: decimal("ownership_percentage", {
-    precision: 10,
-    scale: 6,
-  }),
+  ownershipPercentage: doublePrecision("ownership_percentage"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
