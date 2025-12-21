@@ -988,4 +988,407 @@ export const dealsRouter = createTRPCRouter({
         removedCount: deletedCount,
       };
     }),
+
+  getPublicDeals: protectedProcedure.query(async ({ ctx }) => {
+    const session = await getSession();
+
+    if (!session?.user) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Authentication required",
+      });
+    }
+
+    // Get user's KYC status
+    const [userRecord] = await ctx.db
+      .select({ kycStatus: user.kycStatus })
+      .from(user)
+      .where(eq(user.id, session.user.id))
+      .limit(1);
+
+    const isAccredited = userRecord?.kycStatus === "approved";
+
+    // Build visibility filter
+    // Public deals: visible to everyone
+    // Accredited deals: only visible if user is accredited
+    const visibilityConditions = [eq(deal.visibility, "public")];
+
+    if (isAccredited) {
+      visibilityConditions.push(eq(deal.visibility, "accredited"));
+    }
+
+    // Fetch deals that are:
+    // 1. Not draft (exclude draft deals)
+    // 2. Public or (accredited if user is approved)
+    // 3. Not invite_only (those are handled separately)
+    const deals = await ctx.db
+      .select()
+      .from(deal)
+      .where(
+        and(
+          ne(deal.status, "draft"), // Exclude draft deals
+          ne(deal.visibility, "invite_only"), // Exclude invite-only deals
+          or(...visibilityConditions) // Public or accredited (if user is accredited)
+        )
+      )
+      .orderBy(desc(deal.createdAt));
+
+    return {
+      success: true,
+      deals: deals.map((dealRecord) => ({
+        ...dealRecord,
+        createdAt: dealRecord.createdAt.toISOString(),
+        updatedAt: dealRecord.updatedAt?.toISOString() ?? null,
+        launchDate: dealRecord.launchDate?.toISOString() ?? null,
+        closeDate: dealRecord.closeDate?.toISOString() ?? null,
+        targetRaise: dealRecord.targetRaise?.toString() ?? null,
+        minInvestment: dealRecord.minInvestment?.toString() ?? null,
+        targetIrr: dealRecord.targetIrr?.toString() ?? null,
+        targetMoic: dealRecord.targetMoic?.toString() ?? null,
+      })),
+    };
+  }),
+
+  getCuratedDeals: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.session?.user) {
+      return {
+        success: true,
+        deals: [],
+      };
+    }
+
+    // Fetch invite-only deals that the user has been invited to
+    // Join dealInvite to get only deals where user has an invite
+    const deals = await ctx.db
+      .select({
+        id: deal.id,
+        name: deal.name,
+        slug: deal.slug,
+        description: deal.description,
+        teaserSummary: deal.teaserSummary,
+        sector: deal.sector,
+        geography: deal.geography,
+        dealType: deal.dealType,
+        targetRaise: deal.targetRaise,
+        minInvestment: deal.minInvestment,
+        targetIrr: deal.targetIrr,
+        targetMoic: deal.targetMoic,
+        status: deal.status,
+        visibility: deal.visibility,
+        coverImageUrl: deal.coverImageUrl,
+        launchDate: deal.launchDate,
+        closeDate: deal.closeDate,
+        createdAt: deal.createdAt,
+        updatedAt: deal.updatedAt,
+        curationNote: dealInvite.curationNote,
+      })
+      .from(dealInvite)
+      .innerJoin(deal, eq(dealInvite.dealId, deal.id))
+      .where(
+        and(
+          eq(dealInvite.userId, ctx.session.user.id),
+          ne(deal.status, "draft") // Exclude draft deals
+        )
+      )
+      .orderBy(desc(deal.createdAt));
+
+    return {
+      success: true,
+      deals: deals.map((dealRecord) => ({
+        ...dealRecord,
+        createdAt: dealRecord.createdAt.toISOString(),
+        updatedAt: dealRecord.updatedAt?.toISOString() ?? null,
+        launchDate: dealRecord.launchDate?.toISOString() ?? null,
+        closeDate: dealRecord.closeDate?.toISOString() ?? null,
+        targetRaise: dealRecord.targetRaise?.toString() ?? null,
+        minInvestment: dealRecord.minInvestment?.toString() ?? null,
+        targetIrr: dealRecord.targetIrr?.toString() ?? null,
+        targetMoic: dealRecord.targetMoic?.toString() ?? null,
+      })),
+    };
+  }),
+
+  getDealForView: protectedProcedure
+    .input(z.object({ dealId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      if (!ctx.session?.user) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to view deals",
+        });
+      }
+
+      // Fetch the deal by ID or slug
+      const [dealRecord] = await ctx.db
+        .select()
+        .from(deal)
+        .where(or(eq(deal.id, input.dealId), eq(deal.slug, input.dealId)))
+        .limit(1);
+
+      if (!dealRecord) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Deal not found",
+        });
+      }
+
+      // Exclude draft deals
+      if (dealRecord.status === "draft") {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Deal not found",
+        });
+      }
+
+      // Check access based on visibility
+      if (dealRecord.visibility === "public") {
+        // Public deals are accessible to everyone
+      } else if (dealRecord.visibility === "accredited") {
+        // Check if user is accredited
+        const [userRecord] = await ctx.db
+          .select({ kycStatus: user.kycStatus })
+          .from(user)
+          .where(eq(user.id, ctx.session.user.id))
+          .limit(1);
+
+        if (userRecord?.kycStatus !== "approved") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "This deal is only available to accredited investors",
+          });
+        }
+      } else if (dealRecord.visibility === "invite_only") {
+        // Check if user has been invited
+        const [invite] = await ctx.db
+          .select()
+          .from(dealInvite)
+          .where(
+            and(
+              eq(dealInvite.dealId, dealRecord.id),
+              eq(dealInvite.userId, ctx.session.user.id)
+            )
+          )
+          .limit(1);
+
+        if (!invite) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You do not have access to this deal",
+          });
+        }
+      }
+
+      const actualDealId = dealRecord.id;
+
+      // Get user's interest in this deal (if any)
+      const [userInterest] = await ctx.db
+        .select()
+        .from(dealInterest)
+        .where(
+          and(
+            eq(dealInterest.dealId, actualDealId),
+            eq(dealInterest.userId, ctx.session.user.id)
+          )
+        )
+        .limit(1);
+
+      // Get user's investment in this deal (if any)
+      const [userInvestment] = await ctx.db
+        .select()
+        .from(investment)
+        .where(
+          and(
+            eq(investment.dealId, actualDealId),
+            eq(investment.userId, ctx.session.user.id)
+          )
+        )
+        .limit(1);
+
+      // Get curation note if invite-only
+      let curationNote = null;
+      if (dealRecord.visibility === "invite_only") {
+        const [invite] = await ctx.db
+          .select({ curationNote: dealInvite.curationNote })
+          .from(dealInvite)
+          .where(
+            and(
+              eq(dealInvite.dealId, actualDealId),
+              eq(dealInvite.userId, ctx.session.user.id)
+            )
+          )
+          .limit(1);
+        curationNote = invite?.curationNote || null;
+      }
+
+      return {
+        success: true,
+        deal: {
+          ...dealRecord,
+          targetRaise: dealRecord.targetRaise?.toString() ?? null,
+          minInvestment: dealRecord.minInvestment?.toString() ?? null,
+          targetIrr: dealRecord.targetIrr?.toString() ?? null,
+          targetMoic: dealRecord.targetMoic?.toString() ?? null,
+          launchDate: dealRecord.launchDate?.toISOString() ?? null,
+          closeDate: dealRecord.closeDate?.toISOString() ?? null,
+          createdAt: dealRecord.createdAt.toISOString(),
+          updatedAt: dealRecord.updatedAt?.toISOString() ?? null,
+        },
+        userInterest: userInterest
+          ? {
+              ...userInterest,
+              proposedAmount: userInterest.proposedAmount?.toString() ?? null,
+              createdAt: userInterest.createdAt.toISOString(),
+              updatedAt: userInterest.updatedAt?.toISOString() ?? null,
+            }
+          : null,
+        userInvestment: userInvestment
+          ? {
+              ...userInvestment,
+              committedAmount: userInvestment.committedAmount.toString(),
+              fundedAmount: userInvestment.fundedAmount?.toString() ?? null,
+              currentValue: userInvestment.currentValue?.toString() ?? null,
+              distributions: userInvestment.distributions?.toString() ?? null,
+              ownershipPercentage:
+                userInvestment.ownershipPercentage?.toString() ?? null,
+              committedDate: userInvestment.committedDate.toISOString(),
+            }
+          : null,
+        curationNote,
+      };
+    }),
+
+  expressInterest: protectedProcedure
+    .input(
+      z.object({
+        dealId: z.string(),
+        status: z.enum([
+          "interested",
+          "soft_committed",
+          "pass",
+          "meeting_requested",
+        ]),
+        proposedAmount: z.number().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.session?.user) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to express interest",
+        });
+      }
+
+      // Verify deal exists and user has access (by ID or slug)
+      const [dealRecord] = await ctx.db
+        .select()
+        .from(deal)
+        .where(or(eq(deal.id, input.dealId), eq(deal.slug, input.dealId)))
+        .limit(1);
+
+      const actualDealId = dealRecord?.id || input.dealId;
+
+      if (!dealRecord || dealRecord.status === "draft") {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Deal not found",
+        });
+      }
+
+      // Check access based on visibility
+      if (dealRecord.visibility === "public") {
+        // Public deals are accessible to everyone
+      } else if (dealRecord.visibility === "accredited") {
+        // Check if user is accredited
+        const [userRecord] = await ctx.db
+          .select({ kycStatus: user.kycStatus })
+          .from(user)
+          .where(eq(user.id, ctx.session.user.id))
+          .limit(1);
+
+        if (userRecord?.kycStatus !== "approved") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "This deal is only available to accredited investors",
+          });
+        }
+      } else if (dealRecord.visibility === "invite_only") {
+        // Check if user has been invited
+        const [invite] = await ctx.db
+          .select()
+          .from(dealInvite)
+          .where(
+            and(
+              eq(dealInvite.dealId, actualDealId),
+              eq(dealInvite.userId, ctx.session.user.id)
+            )
+          )
+          .limit(1);
+
+        if (!invite) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You do not have access to this deal",
+          });
+        }
+      }
+
+      // Check if interest already exists
+      const [existingInterest] = await ctx.db
+        .select()
+        .from(dealInterest)
+        .where(
+          and(
+            eq(dealInterest.dealId, actualDealId),
+            eq(dealInterest.userId, ctx.session.user.id)
+          )
+        )
+        .limit(1);
+
+      if (existingInterest) {
+        // Update existing interest
+        const [updatedInterest] = await ctx.db
+          .update(dealInterest)
+          .set({
+            status: input.status,
+            proposedAmount: input.proposedAmount ?? null,
+            updatedAt: new Date(),
+          })
+          .where(eq(dealInterest.id, existingInterest.id))
+          .returning();
+
+        return {
+          success: true,
+          interest: {
+            ...updatedInterest,
+            proposedAmount: updatedInterest.proposedAmount?.toString() ?? null,
+            createdAt: updatedInterest.createdAt.toISOString(),
+            updatedAt: updatedInterest.updatedAt?.toISOString() ?? null,
+          },
+          message: "Interest updated successfully",
+        };
+      } else {
+        // Create new interest
+        const [newInterest] = await ctx.db
+          .insert(dealInterest)
+          .values({
+            id: randomUUID(),
+            dealId: actualDealId,
+            userId: ctx.session.user.id,
+            status: input.status,
+            proposedAmount: input.proposedAmount ?? null,
+          })
+          .returning();
+
+        return {
+          success: true,
+          interest: {
+            ...newInterest,
+            proposedAmount: newInterest.proposedAmount?.toString() ?? null,
+            createdAt: newInterest.createdAt.toISOString(),
+            updatedAt: newInterest.updatedAt?.toISOString() ?? null,
+          },
+          message: "Interest expressed successfully",
+        };
+      }
+    }),
 });
