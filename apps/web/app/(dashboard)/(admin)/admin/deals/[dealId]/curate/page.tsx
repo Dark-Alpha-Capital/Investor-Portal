@@ -1,7 +1,8 @@
 import React, { Suspense } from "react";
 import { authSession } from "@/app/(auth)/auth";
 import { redirect } from "next/navigation";
-import { DealCurationForm } from "../components/deal-curation-form";
+import { DealCurationData } from "../components/deal-curation-data";
+import BackButton from "@/components/back-button";
 
 type PageProps = {
   params: Promise<{
@@ -23,23 +24,27 @@ const CurateDealPage = async ({ params }: PageProps) => {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-6xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Curate Deal</h1>
-        <p className="text-muted-foreground mt-2">
-          Select which investors can see this deal
-        </p>
+      <div className="mb-8 mt-6 flex items-center gap-2">
+        <BackButton />
+
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Curate Deal</h1>
+          <p className="text-muted-foreground mt-2">
+            Select which investors can see this deal
+          </p>
+        </div>
       </div>
 
       <Suspense
         fallback={
           <div className="flex items-center justify-center py-12">
             <div className="animate-pulse text-muted-foreground">
-              Loading deal curation...
+              Loading investors...
             </div>
           </div>
         }
       >
-        <DealCurationForm dealId={dealId} />
+        <DealCurationData dealId={dealId} />
       </Suspense>
     </div>
   );

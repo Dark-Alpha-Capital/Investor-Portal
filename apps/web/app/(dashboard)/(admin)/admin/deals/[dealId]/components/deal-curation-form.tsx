@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Search, X, Save } from "lucide-react";
+import { Search, Save } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -17,6 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTRPC } from "@/trpc/client";
+import { useMutation } from "@tanstack/react-query";
 
 type Investor = {
   id: string;
@@ -31,58 +32,40 @@ type DealInvite = {
   id: string;
   userId: string;
   curationNote: string | null;
-  user: Investor;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
+  };
 };
 
 type DealCurationFormProps = {
   dealId: string;
+  investors: Investor[];
+  invites: DealInvite[];
 };
 
-export function DealCurationForm({ dealId }: DealCurationFormProps) {
+export function DealCurationForm({
+  dealId,
+  investors,
+  invites,
+}: DealCurationFormProps) {
   const router = useRouter();
-  const [investors, setInvestors] = useState<Investor[]>([]);
-  const [invites, setInvites] = useState<DealInvite[]>([]);
   const [selectedInvestors, setSelectedInvestors] = useState<Set<string>>(
-    new Set()
+    new Set(invites.map((invite) => invite.userId))
   );
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const trpc = useTRPC();
 
-  useEffect(() => {
-    fetchData();
-  }, [dealId]);
+  const { mutateAsync: addInvites, isPending: isAdding } = useMutation(
+    trpc.deals.addInvites.mutationOptions()
+  );
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      // Fetch all investors
-      const investorsResponse = await fetch("/api/investors");
-      const investorsData = await investorsResponse.json();
-
-      // Fetch existing invites
-      const invitesResponse = await fetch(`/api/deals/${dealId}/invites`);
-      const invitesData = await invitesResponse.json();
-
-      if (investorsData.success) {
-        setInvestors(investorsData.investors);
-      }
-
-      if (invitesData.success) {
-        setInvites(invitesData.invites);
-        // Pre-select investors who already have invites
-        const invitedUserIds = new Set<string>(
-          invitesData.invites.map((invite: DealInvite) => invite.userId)
-        );
-        setSelectedInvestors(invitedUserIds);
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      toast.error("Failed to load data");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { mutateAsync: removeInvites, isPending: isRemoving } = useMutation(
+    trpc.deals.removeInvites.mutationOptions()
+  );
 
   const handleToggleInvestor = (investorId: string) => {
     const newSelected = new Set(selectedInvestors);
@@ -95,7 +78,6 @@ export function DealCurationForm({ dealId }: DealCurationFormProps) {
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
     try {
       // Get current invite user IDs
       const currentInviteUserIds = new Set(
@@ -114,154 +96,127 @@ export function DealCurationForm({ dealId }: DealCurationFormProps) {
 
       // Add new invites
       if (toAdd.length > 0) {
-        const addResponse = await fetch(`/api/deals/${dealId}/invites`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ userIds: toAdd }),
+        await addInvites({
+          dealId,
+          userIds: toAdd,
         });
-
-        const addData = await addResponse.json();
-        if (!addData.success) {
-          throw new Error(addData.message || "Failed to add invites");
-        }
       }
 
       // Remove invites
       if (toRemove.length > 0) {
-        const removeResponse = await fetch(`/api/deals/${dealId}/invites`, {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ userIds: toRemove }),
+        await removeInvites({
+          dealId,
+          userIds: toRemove,
         });
-
-        const removeData = await removeResponse.json();
-        if (!removeData.success) {
-          throw new Error(removeData.message || "Failed to remove invites");
-        }
       }
 
       toast.success("Deal curation updated successfully");
-      fetchData(); // Refresh data
+      // Refresh the page to get updated data
+      router.refresh();
     } catch (error: any) {
       console.error("Error saving curation:", error);
       toast.error(error.message || "Failed to save curation");
-    } finally {
-      setIsSaving(false);
     }
   };
 
-  const filteredInvestors = investors.filter((investor) => {
+  const filteredInvestors = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    return (
-      investor.name.toLowerCase().includes(query) ||
-      investor.email.toLowerCase().includes(query)
+    return investors.filter(
+      (investor) =>
+        investor.name.toLowerCase().includes(query) ||
+        investor.email.toLowerCase().includes(query)
     );
-  });
+  }, [investors, searchQuery]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-pulse text-muted-foreground">
-          Loading investors...
-        </div>
-      </div>
-    );
-  }
+  const isSaving = isAdding || isRemoving;
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Select Investors</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Choose which investors can see this deal
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">
-                {selectedInvestors.size} selected
-              </Badge>
-              <Button onClick={handleSave} disabled={isSaving}>
-                <Save className="mr-2 h-4 w-4" />
-                {isSaving ? "Saving..." : "Save Changes"}
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search investors by name or email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Badge variant="secondary" className="text-sm">
+            {selectedInvestors.size} selected
+          </Badge>
+          <Button onClick={handleSave} disabled={isSaving} size="sm">
+            <Save className="mr-2 h-4 w-4" />
+            {isSaving ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      </div>
 
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12"></TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>KYC Status</TableHead>
-                  <TableHead>Onboarding</TableHead>
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search investors by name or email..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      {/* Table */}
+      <div className="border rounded-lg overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-12"></TableHead>
+              <TableHead className="font-medium">Name</TableHead>
+              <TableHead className="font-medium">Email</TableHead>
+              <TableHead className="font-medium">KYC Status</TableHead>
+              <TableHead className="font-medium">Onboarding</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredInvestors.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-12">
+                  <p className="text-sm text-muted-foreground">
+                    No investors found
+                  </p>
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredInvestors.map((investor) => (
+                <TableRow
+                  key={investor.id}
+                  className="hover:bg-muted/50 transition-colors"
+                >
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedInvestors.has(investor.id)}
+                      onCheckedChange={() => handleToggleInvestor(investor.id)}
+                    />
+                  </TableCell>
+                  <TableCell className="font-medium">{investor.name}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {investor.email}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className="text-xs font-normal capitalize"
+                    >
+                      {investor.kycStatus.replace(/_/g, " ")}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {investor.isOnboardingCompleted ? (
+                      <Badge variant="default" className="text-xs">
+                        Completed
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs">
+                        Pending
+                      </Badge>
+                    )}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredInvestors.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
-                      <p className="text-muted-foreground">
-                        No investors found
-                      </p>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredInvestors.map((investor) => (
-                    <TableRow key={investor.id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedInvestors.has(investor.id)}
-                          onCheckedChange={() =>
-                            handleToggleInvestor(investor.id)
-                          }
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {investor.name}
-                      </TableCell>
-                      <TableCell>{investor.email}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {investor.kycStatus.replace(/_/g, " ")}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {investor.isOnboardingCompleted ? (
-                          <Badge variant="default">Completed</Badge>
-                        ) : (
-                          <Badge variant="secondary">Pending</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

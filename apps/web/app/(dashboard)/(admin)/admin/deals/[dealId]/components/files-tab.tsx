@@ -1,11 +1,4 @@
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Table,
   TableBody,
   TableCell,
@@ -14,7 +7,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, File } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Download, File } from "lucide-react";
 
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return "0 Bytes";
@@ -63,95 +57,124 @@ type FilesTabProps = {
     downloadUrl: string;
   }>;
   uploadButton?: React.ReactNode;
+  selectedFiles: Set<string>;
+  onSelectFile: (fileName: string) => void;
+  onSelectAll: (checked: boolean) => void;
 };
 
-export function FilesTab({ dealId, files, uploadButton }: FilesTabProps) {
+export function FilesTab({
+  dealId,
+  files,
+  uploadButton,
+  selectedFiles,
+  onSelectFile,
+  onSelectAll,
+}: FilesTabProps) {
+  const allSelected = files.length > 0 && files.every((file) => selectedFiles.has(file.name));
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Deal Files
-            </CardTitle>
-            <CardDescription>
-              Files stored in Nextcloud for this deal
-            </CardDescription>
-          </div>
-          {uploadButton}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Deal Files</h3>
+          <p className="text-sm text-muted-foreground">
+            {files.length} {files.length === 1 ? "file" : "files"} stored in Nextcloud
+          </p>
         </div>
-      </CardHeader>
-      <CardContent>
-        {files.length === 0 ? (
-          <div className="text-center py-12">
-            <File className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-50" />
-            <p className="text-muted-foreground">
-              No files have been uploaded for this deal yet.
-            </p>
-          </div>
-        ) : (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">Type</TableHead>
-                  <TableHead>File Name</TableHead>
-                  <TableHead className="text-right">Size</TableHead>
-                  <TableHead>Last Modified</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {files.map((file, index) => (
-                  <TableRow key={`${file.name}-${index}`}>
-                    <TableCell>
-                      <span
-                        className="text-2xl"
-                        role="img"
-                        aria-label="file type"
+        {uploadButton}
+      </div>
+
+      {files.length === 0 ? (
+        <div className="text-center py-12 border rounded-md">
+          <File className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-50" />
+          <p className="text-muted-foreground">
+            No files have been uploaded for this deal yet.
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[50px]">
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={(checked) => onSelectAll(checked === true)}
+                    aria-label="Select all files"
+                  />
+                </TableHead>
+                <TableHead className="w-[60px]">#</TableHead>
+                <TableHead className="w-[50px]">Type</TableHead>
+                <TableHead>File Name</TableHead>
+                <TableHead className="text-right">Size</TableHead>
+                <TableHead>Last Modified</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {files.map((file, index) => (
+                <TableRow
+                  key={`${file.name}-${index}`}
+                  className={selectedFiles.has(file.name) ? "bg-muted/50" : ""}
+                >
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedFiles.has(file.name)}
+                      onCheckedChange={() => onSelectFile(file.name)}
+                      aria-label={`Select ${file.name}`}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm text-muted-foreground font-medium">
+                      {index + 1}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className="text-xl"
+                      role="img"
+                      aria-label="file type"
+                    >
+                      {getFileIcon(file.mimeType)}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{file.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {file.mimeType}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <span className="font-mono text-sm">
+                      {formatFileSize(file.size)}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm text-muted-foreground">
+                      {formatDate(file.lastModified)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="outline" size="sm" asChild>
+                      <a
+                        href={file.downloadUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2"
                       >
-                        {getFileIcon(file.mimeType)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{file.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {file.mimeType}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className="font-mono text-sm">
-                        {formatFileSize(file.size)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-muted-foreground">
-                        {formatDate(file.lastModified)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" asChild>
-                        <a
-                          href={file.downloadUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2"
-                        >
-                          <Download className="h-4 w-4" />
-                          Download
-                        </a>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                        <Download className="h-4 w-4" />
+                        Download
+                      </a>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
   );
 }

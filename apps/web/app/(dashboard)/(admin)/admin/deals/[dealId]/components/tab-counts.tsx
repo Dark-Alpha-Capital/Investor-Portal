@@ -1,7 +1,7 @@
 import { caller } from "@/trpc/server";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Users, Target, TrendingUp, FolderOpen } from "lucide-react";
+import { FileText, Users, Target, TrendingUp, FolderOpen, AlignLeft } from "lucide-react";
 
 export async function TabCounts({ dealId }: { dealId: string }) {
   const [invitesResult, interestsResult, investmentsResult, filesResult] =
@@ -13,10 +13,14 @@ export async function TabCounts({ dealId }: { dealId: string }) {
     ]);
 
   return (
-    <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
+    <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-flex">
       <TabsTrigger value="overview" className="flex items-center gap-2">
         <FileText className="h-4 w-4" />
         Overview
+      </TabsTrigger>
+      <TabsTrigger value="description" className="flex items-center gap-2">
+        <AlignLeft className="h-4 w-4" />
+        Description
       </TabsTrigger>
       <TabsTrigger value="invites" className="flex items-center gap-2">
         <Users className="h-4 w-4" />

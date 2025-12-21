@@ -16,13 +16,24 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import type { Route } from "next";
+import { useTheme } from "next-themes";
 
 export function SidebarUserNav() {
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
+  const { data: session, isPending } = authClient.useSession();
+  const user = session?.user;
 
-  const { data: userSession, isPending } = authClient.useSession();
-  const user = userSession?.user;
+  const handleLogout = async () => {
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          router.push("/");
+        },
+      },
+    });
+  };
 
   // Loading state - session is being streamed
   if (isPending) {
@@ -46,7 +57,7 @@ export function SidebarUserNav() {
   }
 
   // Unauthenticated state - no session
-  if (!user) {
+  if (!session || !user) {
     return (
       <SidebarMenu>
         <SidebarMenuItem>
@@ -69,7 +80,8 @@ export function SidebarUserNav() {
             <DropdownMenuContent
               data-testid="user-nav-menu"
               side="top"
-              className="w-[--radix-popper-anchor-width]"
+              align="start"
+              style={{ width: "var(--radix-popper-anchor-width)" }}
             >
               <DropdownMenuItem asChild data-testid="user-nav-item-auth">
                 <button
@@ -117,30 +129,29 @@ export function SidebarUserNav() {
           <DropdownMenuContent
             data-testid="user-nav-menu"
             side="top"
-            className="w-[--radix-popper-anchor-width]"
+            align="start"
+            style={{ width: "var(--radix-popper-anchor-width)" }}
           >
             <DropdownMenuItem
               className="cursor-pointer"
               onSelect={() => {
                 if (user.id) {
-                  router.push(`/profile/${user.id}`);
+                  router.push(`/profile/${user.id}` as Route);
                 }
               }}
             >
               Profile
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild data-testid="user-nav-item-auth">
-              <button
-                type="button"
-                className="w-full cursor-pointer"
-                onClick={async () => {
-                  await authClient.signOut();
-                  router.push("/login");
-                }}
-              >
-                Logout
-              </button>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+            >
+              Toggle Theme
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer" onClick={handleLogout}>
+              Logout
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

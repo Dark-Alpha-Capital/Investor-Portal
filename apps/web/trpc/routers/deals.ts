@@ -12,7 +12,7 @@ import slugify from "slugify";
 import { getSession } from "@/lib/get-session";
 import { createDealSchema } from "@/lib/schemas/create-deal-schema";
 import { dealQueue } from "@/lib/redis";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, or, ne, isNull, and } from "drizzle-orm";
 import { z } from "zod";
 import { createClient } from "webdav";
 import { FileStat } from "webdav";
@@ -383,6 +383,8 @@ export const dealsRouter = createTRPCRouter({
             name: user.name,
             email: user.email,
             image: user.image,
+            kycStatus: user.kycStatus,
+            isOnboardingCompleted: user.isOnboardingCompleted,
           },
         })
         .from(dealInvite)
@@ -824,5 +826,166 @@ export const dealsRouter = createTRPCRouter({
             error instanceof Error ? error.message : "Failed to upload file",
         });
       }
+    }),
+
+  getInvestors: protectedProcedure.query(async ({ ctx }) => {
+    // Check if user is admin
+    const session = await getSession();
+    if (!session?.user || session.user.role !== "admin") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Only administrators can access investors list",
+      });
+    }
+
+    const investors = await ctx.db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        kycStatus: user.kycStatus,
+        isOnboardingCompleted: user.isOnboardingCompleted,
+        createdAt: user.createdAt,
+      })
+      .from(user)
+      .where(or(ne(user.role, "admin"), isNull(user.role)))
+      .orderBy(user.name);
+
+    return {
+      success: true,
+      investors: investors.map((investor) => ({
+        ...investor,
+        createdAt: investor.createdAt.toISOString(),
+      })),
+    };
+  }),
+
+  addInvites: protectedProcedure
+    .input(
+      z.object({
+        dealId: z.string(),
+        userIds: z.array(z.string()),
+        curationNote: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      // Check if user is admin
+      const session = await getSession();
+      if (!session?.user || session.user.role !== "admin") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only administrators can manage deal invites",
+        });
+      }
+
+      // Verify deal exists
+      const [dealRecord] = await ctx.db
+        .select()
+        .from(deal)
+        .where(eq(deal.id, input.dealId))
+        .limit(1);
+
+      if (!dealRecord) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Deal not found",
+        });
+      }
+
+      // Verify all users exist and are investors (not admins)
+      const validUserIds: string[] = [];
+      for (const userId of input.userIds) {
+        const [userRecord] = await ctx.db
+          .select()
+          .from(user)
+          .where(
+            and(
+              eq(user.id, userId),
+              or(ne(user.role, "admin"), isNull(user.role))
+            )
+          )
+          .limit(1);
+
+        if (userRecord) {
+          validUserIds.push(userId);
+        }
+      }
+
+      if (validUserIds.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No valid investor user IDs provided",
+        });
+      }
+
+      // Check for existing invites to avoid duplicates
+      const existingInvites = await ctx.db
+        .select()
+        .from(dealInvite)
+        .where(eq(dealInvite.dealId, input.dealId));
+
+      const existingInviteMap = new Set(
+        existingInvites.map((invite) => invite.userId)
+      );
+
+      // Create invites for users that don't already have one
+      const newInvites = validUserIds
+        .filter((userId) => !existingInviteMap.has(userId))
+        .map((userId) => ({
+          id: randomUUID(),
+          dealId: input.dealId,
+          userId,
+          curationNote: input.curationNote || null,
+        }));
+
+      if (newInvites.length > 0) {
+        await ctx.db.insert(dealInvite).values(newInvites);
+      }
+
+      return {
+        success: true,
+        message: `Added ${newInvites.length} invite(s) to deal`,
+        addedCount: newInvites.length,
+        skippedCount: validUserIds.length - newInvites.length,
+      };
+    }),
+
+  removeInvites: protectedProcedure
+    .input(
+      z.object({
+        dealId: z.string(),
+        userIds: z.array(z.string()),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      // Check if user is admin
+      const session = await getSession();
+      if (!session?.user || session.user.role !== "admin") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only administrators can manage deal invites",
+        });
+      }
+
+      // Delete invites for specified users
+      let deletedCount = 0;
+      for (const userId of input.userIds) {
+        await ctx.db
+          .delete(dealInvite)
+          .where(
+            and(
+              eq(dealInvite.dealId, input.dealId),
+              eq(dealInvite.userId, userId)
+            )
+          );
+        deletedCount += 1;
+      }
+
+      return {
+        success: true,
+        message: `Removed ${deletedCount} invite(s) from deal`,
+        removedCount: deletedCount,
+      };
     }),
 });

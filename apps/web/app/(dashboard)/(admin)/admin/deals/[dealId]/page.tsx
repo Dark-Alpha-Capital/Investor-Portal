@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { authSession } from "@/app/(auth)/auth";
 import { DealDetailView } from "./components/deal-detail-view";
 import { OverviewTab } from "./components/overview-tab";
+import { DescriptionTab } from "./components/description-tab";
 import { InvitesTab } from "./components/invites-tab";
 import { InterestsTab } from "./components/interests-tab";
 import { InvestmentsTabWrapper } from "./components/investments-tab-wrapper";
@@ -72,9 +73,12 @@ const DealDetailPage = async ({ params }: PageProps) => {
       <Tabs defaultValue="overview" className="space-y-6 mt-6">
         <Suspense
           fallback={
-            <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
+            <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-flex">
               <TabsTrigger value="overview" disabled>
                 Overview
+              </TabsTrigger>
+              <TabsTrigger value="description" disabled>
+                Description
               </TabsTrigger>
               <TabsTrigger value="invites" disabled>
                 Invites
@@ -105,6 +109,20 @@ const DealDetailPage = async ({ params }: PageProps) => {
             }
           >
             <OverviewTab dealId={dealId} />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="description" className="space-y-4 mt-6">
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-pulse text-muted-foreground">
+                  Loading description...
+                </div>
+              </div>
+            }
+          >
+            <DescriptionTab dealId={dealId} />
           </Suspense>
         </TabsContent>
 
@@ -169,19 +187,3 @@ const DealDetailPage = async ({ params }: PageProps) => {
 };
 
 export default DealDetailPage;
-
-async function DealHeader({ dealId }: { dealId: string }) {
-  try {
-    const result = await caller.deals.getById({ dealId });
-    return <DealDetailView deal={result.deal} />;
-  } catch (error) {
-    console.error("Error fetching deal:", error);
-    return (
-      <div className="text-center py-12">
-        <p className="text-destructive">
-          {error instanceof Error ? error.message : "Failed to load deal"}
-        </p>
-      </div>
-    );
-  }
-}

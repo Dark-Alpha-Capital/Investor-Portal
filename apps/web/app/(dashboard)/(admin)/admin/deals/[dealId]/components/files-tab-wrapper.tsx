@@ -76,6 +76,7 @@ export function FilesTabWrapper({ dealId, files }: FilesTabWrapperProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
 
   const { mutate: uploadFile, isPending } = useMutation(
     trpc.deals.uploadFile.mutationOptions({
@@ -165,11 +166,34 @@ export function FilesTabWrapper({ dealId, files }: FilesTabWrapperProps) {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
+  const handleSelectFile = (fileName: string) => {
+    setSelectedFiles((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(fileName)) {
+        newSet.delete(fileName);
+      } else {
+        newSet.add(fileName);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedFiles(new Set(files.map((file) => file.name)));
+    } else {
+      setSelectedFiles(new Set());
+    }
+  };
+
   return (
     <>
       <FilesTab
         dealId={dealId}
         files={files}
+        selectedFiles={selectedFiles}
+        onSelectFile={handleSelectFile}
+        onSelectAll={handleSelectAll}
         uploadButton={
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
