@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { caller } from "@/trpc/server";
-import { EditDealFormClient } from "./edit-deal-form-client";
+import { DealForm } from "../../components/deal-form";
 
 type EditDealFormProps = {
   dealId: string;
@@ -47,7 +47,7 @@ export async function EditDealForm({ dealId }: EditDealFormProps) {
           </div>
         }
       >
-        <EditDealFormClient dealId={dealId} initialData={formData} />
+        <DealForm dealId={dealId} initialData={formData} />
       </Suspense>
     );
   } catch (error) {

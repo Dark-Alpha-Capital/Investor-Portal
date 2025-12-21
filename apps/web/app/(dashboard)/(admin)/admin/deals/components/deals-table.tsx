@@ -1,12 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import React from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -20,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Edit, Eye, Trash2, Users, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useTRPC } from "@/trpc/client";
+import { useMutation } from "@tanstack/react-query";
 
 type Deal = {
   id: string;
@@ -30,17 +28,17 @@ type Deal = {
   sector: string | null;
   geography: string | null;
   dealType: string | null;
-  targetRaise: string | null;
-  minInvestment: string | null;
-  targetIrr: string | null;
-  targetMoic: string | null;
+  targetRaise: number | null;
+  minInvestment: number | null;
+  targetIrr: number | null;
+  targetMoic: number | null;
   status: string;
   visibility: string;
   coverImageUrl: string | null;
-  launchDate: string | null;
-  closeDate: string | null;
-  createdAt: string;
-  updatedAt: string | null;
+  launchDate: Date | null;
+  closeDate: Date | null;
+  createdAt: Date;
+  updatedAt: Date | null;
 };
 
 const statusColors: Record<string, string> = {
@@ -59,69 +57,29 @@ const visibilityColors: Record<string, string> = {
   invite_only: "secondary",
 };
 
-export function DealsTable() {
-  const [deals, setDeals] = useState<Deal[]>([]);
-  const [loading, setLoading] = useState(true);
+export function DealsTable({ deals }: { deals: Deal[] }) {
+  const router = useRouter();
+  const trpc = useTRPC();
 
-  useEffect(() => {
-    fetchDeals();
-  }, []);
-
-  const fetchDeals = async () => {
-    try {
-      const response = await fetch("/api/deals");
-      const data = await response.json();
-
-      if (data.success) {
-        setDeals(data.deals);
-      } else {
-        toast.error(data.message || "Failed to fetch deals");
-      }
-    } catch (error) {
-      console.error("Error fetching deals:", error);
-      toast.error("Failed to fetch deals");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { mutate: deleteDeal, isPending: isDeleting } = useMutation(
+    trpc.deals.delete.mutationOptions({
+      onSuccess: () => {
+        toast.success("Deal deleted successfully");
+        router.refresh();
+      },
+      onError: (error: any) => {
+        toast.error(error.message || "Failed to delete deal");
+      },
+    })
+  );
 
   const handleDelete = async (dealId: string, dealName: string) => {
     if (!confirm(`Are you sure you want to delete "${dealName}"?`)) {
       return;
     }
 
-    try {
-      const response = await fetch(`/api/deals/${dealId}`, {
-        method: "DELETE",
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success("Deal deleted successfully");
-        fetchDeals();
-      } else {
-        toast.error(data.message || "Failed to delete deal");
-      }
-    } catch (error) {
-      console.error("Error deleting deal:", error);
-      toast.error("Failed to delete deal");
-    }
+    deleteDeal({ dealId });
   };
-
-  if (loading) {
-    return (
-      <Card>
-        <CardContent className="py-12">
-          <div className="flex items-center justify-center">
-            <div className="animate-pulse text-muted-foreground">
-              Loading deals...
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   if (deals.length === 0) {
     return (
@@ -185,12 +143,10 @@ export function DealsTable() {
                 <TableCell>{deal.sector || "-"}</TableCell>
                 <TableCell>
                   {deal.targetRaise
-                    ? `$${parseFloat(deal.targetRaise).toLocaleString()}`
+                    ? `$${deal.targetRaise.toLocaleString()}`
                     : "-"}
                 </TableCell>
-                <TableCell>
-                  {new Date(deal.createdAt).toLocaleDateString()}
-                </TableCell>
+                <TableCell>{deal.createdAt.toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
                     <Link href={`/admin/deals/${deal.id}`}>
@@ -212,6 +168,7 @@ export function DealsTable() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleDelete(deal.id, deal.name)}
+                      disabled={isDeleting}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -225,4 +182,3 @@ export function DealsTable() {
     </Card>
   );
 }
-

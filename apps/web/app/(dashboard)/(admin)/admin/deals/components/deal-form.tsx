@@ -47,9 +47,10 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
 
   const { mutate: createDeal, isPending: isCreating } = useMutation(
     trpc.deals.create.mutationOptions({
-      onSuccess: () => {
+      onSuccess: (data) => {
+        const newDeal = data.deal;
         toast.success("Deal created successfully");
-        router.push("/admin/deals");
+        router.push(`/admin/deals/${newDeal.id}`);
       },
       onError: (error: any) => {
         toast.error(error.message || "Failed to create deal");
@@ -59,9 +60,10 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
 
   const { mutate: updateDeal, isPending: isUpdating } = useMutation(
     trpc.deals.update.mutationOptions({
-      onSuccess: () => {
+      onSuccess: (data) => {
+        const newDeal = data.deal;
         toast.success("Deal updated successfully");
-        router.push("/admin/deals");
+        router.push(`/admin/deals/${newDeal.id}`);
       },
       onError: (error: any) => {
         toast.error(error.message || "Failed to update deal");
@@ -561,7 +563,13 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
             )}
           </div>
           <Button type="submit" disabled={isPending} size="lg">
-            {isPending ? "Creating Deal..." : "Create Deal"}
+            {isPending
+              ? isUpdateMode
+                ? "Updating Deal..."
+                : "Creating Deal..."
+              : isUpdateMode
+                ? "Update Deal"
+                : "Create Deal"}
           </Button>
         </div>
       </form>

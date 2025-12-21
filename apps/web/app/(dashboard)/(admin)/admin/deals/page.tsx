@@ -6,6 +6,7 @@ import { DealsTable } from "./components/deals-table";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { caller } from "@/trpc/server";
 
 const DealsPage = async () => {
   const session = await authSession();
@@ -51,7 +52,7 @@ const DealsPage = async () => {
             </Card>
           }
         >
-          <DealsTable />
+          <FetchDealsTable />
         </Suspense>
       </div>
     </div>
@@ -59,3 +60,8 @@ const DealsPage = async () => {
 };
 
 export default DealsPage;
+
+async function FetchDealsTable() {
+  const deals = await caller.deals.getDeals();
+  return <DealsTable deals={deals} />;
+}

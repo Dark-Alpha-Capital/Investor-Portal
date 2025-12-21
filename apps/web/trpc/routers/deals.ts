@@ -12,12 +12,19 @@ import slugify from "slugify";
 import { getSession } from "@/lib/get-session";
 import { createDealSchema } from "@/lib/schemas/create-deal-schema";
 import { dealQueue } from "@/lib/redis";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { createClient } from "webdav";
 import { FileStat } from "webdav";
 
 export const dealsRouter = createTRPCRouter({
+  getDeals: protectedProcedure.query(async ({ ctx }) => {
+    const deals = await ctx.db
+      .select()
+      .from(deal)
+      .orderBy(desc(deal.createdAt));
+    return deals;
+  }),
   create: protectedProcedure
     .input(createDealSchema)
     .mutation(async ({ input, ctx }) => {
@@ -199,6 +206,16 @@ export const dealsRouter = createTRPCRouter({
           .where(eq(deal.id, dealId))
           .returning();
 
+        // Check if deal name changed and enqueue folder rename job
+        if (existingDeal.name !== updateData.name) {
+          console.log("Deal name changed, enqueuing folder rename job");
+
+          await dealQueue.add("rename-deal", {
+            oldDealName: existingDeal.name,
+            newDealName: updateData.name,
+          });
+        }
+
         return {
           success: true,
           deal: updatedDeal,
@@ -237,6 +254,49 @@ export const dealsRouter = createTRPCRouter({
           code: "INTERNAL_SERVER_ERROR",
           message:
             error instanceof Error ? error.message : "Failed to update deal",
+        });
+      }
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ dealId: z.string().min(1, "Deal ID is required") }))
+    .mutation(async ({ input, ctx }) => {
+      // Check if user is admin
+      const session = await getSession();
+      if (!session?.user || session.user.role !== "admin") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only administrators can delete deals",
+        });
+      }
+
+      // Check if deal exists
+      const [existingDeal] = await ctx.db
+        .select()
+        .from(deal)
+        .where(eq(deal.id, input.dealId))
+        .limit(1);
+
+      if (!existingDeal) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Deal not found",
+        });
+      }
+
+      try {
+        await ctx.db.delete(deal).where(eq(deal.id, input.dealId));
+
+        return {
+          success: true,
+          message: "Deal deleted successfully",
+        };
+      } catch (error) {
+        console.error("Error deleting deal:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error ? error.message : "Failed to delete deal",
         });
       }
     }),
