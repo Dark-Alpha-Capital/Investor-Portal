@@ -7,7 +7,7 @@ import {
   investment,
   user,
 } from "@repo/db/schema";
-import { protectedProcedure, createTRPCRouter } from "../init";
+import { protectedProcedure, adminProcedure, createTRPCRouter } from "../init";
 import slugify from "slugify";
 import { getSession } from "@/lib/get-session";
 import { createDealSchema } from "@/lib/schemas/create-deal-schema";
@@ -16,6 +16,7 @@ import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { createClient } from "webdav";
 import { FileStat } from "webdav";
+import { revalidatePath } from "next/cache";
 
 export const dealsRouter = createTRPCRouter({
   getDeals: protectedProcedure.query(async ({ ctx }) => {
@@ -216,6 +217,9 @@ export const dealsRouter = createTRPCRouter({
           });
         }
 
+        revalidatePath(`/admin/deals/${dealId}`);
+        revalidatePath(`/admin/deals`);
+
         return {
           success: true,
           deal: updatedDeal,
@@ -258,18 +262,9 @@ export const dealsRouter = createTRPCRouter({
       }
     }),
 
-  delete: protectedProcedure
+  delete: adminProcedure
     .input(z.object({ dealId: z.string().min(1, "Deal ID is required") }))
     .mutation(async ({ input, ctx }) => {
-      // Check if user is admin
-      const session = await getSession();
-      if (!session?.user || session.user.role !== "admin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only administrators can delete deals",
-        });
-      }
-
       // Check if deal exists
       const [existingDeal] = await ctx.db
         .select()
@@ -285,7 +280,14 @@ export const dealsRouter = createTRPCRouter({
       }
 
       try {
+        // Delete from database first
         await ctx.db.delete(deal).where(eq(deal.id, input.dealId));
+
+        // Queue background job to delete the Nextcloud folder
+        // Use the deal name (same as used in create-deal handler)
+        await dealQueue.add("delete-deal", {
+          dealName: existingDeal.name,
+        });
 
         return {
           success: true,

@@ -62,3 +62,37 @@ export const protectedProcedure: typeof baseProcedure = baseProcedure.use(
     });
   }
 );
+
+/**
+ * Procedure that requires a logged-in admin user.
+ * It extends protectedProcedure and checks for admin role.
+ */
+export const adminProcedure: typeof protectedProcedure = protectedProcedure.use(
+  ({ ctx, next }) => {
+    if (!ctx.session?.user) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Only administrators can perform this action",
+      });
+    }
+
+    const user = ctx.session.user as typeof ctx.session.user & {
+      role?: string | null;
+    };
+
+    if (user.role !== "admin") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Only administrators can perform this action",
+      });
+    }
+
+    return next({
+      ctx: {
+        ...ctx,
+        session: ctx.session,
+        userId: ctx.userId!,
+      },
+    });
+  }
+);

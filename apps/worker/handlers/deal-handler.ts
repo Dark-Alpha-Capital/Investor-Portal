@@ -1,6 +1,7 @@
 import { Job } from "bullmq";
 import { createDealFolder } from "../lib/create-deal-folder";
 import { renameDealFolder } from "../lib/rename-deal-folder";
+import { deleteDealFolder } from "../lib/delete-deal-folder";
 import slugify from "slugify";
 
 const dealHandler = async (job: Job) => {
@@ -18,6 +19,11 @@ const dealHandler = async (job: Job) => {
     console.log("renaming deal folder", { oldDealName, newDealName });
     const folderPath = await renameDealFolder(oldDealName, newDealName);
     console.log("renamed folder", { folderPath });
+  } else if (job.name === "delete-deal") {
+    const { dealName } = job.data;
+    console.log("deleting deal folder", { dealName });
+    const folderPath = await deleteDealFolder(dealName);
+    console.log("deleted folder", { folderPath });
   } else {
     console.warn(`Unknown job type: ${job.name}`);
   }
