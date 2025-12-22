@@ -80,11 +80,8 @@ jobs:
               --platform managed \
               --region ${{ env.REGION }} \
               --allow-unauthenticated \
-              --cpu-always-allocated \
+              --no-cpu-throttling \
               --min-instances=1 \
-              --max-instances=10 \
-              --memory=512Mi \
-              --cpu=1 \
               --timeout=3600s \
               --set-env-vars "NODE_ENV=production,REDIS_URL=${{ secrets.REDIS_URL }},NEXTCLOUD_URL=${{ secrets.NEXTCLOUD_URL }},NEXTCLOUD_USER=${{ secrets.NEXTCLOUD_USER }},NEXTCLOUD_PASSWORD=${{ secrets.NEXTCLOUD_PASSWORD }}"
 
