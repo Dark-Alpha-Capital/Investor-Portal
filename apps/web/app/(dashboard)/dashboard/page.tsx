@@ -14,15 +14,6 @@ const DashboardPage = async () => {
     redirect("/login");
   }
 
-  // Check if user is admin (by role or email domain)
-  const isAdmin =
-    session.user.role === "admin" ||
-    session.user.email?.endsWith("@darkalphacapital.com");
-
-  if (isAdmin) {
-    redirect("/admin");
-  }
-
   const userData = await getUserWithKycStatus(session.user.id);
 
   if (!userData) {
