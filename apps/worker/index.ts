@@ -31,3 +31,30 @@ reportWorker.on("failed", (job, err) =>
 dealWorker.on("failed", (job, err) =>
   console.error(`Deal Job failed: ${err.message}`)
 );
+
+// Cloud Run requires the container to listen on PORT for health checks
+// Start a minimal HTTP server for health checks
+const port = parseInt(process.env.PORT || "8080", 10);
+
+Bun.serve({
+  port,
+  fetch(request) {
+    // Health check endpoint - Cloud Run will ping this
+    const url = new URL(request.url);
+    if (url.pathname === "/health" || url.pathname === "/") {
+      return new Response(
+        JSON.stringify({
+          status: "ok",
+          service: "bullmq-worker",
+          timestamp: new Date().toISOString(),
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+    return new Response("Not Found", { status: 404 });
+  },
+});
+
+console.log(`Health check server listening on port ${port}`);
