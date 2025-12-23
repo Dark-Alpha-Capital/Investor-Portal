@@ -106,6 +106,13 @@ const onboardingSubmit = new Hono().post("/", async (c) => {
       investorType: investorData.investorType as string,
       geographicFocus: (investorData.geographicFocus as string) || null,
 
+      // Step 2: Accreditation & Status
+      accreditationStatus: (investorData.accreditationStatus as string) || null,
+      accreditationMethod: (investorData.accreditationMethod as string) || null,
+      entityTaxId: (investorData.entityTaxId as string) || null,
+      entitySignatoryName: (investorData.entitySignatoryName as string) || null,
+      entitySignatoryTitle: (investorData.entitySignatoryTitle as string) || null,
+
       // Section 2: Independent Sponsor Fit
       openToEmergingSponsor: investorData.openToEmergingSponsor as string,
       minimumRequirements: (investorData.minimumRequirements as string) || null,

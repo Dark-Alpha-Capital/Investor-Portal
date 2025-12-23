@@ -678,10 +678,10 @@ export function KycDocuments({
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                {"Submitting..."}
+                {"Saving..."}
               </>
             ) : (
-              "Complete Onboarding"
+              "Save & Continue"
             )}
           </Button>
         </div>

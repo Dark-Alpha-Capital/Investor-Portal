@@ -2,6 +2,7 @@ import { Worker } from "bullmq";
 import IORedis from "ioredis";
 import { reportHandler } from "./handlers/report-handler";
 import dealHandler from "./handlers/deal-handler";
+import onboardingHandler from "./handlers/onboarding-handler";
 
 if (!process.env.REDIS_URL) {
   throw new Error("REDIS_URL environment variable is not set");
@@ -22,6 +23,11 @@ const dealWorker = new Worker("deal-queue", dealHandler, {
   concurrency: 10,
 });
 
+const onboardingWorker = new Worker("onboarding-queue", onboardingHandler, {
+  connection,
+  concurrency: 5, // Process 5 file uploads at a time
+});
+
 console.log("Workers are listening for jobs...");
 
 reportWorker.on("failed", (job, err) =>
@@ -30,6 +36,14 @@ reportWorker.on("failed", (job, err) =>
 
 dealWorker.on("failed", (job, err) =>
   console.error(`Deal Job failed: ${err.message}`)
+);
+
+onboardingWorker.on("failed", (job, err) =>
+  console.error(`Onboarding Job failed: ${err.message}`)
+);
+
+onboardingWorker.on("completed", (job) =>
+  console.log(`Onboarding Job ${job.id} completed successfully`)
 );
 
 // Cloud Run requires the container to listen on PORT for health checks

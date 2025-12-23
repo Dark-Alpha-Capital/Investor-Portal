@@ -26,3 +26,12 @@ export const reportQueue = new Queue("report-queue", {
 export const dealQueue = new Queue("deal-queue", {
   connection: redis,
 });
+
+// Queue 4: Onboarding File Upload Queue
+export const onboardingQueue = new Queue("onboarding-queue", {
+  connection: redis,
+  defaultJobOptions: {
+    attempts: 3, // Retry 3 times if it fails
+    backoff: { type: "exponential", delay: 2000 },
+  },
+});
