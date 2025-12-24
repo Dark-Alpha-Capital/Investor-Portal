@@ -12,7 +12,17 @@ import slugify from "slugify";
 import { getSession } from "@/lib/get-session";
 import { createDealSchema } from "@/lib/schemas/create-deal-schema";
 import { dealQueue } from "@/lib/redis";
-import { desc, eq, or, ne, isNull, and } from "drizzle-orm";
+import {
+  desc,
+  eq,
+  or,
+  ne,
+  isNull,
+  and,
+  ilike,
+  sql,
+  inArray,
+} from "drizzle-orm";
 import { z } from "zod";
 import { createClient } from "webdav";
 import { FileStat } from "webdav";
@@ -1048,6 +1058,158 @@ export const dealsRouter = createTRPCRouter({
       })),
     };
   }),
+
+  getMarketplaceDeals: protectedProcedure
+    .input(
+      z.object({
+        page: z.number().min(1).default(1),
+        limit: z.number().min(1).max(50).default(12),
+        search: z.string().optional(),
+        status: z.string().optional(),
+        sector: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { page, limit, search, status, sector } = input;
+      const offset = (page - 1) * limit;
+
+      // Get user's KYC status
+      const [userRecord] = await ctx.db
+        .select({ kycStatus: user.kycStatus })
+        .from(user)
+        .where(eq(user.id, ctx.session?.user?.id ?? ""))
+        .limit(1);
+
+      const isAccredited = userRecord?.kycStatus === "approved";
+
+      // Get user's invited deal IDs
+      const invitedDeals = await ctx.db
+        .select({
+          dealId: dealInvite.dealId,
+          curationNote: dealInvite.curationNote,
+        })
+        .from(dealInvite)
+        .where(eq(dealInvite.userId, ctx.session?.user?.id ?? ""));
+
+      const invitedDealIds = invitedDeals.map((d) => d.dealId);
+      const invitedDealNotes = new Map(
+        invitedDeals.map((d) => [d.dealId, d.curationNote])
+      );
+
+      // Build base conditions
+      const baseConditions = [ne(deal.status, "draft")];
+
+      // Add search filter
+      if (search && search.trim()) {
+        const searchTerm = `%${search.trim()}%`;
+        baseConditions.push(
+          or(
+            ilike(deal.name, searchTerm),
+            ilike(deal.teaserSummary, searchTerm),
+            ilike(deal.description, searchTerm),
+            ilike(deal.sector, searchTerm),
+            ilike(deal.geography, searchTerm)
+          )!
+        );
+      }
+
+      // Add status filter
+      if (status && status !== "all") {
+        baseConditions.push(
+          eq(
+            deal.status,
+            status as
+              | "draft"
+              | "coming_soon"
+              | "live"
+              | "closing"
+              | "funded"
+              | "exited"
+              | "cancelled"
+          )
+        );
+      }
+
+      // Add sector filter
+      if (sector && sector !== "all") {
+        baseConditions.push(ilike(deal.sector, sector));
+      }
+
+      // Build visibility conditions
+      // User can see: public deals, accredited deals (if approved), and deals they're invited to
+      const visibilityConditions = [eq(deal.visibility, "public")];
+
+      if (isAccredited) {
+        visibilityConditions.push(eq(deal.visibility, "accredited"));
+      }
+
+      if (invitedDealIds.length > 0) {
+        visibilityConditions.push(inArray(deal.id, invitedDealIds));
+      }
+
+      // Combine all conditions
+      const whereCondition = and(
+        ...baseConditions,
+        or(...visibilityConditions)
+      );
+
+      // Get total count
+      const [countResult] = await ctx.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(deal)
+        .where(whereCondition);
+
+      const totalCount = countResult?.count ?? 0;
+      const totalPages = Math.ceil(totalCount / limit);
+
+      // Get paginated deals
+      const deals = await ctx.db
+        .select()
+        .from(deal)
+        .where(whereCondition)
+        .orderBy(desc(deal.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      // Get unique sectors for filter dropdown
+      const sectorsResult = await ctx.db
+        .selectDistinct({ sector: deal.sector })
+        .from(deal)
+        .where(and(ne(deal.status, "draft"), or(...visibilityConditions)));
+
+      const sectors = sectorsResult
+        .map((s) => s.sector)
+        .filter((s): s is string => s !== null)
+        .sort();
+
+      return {
+        success: true,
+        deals: deals.map((dealRecord) => ({
+          ...dealRecord,
+          createdAt: dealRecord.createdAt.toISOString(),
+          updatedAt: dealRecord.updatedAt?.toISOString() ?? null,
+          launchDate: dealRecord.launchDate?.toISOString() ?? null,
+          closeDate: dealRecord.closeDate?.toISOString() ?? null,
+          targetRaise: dealRecord.targetRaise?.toString() ?? null,
+          minInvestment: dealRecord.minInvestment?.toString() ?? null,
+          targetIrr: dealRecord.targetIrr?.toString() ?? null,
+          targetMoic: dealRecord.targetMoic?.toString() ?? null,
+          isCurated: invitedDealIds.includes(dealRecord.id),
+          curationNote: invitedDealNotes.get(dealRecord.id) ?? null,
+        })),
+        pagination: {
+          page,
+          limit,
+          totalCount,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+        filters: {
+          sectors,
+        },
+      };
+    }),
 
   getCuratedDeals: protectedProcedure.query(async ({ ctx }) => {
     if (!ctx.session?.user) {

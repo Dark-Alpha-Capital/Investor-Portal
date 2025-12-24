@@ -3,6 +3,7 @@ import IORedis from "ioredis";
 import { reportHandler } from "./handlers/report-handler";
 import dealHandler from "./handlers/deal-handler";
 import onboardingHandler from "./handlers/onboarding-handler";
+import emailHandler from "./handlers/email-handler";
 
 if (!process.env.REDIS_URL) {
   throw new Error("REDIS_URL environment variable is not set");
@@ -28,6 +29,11 @@ const onboardingWorker = new Worker("onboarding-queue", onboardingHandler, {
   concurrency: 5, // Process 5 file uploads at a time
 });
 
+const emailWorker = new Worker("email-queue", emailHandler, {
+  connection,
+  concurrency: 10, // Process 10 emails at a time
+});
+
 console.log("Workers are listening for jobs...");
 
 reportWorker.on("failed", (job, err) =>
@@ -44,6 +50,14 @@ onboardingWorker.on("failed", (job, err) =>
 
 onboardingWorker.on("completed", (job) =>
   console.log(`Onboarding Job ${job.id} completed successfully`)
+);
+
+emailWorker.on("failed", (job, err) =>
+  console.error(`Email Job failed: ${err.message}`)
+);
+
+emailWorker.on("completed", (job) =>
+  console.log(`Email Job ${job.id} completed successfully`)
 );
 
 // Cloud Run requires the container to listen on PORT for health checks

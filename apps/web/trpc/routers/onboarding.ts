@@ -3,8 +3,17 @@ import { randomUUID } from "crypto";
 import { protectedProcedure, createTRPCRouter } from "../init";
 import { onboarding, user } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
-import { onboardingQueue } from "@/lib/redis";
+import { onboardingQueue, emailQueue } from "@/lib/redis";
 import { TRPCError } from "@trpc/server";
+import {
+  EMAIL_CONFIG,
+  type OnboardingInvestorConfirmationJobData,
+  type OnboardingAdminNotificationJobData,
+} from "@repo/mail/types";
+
+// Admin email for onboarding notifications - can be configured via env var
+const ADMIN_NOTIFICATION_EMAIL =
+  process.env.ADMIN_NOTIFICATION_EMAIL || EMAIL_CONFIG.defaultAdminEmail;
 
 // Zod schema matching InvestorData type
 const investorDataSchema = z.object({
@@ -363,6 +372,42 @@ export const onboardingRouter = createTRPCRouter({
           message: "No files to upload, there should be kyc files to upload",
         });
       }
+
+      // Queue notification emails via BullMQ
+      const investorEmailData: OnboardingInvestorConfirmationJobData = {
+        type: "onboarding-investor-confirmation",
+        to: investorData.primaryContactEmail,
+        primaryContactName: investorData.primaryContactName,
+        organizationName: investorData.organizationName,
+      };
+
+      const adminEmailData: OnboardingAdminNotificationJobData = {
+        type: "onboarding-admin-notification",
+        to: ADMIN_NOTIFICATION_EMAIL,
+        organizationName: investorData.organizationName,
+        primaryContactName: investorData.primaryContactName,
+        primaryContactEmail: investorData.primaryContactEmail,
+        primaryContactPhone: investorData.primaryContactPhone,
+        investorType: investorData.investorType,
+        capitalProviderType: investorData.capitalProviderType,
+        onboardingId,
+        fileCount: files.length,
+        submittedAt: new Date().toISOString(),
+      };
+
+      //emails will be sent to the investor and the admin notifying each of them of the submission
+      await Promise.all([
+        emailQueue.add("onboarding-investor-confirmation", investorEmailData, {
+          removeOnComplete: { age: 24 * 3600, count: 1000 },
+          removeOnFail: { age: 7 * 24 * 3600 },
+        }),
+        emailQueue.add("onboarding-admin-notification", adminEmailData, {
+          removeOnComplete: { age: 24 * 3600, count: 1000 },
+          removeOnFail: { age: 7 * 24 * 3600 },
+        }),
+      ]);
+
+      console.log("Onboarding notification emails queued successfully");
 
       return {
         success: true,

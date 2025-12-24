@@ -1,0 +1,23 @@
+{
+  "name": "@repo/mail",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./index.ts",
+    "./emails": "./emails/index.ts",
+    "./types": "./types.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@repo/typescript-config": "*"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@react-email/components": "^0.0.31",
+    "react": "^19.0.0",
+    "resend": "^6.5.2"
+  }
+}
