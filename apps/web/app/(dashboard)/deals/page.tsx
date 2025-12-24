@@ -53,16 +53,19 @@ const DealsPage = async ({ searchParams }: { searchParams: SearchParams }) => {
   const status = params.status && params.status !== "all" ? params.status : undefined;
   const sector = params.sector && params.sector !== "all" ? params.sector : undefined;
 
-  // Prefetch the deals query on the server
-  prefetch(
-    trpc.deals.getMarketplaceDeals.queryOptions({
+  // Prefetch the deals query on the server with cache settings
+  // These settings should match the client-side useQuery settings
+  prefetch({
+    ...trpc.deals.getMarketplaceDeals.queryOptions({
       page,
       limit: 12,
       search,
       status,
       sector,
-    })
-  );
+    }),
+    staleTime: 2 * 60 * 1000,  // Data fresh for 2 minutes
+    gcTime: 10 * 60 * 1000,    // Keep in cache for 10 minutes
+  });
 
   return (
     <HydrateClient>

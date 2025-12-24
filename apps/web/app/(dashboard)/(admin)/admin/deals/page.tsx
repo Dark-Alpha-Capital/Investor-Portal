@@ -32,16 +32,18 @@ const DealsPage = async ({ searchParams }: { searchParams: SearchParams }) => {
   const status = params.dealsStatus && params.dealsStatus !== "all" ? params.dealsStatus : undefined;
   const visibility = params.dealsVisibility && params.dealsVisibility !== "all" ? params.dealsVisibility : undefined;
 
-  // Prefetch the deals query on the server
-  prefetch(
-    trpc.admin.getDeals.queryOptions({
+  // Prefetch the deals query on the server with cache settings
+  prefetch({
+    ...trpc.admin.getDeals.queryOptions({
       page,
       limit: 12,
       search,
       status,
       visibility,
-    })
-  );
+    }),
+    staleTime: 2 * 60 * 1000,  // Data fresh for 2 minutes
+    gcTime: 10 * 60 * 1000,    // Keep in cache for 10 minutes
+  });
 
   return (
     <HydrateClient>

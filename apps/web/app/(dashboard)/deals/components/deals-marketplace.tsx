@@ -91,16 +91,21 @@ export function DealsMarketplace() {
     debouncedSearch(value);
   };
 
-  // Query for paginated deals
-  const { data, isLoading, isError, error } = useQuery(
-    trpc.deals.getMarketplaceDeals.queryOptions({
+  // Query for paginated deals with caching
+  const { data, isLoading, isFetching, isError, error } = useQuery({
+    ...trpc.deals.getMarketplaceDeals.queryOptions({
       page: currentPage,
       limit: ITEMS_PER_PAGE,
       search: searchParam || undefined,
       status: status !== "all" ? status : undefined,
       sector: sector !== "all" ? sector : undefined,
-    })
-  );
+    }),
+    // Cache settings for deals marketplace
+    staleTime: 2 * 60 * 1000, // Data fresh for 2 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnMount: false, // Don't refetch if data exists in cache
+    placeholderData: (previousData) => previousData, // Keep showing old data while fetching new
+  });
 
   const deals = data?.deals ?? [];
   const pagination = data?.pagination ?? {
@@ -256,6 +261,10 @@ export function DealsMarketplace() {
             </>
           )}
         </p>
+        {/* Background fetch indicator */}
+        {isFetching && !isLoading && (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        )}
       </div>
 
       {/* Loading State */}
@@ -299,7 +308,11 @@ export function DealsMarketplace() {
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
-                    href={pagination.hasPrevPage ? getPageUrl(currentPage - 1) : undefined}
+                    href={
+                      pagination.hasPrevPage
+                        ? getPageUrl(currentPage - 1)
+                        : undefined
+                    }
                     onClick={(e) => {
                       if (!pagination.hasPrevPage) {
                         e.preventDefault();
@@ -308,7 +321,11 @@ export function DealsMarketplace() {
                       e.preventDefault();
                       handlePageChange(currentPage - 1);
                     }}
-                    className={!pagination.hasPrevPage ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    className={
+                      !pagination.hasPrevPage
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
                   />
                 </PaginationItem>
 
@@ -336,7 +353,11 @@ export function DealsMarketplace() {
 
                 <PaginationItem>
                   <PaginationNext
-                    href={pagination.hasNextPage ? getPageUrl(currentPage + 1) : undefined}
+                    href={
+                      pagination.hasNextPage
+                        ? getPageUrl(currentPage + 1)
+                        : undefined
+                    }
                     onClick={(e) => {
                       if (!pagination.hasNextPage) {
                         e.preventDefault();
@@ -345,7 +366,11 @@ export function DealsMarketplace() {
                       e.preventDefault();
                       handlePageChange(currentPage + 1);
                     }}
-                    className={!pagination.hasNextPage ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    className={
+                      !pagination.hasNextPage
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
                   />
                 </PaginationItem>
               </PaginationContent>

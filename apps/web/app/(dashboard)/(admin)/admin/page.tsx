@@ -66,26 +66,34 @@ const AdminPage = async ({ searchParams }: { searchParams: SearchParams }) => {
     ? params.adminsStatus
     : undefined;
 
-  // Prefetch both queries on the server
-  prefetch(
-    trpc.admin.getInvestors.queryOptions({
+  // Cache settings for admin queries
+  const cacheSettings = {
+    staleTime: 2 * 60 * 1000,  // Data fresh for 2 minutes
+    gcTime: 10 * 60 * 1000,    // Keep in cache for 10 minutes
+  };
+
+  // Prefetch both queries on the server with cache settings
+  prefetch({
+    ...trpc.admin.getInvestors.queryOptions({
       page: investorsPage,
       limit: 12,
       search: investorsSearch,
       kycStatus: investorsKycStatus,
       verified: investorsVerified,
-    })
-  );
+    }),
+    ...cacheSettings,
+  });
 
-  prefetch(
-    trpc.admin.getAdmins.queryOptions({
+  prefetch({
+    ...trpc.admin.getAdmins.queryOptions({
       page: adminsPage,
       limit: 12,
       search: adminsSearch,
       verified: adminsVerified,
       status: adminsStatus,
-    })
-  );
+    }),
+    ...cacheSettings,
+  });
 
   return (
     <HydrateClient>

@@ -551,16 +551,21 @@ export function DealsTable() {
     paramKey: "dealsSearch",
   });
 
-  // Fetch deals with React Query
-  const { data, isLoading, isFetching, refetch } = useQuery(
-    trpc.admin.getDeals.queryOptions({
+  // Fetch deals with React Query and cache settings
+  const { data, isLoading, isFetching, refetch } = useQuery({
+    ...trpc.admin.getDeals.queryOptions({
       page,
       limit: 12,
       search: search || undefined,
       status: status !== "all" ? status : undefined,
       visibility: visibility !== "all" ? visibility : undefined,
-    })
-  );
+    }),
+    // Cache settings
+    staleTime: 2 * 60 * 1000,      // Data fresh for 2 minutes
+    gcTime: 10 * 60 * 1000,        // Keep in cache for 10 minutes
+    refetchOnMount: false,         // Don't refetch if data exists in cache
+    placeholderData: (previousData) => previousData, // Keep showing old data while fetching new
+  });
 
   const deals = data?.deals ?? [];
   const pagination = data?.pagination;

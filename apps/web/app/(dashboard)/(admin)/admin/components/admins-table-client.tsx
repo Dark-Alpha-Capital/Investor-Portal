@@ -364,15 +364,20 @@ export function AdminsTableClient() {
   });
 
   // Fetch admins with React Query
-  const { data, isLoading, isFetching } = useQuery(
-    trpc.admin.getAdmins.queryOptions({
+  const { data, isLoading, isFetching } = useQuery({
+    ...trpc.admin.getAdmins.queryOptions({
       page,
       limit: 12,
       search: search || undefined,
       verified: verified !== "all" ? verified : undefined,
       status: status !== "all" ? status : undefined,
-    })
-  );
+    }),
+    // Cache settings
+    staleTime: 2 * 60 * 1000,      // Data fresh for 2 minutes
+    gcTime: 10 * 60 * 1000,        // Keep in cache for 10 minutes
+    refetchOnMount: false,         // Don't refetch if data exists in cache
+    placeholderData: (previousData) => previousData, // Keep showing old data while fetching new
+  });
 
   const admins = data?.admins ?? [];
   const pagination = data?.pagination;

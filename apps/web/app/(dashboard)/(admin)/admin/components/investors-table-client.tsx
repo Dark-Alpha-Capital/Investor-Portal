@@ -363,15 +363,20 @@ export function InvestorsTableClient() {
   };
 
   // Query for paginated investors
-  const { data, isLoading, isError, error } = useQuery(
-    trpc.admin.getInvestors.queryOptions({
+  const { data, isLoading, isFetching, isError, error } = useQuery({
+    ...trpc.admin.getInvestors.queryOptions({
       page: currentPage,
       limit: ITEMS_PER_PAGE,
       search: searchParam || undefined,
       kycStatus: kycStatus !== "all" ? kycStatus : undefined,
       verified: verified !== "all" ? verified : undefined,
-    })
-  );
+    }),
+    // Cache settings
+    staleTime: 2 * 60 * 1000,      // Data fresh for 2 minutes
+    gcTime: 10 * 60 * 1000,        // Keep in cache for 10 minutes
+    refetchOnMount: false,         // Don't refetch if data exists in cache
+    placeholderData: (previousData) => previousData, // Keep showing old data while fetching new
+  });
 
   const investors = data?.investors ?? [];
   const pagination = data?.pagination ?? {
@@ -538,6 +543,10 @@ export function InvestorsTableClient() {
             </>
           )}
         </p>
+        {/* Background fetch indicator */}
+        {isFetching && !isLoading && (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        )}
       </div>
 
       {/* Loading State */}
