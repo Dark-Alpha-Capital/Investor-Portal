@@ -6,6 +6,7 @@ import { DashboardSidebar } from "@/components/dashboard-siderbar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { montserrat, raleway, fira_code } from "@/app/fonts";
 import { TRPCReactProvider } from "@/trpc/client";
+import { JobTrackingProvider } from "@/contexts/job-tracking-context";
 
 export const metadata: Metadata = {
   title: "Investors Dark Alpha Capital",
@@ -30,8 +31,10 @@ export default function RootLayout({
         >
           <SidebarProvider>
             <TRPCReactProvider>
-              <DashboardSidebar />
-              <main className="flex-1">{children}</main>
+              <JobTrackingProvider>
+                <DashboardSidebar />
+                <main className="flex-1">{children}</main>
+              </JobTrackingProvider>
             </TRPCReactProvider>
           </SidebarProvider>
           <Toaster />

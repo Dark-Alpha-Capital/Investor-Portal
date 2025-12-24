@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { nextCookies } from "better-auth/next-js";
 import { createAuthMiddleware } from "better-auth/api";
 import { admin, customSession } from "better-auth/plugins";
-import { sendEmail } from "./lib/mail";
+import { sendEmailDirect } from "@repo/mail";
 
 // Type definitions for database hooks
 // Better Auth passes user data with Record<string, unknown> for extensibility
@@ -50,7 +50,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
       }: { user: { email: string }; url: string; token: string },
       request?: unknown
     ) => {
-      void sendEmail(
+      void sendEmailDirect(
         user.email,
         "Reset your password",
         `<p>Click the link to reset your password: <a href="${url}">${url}</a></p>
@@ -72,7 +72,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
       }: { user: { email: string }; url: string; token: string },
       request?: unknown
     ) => {
-      void sendEmail(
+      void sendEmailDirect(
         user.email,
         "Verify your email address",
         `<p>Click the link to verify your email: <a href="${url}">${url}</a></p>`

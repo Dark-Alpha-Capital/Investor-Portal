@@ -2,13 +2,23 @@
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { Card } from "@/components/ui/card";
+import { z } from "zod";
+import { Loader2 } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { StepIndicator } from "./step-indicator";
-import { InvestorQuestionnaire } from "./investor-questionaire";
+import { Step1AccountProfile } from "./steps/step-1-account-profile";
+import { Step2Accreditation } from "./steps/step-2-accreditation";
+import { Step4InvestmentProfile } from "./steps/step-4-investment-profile";
 import { KycDocuments } from "./kyc-documents";
 import { OnboardingComplete } from "./onboarding-complete";
-import { authClient } from "@/lib/auth-client";
+import { JobProgressTracker } from "./components/job-progress-tracker";
+import { useTRPC } from "@/trpc/client";
+import { useJobTracking } from "@/contexts/job-tracking-context";
+import { toast } from "sonner";
 
 export type InvestorData = {
   // Section 1: Investor / Lender Details
@@ -20,6 +30,13 @@ export type InvestorData = {
   capitalProviderType: string;
   investorType: string;
   geographicFocus: string;
+
+  // Step 2: Accreditation & Status
+  accreditationStatus?: string;
+  accreditationMethod?: string;
+  entityTaxId?: string;
+  entitySignatoryName?: string;
+  entitySignatoryTitle?: string;
 
   // Section 2: Independent Sponsor Fit
   openToEmergingSponsor: string;
@@ -75,6 +92,11 @@ export type InvestorData = {
   sectorsToAvoid: string;
   dealSizeThresholds: string;
   specificThemes: string;
+
+  // Step 5: Legal & E-Sign
+  legalDocumentsAcknowledged?: boolean;
+  electronicSignatureName?: string;
+  electronicSignatureDate?: string;
 };
 
 export type KycData = {
@@ -118,9 +140,26 @@ export type KycData = {
   fatcaCrsPartnership: File | null;
 };
 
-const TOTAL_STEPS = 2;
+const TOTAL_STEPS = 5;
 const STORAGE_KEY_INVESTOR_DATA = "onboarding_investor_data";
 const STORAGE_KEY_STEP = "onboarding_current_step";
+
+const legalSchema = z.object({
+  agree: z
+    .literal(true)
+    .or(z.literal(false))
+    .superRefine((val, ctx) => {
+      if (!val) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "You must agree to the legal disclosures to continue",
+          path: [],
+        });
+      }
+    }),
+  name: z.string().min(1, "Signature (full legal name) is required").trim(),
+  date: z.string().min(1, "Signature date is required"),
+});
 
 type OnboardingFlowProps = {
   readOnly?: boolean;
@@ -142,6 +181,66 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
 
   // Transition for form submission
   const [isSubmitting, startSubmission] = useTransition();
+
+  const [legalData, setLegalData] = useState({
+    agree: false,
+    name: "",
+    date: "",
+  });
+  const [legalErrors, setLegalErrors] = useState<Record<string, string>>({});
+
+  // tRPC hook
+  const trpc = useTRPC();
+
+  // Job tracking context
+  const { addJob, getJob } = useJobTracking();
+  const [submittedJobId, setSubmittedJobId] = useState<string | null>(null);
+
+  // tRPC mutations
+  const { mutate: submitOnboarding, isPending: isSubmittingOnboarding } =
+    useMutation(
+      trpc.onboarding.submit.mutationOptions({
+        onSuccess: (data) => {
+          console.log("Onboarding submitted successfully:", data);
+          // Clear localStorage after successful submission
+          // clearLocalStorage();
+          // If there are files, add job to tracking
+          const jobId = (data as { jobId?: string }).jobId;
+          addJob(jobId as string);
+          setSubmittedJobId(jobId as string);
+          toast.success("Onboarding submitted successfully");
+        },
+        onError: (error) => {
+          console.error("Onboarding submission error:", error);
+          toast.error(error.message);
+        },
+      })
+    );
+
+  // Watch job completion from context to mark onboarding as complete
+  useEffect(() => {
+    if (!submittedJobId) return;
+
+    const checkJob = () => {
+      const job = getJob(submittedJobId);
+      if (job) {
+        if (job.state === "completed") {
+          setIsComplete(true);
+          setSubmittedJobId(null);
+          clearLocalStorage();
+          return;
+        }
+        // Note: We don't mark as complete on failure because
+        // the onboarding data was still submitted successfully
+        // The user can see the error in the job tracker
+      } else {
+        // Job not found in context yet, check again
+        setTimeout(checkJob, 1000);
+      }
+    };
+
+    checkJob();
+  }, [submittedJobId, getJob]);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -242,102 +341,229 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
   const handleInvestorSubmit = (data: InvestorData) => {
     if (readOnly) return;
     startNavigation(() => {
-      setInvestorData(data);
+      // Merge with any existing data so each step adds to the full picture
+      setInvestorData((prev) => ({
+        ...prev,
+        ...data,
+      }));
       const params = new URLSearchParams(searchParams.toString());
-      params.set("step", "2");
+      const nextStep = Math.min(currentStep + 1, TOTAL_STEPS);
+      params.set("step", nextStep.toString());
       router.push(`${pathname}?${params.toString()}`);
     });
   };
 
   const handleKycSubmit = async (data: KycData) => {
     if (readOnly) return;
-    startSubmission(async () => {
+    // Save KYC data and move to next step (no network call yet)
+    startNavigation(() => {
       setKycData(data);
-
-      try {
-        // Get current session to obtain userId
-        const session = await authClient.getSession();
-
-        if (!session?.data?.user?.id) {
-          throw new Error("You must be logged in to submit onboarding data");
-        }
-
-        const userId = session.data.user.id;
-
-        // Convert files to base64
-        const filesToProcess: Array<{
-          documentType: string;
-          name: string;
-          type: string;
-          size: number;
-          buffer: string; // base64 encoded
-        }> = [];
-
-        for (const [key, value] of Object.entries(data)) {
-          if (value instanceof File) {
-            const arrayBuffer = await value.arrayBuffer();
-
-            // Convert ArrayBuffer to base64 (browser-compatible)
-            const bytes = new Uint8Array(arrayBuffer);
-            const binary = bytes.reduce(
-              (acc, byte) => acc + String.fromCharCode(byte),
-              ""
-            );
-            const base64Buffer = btoa(binary);
-
-            filesToProcess.push({
-              documentType: key,
-              name: value.name,
-              type: value.type,
-              size: value.size,
-              buffer: base64Buffer,
-            });
-          }
-        }
-
-        // Prepare payload
-        const payload = {
-          userId,
-          investorData,
-          files: filesToProcess,
-        };
-
-        // Get server URL from environment or use default
-        const serverUrl =
-          process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:8080";
-
-        // Submit directly to server
-        const response = await fetch(`${serverUrl}/api/onboarding/submit`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(
-            errorData.message || "Failed to submit onboarding data"
-          );
-        }
-
-        const result = await response.json();
-        console.log("Onboarding submission successful:", result);
-
-        // Clear localStorage after successful submission
-        clearLocalStorage();
-        setIsComplete(true);
-      } catch (error) {
-        console.error("Submission error:", error);
-        alert(
-          error instanceof Error
-            ? `Failed to submit: ${error.message}`
-            : "Failed to submit onboarding data. Please try again."
-        );
-      }
+      const params = new URLSearchParams(searchParams.toString());
+      const nextStep = Math.min(currentStep + 1, TOTAL_STEPS);
+      params.set("step", nextStep.toString());
+      router.push(`${pathname}?${params.toString()}`);
     });
+  };
+
+  const handleFinalSubmit = async (
+    overrideInvestor?: Partial<InvestorData>
+  ) => {
+    if (readOnly) return;
+
+    try {
+      // Convert files to base64
+      const filesToProcess: Array<{
+        documentType: string;
+        name: string;
+        type: string;
+        size: number;
+        buffer: string; // base64 encoded
+      }> = [];
+
+      for (const [key, value] of Object.entries(kycData)) {
+        if (value instanceof File) {
+          const arrayBuffer = await value.arrayBuffer();
+
+          // Convert ArrayBuffer to base64 (browser-compatible)
+          const bytes = new Uint8Array(arrayBuffer);
+          const binary = bytes.reduce(
+            (acc, byte) => acc + String.fromCharCode(byte),
+            ""
+          );
+          const base64Buffer = btoa(binary);
+
+          filesToProcess.push({
+            documentType: key,
+            name: value.name,
+            type: value.type,
+            size: value.size,
+            buffer: base64Buffer,
+          });
+        }
+      }
+
+      // Merge all investor data
+      const mergedData = {
+        ...investorData,
+        ...overrideInvestor,
+      };
+
+      // Validate that all required fields are present
+      const requiredFields: (keyof InvestorData)[] = [
+        "organizationName",
+        "primaryContactName",
+        "primaryContactEmail",
+        "primaryContactPhone",
+        "capitalProviderType",
+        "investorType",
+        "openToEmergingSponsor",
+        "priorDealAttribution",
+        "ndaPreference",
+        "timingToLOI",
+        "timingToCommitment",
+        "economicsDescription",
+        "preferredRole",
+        "provideSupportLetter",
+        "joinBrokerConversations",
+        "supportLetterStages",
+        "receiveUpdates",
+        "equityCheckSize",
+        "preferredOwnership",
+        "transactionTypes",
+        "revenueCharacteristics",
+        "assetProfile",
+        "sectorsOfInterest",
+      ];
+
+      const missingFields: string[] = [];
+      for (const field of requiredFields) {
+        const value = mergedData[field];
+        if (
+          value === undefined ||
+          value === null ||
+          (typeof value === "string" && value.trim() === "") ||
+          (Array.isArray(value) && value.length === 0)
+        ) {
+          missingFields.push(field);
+        }
+      }
+
+      if (missingFields.length > 0) {
+        alert(
+          `Please complete all required fields before submitting. Missing: ${missingFields.join(", ")}`
+        );
+        // Navigate to the first step with missing data
+        if (
+          missingFields.some((f) =>
+            [
+              "organizationName",
+              "primaryContactName",
+              "primaryContactEmail",
+              "primaryContactPhone",
+              "capitalProviderType",
+              "investorType",
+            ].includes(f)
+          )
+        ) {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("step", "1");
+          router.push(`${pathname}?${params.toString()}`);
+        } else if (
+          missingFields.some((f) =>
+            [
+              "openToEmergingSponsor",
+              "priorDealAttribution",
+              "ndaPreference",
+              "accreditationStatus",
+              "accreditationMethod",
+            ].includes(f)
+          )
+        ) {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("step", "2");
+          router.push(`${pathname}?${params.toString()}`);
+        } else {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("step", "4");
+          router.push(`${pathname}?${params.toString()}`);
+        }
+        return;
+      }
+
+      // Ensure all fields have default values for optional ones and required fields are present
+      const fullInvestorData: InvestorData = {
+        // Required fields - these should be validated above
+        organizationName: mergedData.organizationName ?? "",
+        primaryContactName: mergedData.primaryContactName ?? "",
+        primaryContactEmail: mergedData.primaryContactEmail ?? "",
+        primaryContactPhone: mergedData.primaryContactPhone ?? "",
+        capitalProviderType: mergedData.capitalProviderType ?? "",
+        investorType: mergedData.investorType ?? "",
+        openToEmergingSponsor: mergedData.openToEmergingSponsor ?? "",
+        priorDealAttribution: mergedData.priorDealAttribution ?? "",
+        ndaPreference: mergedData.ndaPreference ?? "",
+        timingToLOI: mergedData.timingToLOI ?? "",
+        timingToCommitment: mergedData.timingToCommitment ?? "",
+        economicsDescription: mergedData.economicsDescription ?? "",
+        preferredRole: mergedData.preferredRole ?? "",
+        provideSupportLetter: mergedData.provideSupportLetter ?? "",
+        joinBrokerConversations: mergedData.joinBrokerConversations ?? "",
+        supportLetterStages: mergedData.supportLetterStages ?? [],
+        receiveUpdates: mergedData.receiveUpdates ?? "",
+        equityCheckSize: mergedData.equityCheckSize ?? "",
+        preferredOwnership: mergedData.preferredOwnership ?? "",
+        transactionTypes: mergedData.transactionTypes ?? [],
+        revenueCharacteristics: mergedData.revenueCharacteristics ?? "",
+        assetProfile: mergedData.assetProfile ?? "",
+        sectorsOfInterest: mergedData.sectorsOfInterest ?? "",
+
+        // Optional fields with defaults
+        primaryContactTitle: mergedData.primaryContactTitle ?? "",
+        geographicFocus: mergedData.geographicFocus ?? "",
+        accreditationStatus: mergedData.accreditationStatus,
+        accreditationMethod: mergedData.accreditationMethod,
+        entityTaxId: mergedData.entityTaxId,
+        entitySignatoryName: mergedData.entitySignatoryName,
+        entitySignatoryTitle: mergedData.entitySignatoryTitle,
+        minimumRequirements: mergedData.minimumRequirements ?? "",
+        priorDealAttributionExplanation:
+          mergedData.priorDealAttributionExplanation ?? "",
+        ndaLimitations: mergedData.ndaLimitations ?? "",
+        timingDrivers: mergedData.timingDrivers ?? "",
+        governanceExpectations: mergedData.governanceExpectations ?? "",
+        updateFrequency: mergedData.updateFrequency ?? "",
+        updateFormat: mergedData.updateFormat ?? [],
+        industryPreferences: mergedData.industryPreferences ?? "",
+        enterpriseValueRange: mergedData.enterpriseValueRange ?? "",
+        ebitdaRange: mergedData.ebitdaRange ?? "",
+        typicalHoldPeriod: mergedData.typicalHoldPeriod ?? "",
+        leverageTolerance: mergedData.leverageTolerance ?? "",
+        customerConcentration: mergedData.customerConcentration ?? "",
+        marginsAndCashFlow: mergedData.marginsAndCashFlow ?? "",
+        managementInvolvement: mergedData.managementInvolvement ?? "",
+        sectorsToAvoid: mergedData.sectorsToAvoid ?? "",
+        dealSizeThresholds: mergedData.dealSizeThresholds ?? "",
+        specificThemes: mergedData.specificThemes ?? "",
+        legalDocumentsAcknowledged: mergedData.legalDocumentsAcknowledged,
+        electronicSignatureName: mergedData.electronicSignatureName,
+        electronicSignatureDate: mergedData.electronicSignatureDate,
+      };
+
+      console.log("fullInvestorData", fullInvestorData);
+
+      // Submit via tRPC
+      submitOnboarding({
+        investorData: fullInvestorData,
+        files: filesToProcess,
+      });
+    } catch (error) {
+      console.error("Submission error:", error);
+      alert(
+        error instanceof Error
+          ? `Failed to submit: ${error.message}`
+          : "Failed to submit onboarding data. Please try again."
+      );
+    }
   };
 
   const handleBack = () => {
@@ -366,60 +592,68 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
 
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-3xl mx-auto space-y-8">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex-1"></div>
-            <div className="flex-1 text-center">
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">
-                {readOnly
-                  ? "Onboarding Form (View Only)"
-                  : "Investor Onboarding"}
-              </h1>
-              <p className="text-muted-foreground text-balance">
-                {readOnly
-                  ? "View the onboarding form structure and questions"
-                  : "Complete your profile to start your investment journey"}
-              </p>
-            </div>
-            {!readOnly && (
-              <div className="flex-1 flex justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleReset}
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                >
-                  Reset Form
-                </Button>
-              </div>
-            )}
+        <div className="flex justify-between items-start gap-4">
+          <div className="flex-1" />
+          <div className="flex-1 text-center space-y-2">
+            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+              {readOnly ? "Onboarding Form (View Only)" : "Investor Onboarding"}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {readOnly
+                ? "View the onboarding form structure and questions."
+                : "Complete your profile to start your investment journey."}
+            </p>
           </div>
+          {!readOnly && (
+            <div className="flex-1 flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleReset}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                Reset form
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Progress Indicator */}
-        <StepIndicator currentStep={currentStep} totalSteps={TOTAL_STEPS} />
+        <StepIndicator
+          currentStep={currentStep}
+          totalSteps={TOTAL_STEPS}
+          onStepClick={readOnly ? undefined : navigateToStep}
+        />
 
-        {/* Step Content */}
-        <Card className="p-6 sm:p-8 mt-8 relative">
-          {(isNavigating || isSubmitting) && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-              <div className="text-center">
-                <p className="text-muted-foreground">
-                  {isNavigating ? "Loading..." : "Submitting..."}
-                </p>
-              </div>
-            </div>
-          )}
+        {(isNavigating || isSubmittingOnboarding) && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>
+              {isSubmittingOnboarding ? "Submitting..." : "Loading..."}
+            </span>
+          </div>
+        )}
+
+        <JobProgressTracker />
+
+        <div className="mt-4">
           {currentStep === 1 && (
-            <InvestorQuestionnaire
+            <Step1AccountProfile
               initialData={investorData}
               onSubmit={handleInvestorSubmit}
             />
           )}
           {currentStep === 2 && (
+            <Step2Accreditation
+              initialData={investorData}
+              onSubmit={handleInvestorSubmit}
+              onBack={handleBack}
+            />
+          )}
+          {currentStep === 3 && (
             <KycDocuments
               initialData={kycData}
               investorType={investorData.investorType || ""}
@@ -428,7 +662,155 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
               isSubmitting={isSubmitting}
             />
           )}
-        </Card>
+          {currentStep === 4 && (
+            <Step4InvestmentProfile
+              initialData={investorData}
+              onSubmit={handleInvestorSubmit}
+              onBack={handleBack}
+            />
+          )}
+          {currentStep === 5 && !readOnly && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">
+                  Legal Disclosures & E-Sign
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Please confirm that you have reviewed the offering documents
+                  and consent to electronic signatures.
+                </p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                In the next release, this step will be wired to full PPM /
+                Operating Agreement / Subscription Agreement review and DocuSign
+                or similar. For now, this confirmation records your consent and
+                routes your onboarding for compliance review.
+              </p>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      id="legalAgree"
+                      checked={legalData.agree}
+                      onCheckedChange={(checked) =>
+                        setLegalData((prev) => ({
+                          ...prev,
+                          agree: Boolean(checked),
+                        }))
+                      }
+                    />
+                    <Label
+                      htmlFor="legalAgree"
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      I confirm that I have reviewed the Private Placement
+                      Memorandum, Operating Agreement, and Subscription
+                      Agreement (as applicable) and agree to receive and sign
+                      documents electronically.
+                    </Label>
+                  </div>
+                  {legalErrors.agree && (
+                    <p className="text-destructive text-sm flex items-center gap-1">
+                      <span>{legalErrors.agree}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="legalName">
+                      Signature (full legal name){" "}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="legalName"
+                      value={legalData.name}
+                      onChange={(e) =>
+                        setLegalData((prev) => ({
+                          ...prev,
+                          name: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter full legal name"
+                      className={legalErrors.name ? "border-destructive" : ""}
+                    />
+                    {legalErrors.name && (
+                      <p className="text-destructive text-sm flex items-center gap-1">
+                        <span>{legalErrors.name}</span>
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="legalDate">
+                      Signature date <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="legalDate"
+                      type="date"
+                      value={legalData.date}
+                      onChange={(e) =>
+                        setLegalData((prev) => ({
+                          ...prev,
+                          date: e.target.value,
+                        }))
+                      }
+                      className={legalErrors.date ? "border-destructive" : ""}
+                    />
+                    {legalErrors.date && (
+                      <p className="text-destructive text-sm flex items-center gap-1">
+                        <span>{legalErrors.date}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={handleBack}
+                  disabled={isSubmittingOnboarding}
+                  className="gap-2 bg-transparent"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  disabled={isSubmittingOnboarding}
+                  className="flex-1 gap-2"
+                  onClick={() => {
+                    const result = legalSchema.safeParse(legalData);
+                    if (!result.success) {
+                      const fieldErrors: Record<string, string> = {};
+                      for (const issue of result.error.issues) {
+                        const field = issue.path[0];
+                        if (typeof field === "string" && !fieldErrors[field]) {
+                          fieldErrors[field] = issue.message;
+                        }
+                      }
+                      setLegalErrors(fieldErrors);
+                      return;
+                    }
+
+                    setLegalErrors({});
+                    const override: Partial<InvestorData> = {
+                      legalDocumentsAcknowledged: true,
+                      electronicSignatureName: result.data.name,
+                      electronicSignatureDate: result.data.date,
+                    };
+                    handleFinalSubmit(override);
+                  }}
+                >
+                  {isSubmittingOnboarding ? "Submitting..." : "Submit & Finish"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,3 @@
-import React from "react";
 import { OnboardingFlow } from "./onboarding-flow";
 import { authSession } from "@/app/(auth)/auth";
 import { redirect } from "next/navigation";

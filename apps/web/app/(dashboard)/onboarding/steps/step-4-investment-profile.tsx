@@ -2,24 +2,97 @@
 
 import type React from "react";
 import { useState } from "react";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { InvestorData } from "./onboarding-flow";
+import type { InvestorData } from "../onboarding-flow";
 import { AlertCircle, ArrowRight } from "lucide-react";
 
-type InvestorQuestionnaireProps = {
+type Step4InvestmentProfileProps = {
   initialData: Partial<InvestorData>;
   onSubmit: (data: InvestorData) => void;
+  onBack?: () => void;
 };
 
-export function InvestorQuestionnaire({
+const step4Schema = z.object({
+  // Process & timing
+  timingToLOI: z
+    .string()
+    .min(1, "Please select timing to LOI"),
+  timingToCommitment: z
+    .string()
+    .min(1, "Please select timing to commitment"),
+  timingDrivers: z.string().optional().or(z.literal("")),
+  // Economics
+  economicsDescription: z
+    .string()
+    .min(1, "Please describe economics")
+    .trim(),
+  // Governance & control
+  preferredRole: z
+    .string()
+    .min(1, "Please select preferred role"),
+  governanceExpectations: z.string().optional().or(z.literal("")),
+  // Support letters
+  provideSupportLetter: z
+    .string()
+    .min(1, "Please select an option for support letters"),
+  joinBrokerConversations: z
+    .string()
+    .min(1, "Please select an option for broker conversations"),
+  supportLetterStages: z
+    .array(z.string())
+    .min(1, "Please select at least one stage"),
+  // Communication preferences
+  receiveUpdates: z
+    .string()
+    .min(1, "Please select if you want to receive updates"),
+  updateFrequency: z.string().optional(),
+  updateFormat: z.array(z.string()).optional(),
+  industryPreferences: z.string().optional().or(z.literal("")),
+  // Investment mandate – size & structure
+  equityCheckSize: z
+    .string()
+    .min(1, "Please provide equity check size")
+    .trim(),
+  enterpriseValueRange: z.string().optional().or(z.literal("")),
+  ebitdaRange: z.string().optional().or(z.literal("")),
+  preferredOwnership: z
+    .string()
+    .min(1, "Please select preferred ownership"),
+  typicalHoldPeriod: z.string().optional().or(z.literal("")),
+  transactionTypes: z
+    .array(z.string())
+    .min(1, "Please select at least one transaction type"),
+  leverageTolerance: z.string().optional().or(z.literal("")),
+  // Company profile
+  revenueCharacteristics: z
+    .string()
+    .min(1, "Please describe revenue characteristics"),
+  customerConcentration: z.string().optional().or(z.literal("")),
+  marginsAndCashFlow: z.string().optional().or(z.literal("")),
+  assetProfile: z
+    .string()
+    .min(1, "Please select asset profile"),
+  managementInvolvement: z.string().optional().or(z.literal("")),
+  // Sectors & themes
+  sectorsOfInterest: z
+    .string()
+    .min(1, "Please list sectors of interest"),
+  sectorsToAvoid: z.string().optional().or(z.literal("")),
+  dealSizeThresholds: z.string().optional().or(z.literal("")),
+  specificThemes: z.string().optional().or(z.literal("")),
+});
+
+export function Step4InvestmentProfile({
   initialData,
   onSubmit,
-}: InvestorQuestionnaireProps) {
+  onBack,
+}: Step4InvestmentProfileProps) {
   const [formData, setFormData] = useState<Partial<InvestorData>>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -41,584 +114,76 @@ export function InvestorQuestionnaire({
     }
   };
 
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    // Section 1 - Required fields
-    if (!formData.organizationName?.trim())
-      newErrors.organizationName = "Organization name is required";
-    if (!formData.primaryContactName?.trim())
-      newErrors.primaryContactName = "Primary contact name is required";
-    if (!formData.primaryContactEmail?.trim()) {
-      newErrors.primaryContactEmail = "Email is required";
-    } else if (
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.primaryContactEmail)
-    ) {
-      newErrors.primaryContactEmail = "Please enter a valid email";
-    }
-    if (!formData.primaryContactPhone?.trim())
-      newErrors.primaryContactPhone = "Phone is required";
-    if (!formData.capitalProviderType)
-      newErrors.capitalProviderType = "Capital provider type is required";
-    if (!formData.investorType)
-      newErrors.investorType = "Investor type is required";
-
-    // Section 2
-    if (!formData.openToEmergingSponsor)
-      newErrors.openToEmergingSponsor = "Please select an option";
-    if (!formData.priorDealAttribution)
-      newErrors.priorDealAttribution = "Please select an option";
-
-    // Section 3
-    if (!formData.ndaPreference)
-      newErrors.ndaPreference = "Please select an NDA preference";
-
-    // Section 4
-    if (!formData.timingToLOI)
-      newErrors.timingToLOI = "Please select timing to LOI";
-    if (!formData.timingToCommitment)
-      newErrors.timingToCommitment = "Please select timing to commitment";
-
-    // Section 5
-    if (!formData.economicsDescription?.trim())
-      newErrors.economicsDescription = "Please describe economics";
-
-    // Section 6
-    if (!formData.preferredRole)
-      newErrors.preferredRole = "Please select preferred role";
-
-    // Section 7
-    if (!formData.provideSupportLetter)
-      newErrors.provideSupportLetter = "Please select an option";
-    if (!formData.joinBrokerConversations)
-      newErrors.joinBrokerConversations = "Please select an option";
-    if (
-      !formData.supportLetterStages ||
-      formData.supportLetterStages.length === 0
-    ) {
-      newErrors.supportLetterStages = "Please select at least one stage";
-    }
-
-    // Section 8
-    if (!formData.receiveUpdates)
-      newErrors.receiveUpdates = "Please select an option";
-    if (formData.receiveUpdates === "yes") {
-      if (!formData.updateFrequency)
-        newErrors.updateFrequency = "Please select update frequency";
-      if (!formData.updateFormat || formData.updateFormat.length === 0) {
-        newErrors.updateFormat = "Please select at least one format";
-      }
-    }
-
-    // Section 9
-    if (!formData.equityCheckSize?.trim())
-      newErrors.equityCheckSize = "Please provide equity check size";
-    if (!formData.preferredOwnership)
-      newErrors.preferredOwnership = "Please select preferred ownership";
-    if (!formData.transactionTypes || formData.transactionTypes.length === 0) {
-      newErrors.transactionTypes =
-        "Please select at least one transaction type";
-    }
-
-    // Section 10
-    if (!formData.revenueCharacteristics?.trim())
-      newErrors.revenueCharacteristics =
-        "Please describe revenue characteristics";
-    if (!formData.assetProfile)
-      newErrors.assetProfile = "Please select asset profile";
-
-    // Section 11
-    if (!formData.sectorsOfInterest?.trim())
-      newErrors.sectorsOfInterest = "Please list sectors of interest";
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (validate()) {
-      onSubmit(formData as InvestorData);
-    } else {
-      // Scroll to first error that still persists
-      // Wait for React to update the DOM with error messages
-      setTimeout(() => {
-        // Get the first error key from the current errors state
-        const firstErrorKey = Object.keys(errors)[0];
+    const baseData = {
+      ...formData,
+      supportLetterStages: formData.supportLetterStages || [],
+      transactionTypes: formData.transactionTypes || [],
+      updateFormat: formData.updateFormat || [],
+    };
 
-        if (firstErrorKey) {
-          let targetElement: HTMLElement | null = null;
+    const result = step4Schema.safeParse(baseData);
 
-          // Try to find the input/field element by ID (most fields have IDs matching error keys)
-          targetElement = document.getElementById(firstErrorKey) as HTMLElement;
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      for (const issue of result.error.issues) {
+        const field = issue.path[0];
+        if (typeof field === "string" && !fieldErrors[field]) {
+          fieldErrors[field] = issue.message;
+        }
+      }
+      setErrors(fieldErrors);
 
-          // If not found by ID, try to find by name attribute
+      const firstErrorKey = Object.keys(fieldErrors)[0];
+      if (firstErrorKey) {
+        setTimeout(() => {
+          let targetElement: HTMLElement | null =
+            (document.getElementById(firstErrorKey) as HTMLElement) || null;
+
           if (!targetElement) {
             targetElement = document.querySelector(
               `[name="${firstErrorKey}"]`
             ) as HTMLElement;
           }
 
-          // If still not found, find the error message element and scroll to its container
           if (!targetElement) {
-            // Find all error message elements
-            const errorMessages = Array.from(
-              document.querySelectorAll("p.text-destructive.text-sm")
-            ) as HTMLElement[];
-
-            // Find the first visible error message (they're conditionally rendered)
-            // Since errors are set by validate(), visible error messages are current errors
-            const firstVisibleError = errorMessages.find((msg) => {
-              const text = msg.textContent || "";
-              // Check if this error message text matches any current error
-              return Object.values(errors).some((errorText) =>
-                text.includes(errorText as string)
-              );
-            });
-
-            if (firstVisibleError) {
-              // Find the container (space-y-2 div) that holds this error
-              const container = firstVisibleError.closest(
+            const errorMessage = document.querySelector(
+              `[data-error-for="${firstErrorKey}"]`
+            ) as HTMLElement;
+            if (errorMessage) {
+              const container = errorMessage.closest(
                 ".space-y-2"
               ) as HTMLElement;
-              targetElement = container || firstVisibleError;
+              targetElement = container || errorMessage;
             }
           }
 
-          // Fallback: find first element with error border styling
-          if (!targetElement) {
-            targetElement = document.querySelector(
-              'input.border-destructive, textarea.border-destructive, [class*="border-destructive"]'
-            ) as HTMLElement;
-          }
-
-          // Scroll to the target element
           if (targetElement) {
             targetElement.scrollIntoView({
               behavior: "smooth",
               block: "center",
             });
           }
-        }
-      }, 0);
+        }, 0);
+      }
+
+      return;
     }
+
+    onSubmit(result.data as InvestorData);
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       <div>
         <h2 className="text-2xl font-bold mb-2">
-          Investor / Lender Questionnaire
+          Investment Profile & Preferences
         </h2>
         <p className="text-muted-foreground text-sm">
-          Please provide detailed information to help us understand your
-          investment criteria and preferences
+          Please provide the information below to help us understand your
+          investor profile and preferences.
         </p>
-      </div>
-
-      {/* Section 1: Investor / Lender Details */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold border-b pb-2">
-          1. Investor / Lender Details
-        </h3>
-
-        <div className="space-y-2">
-          <Label htmlFor="organizationName">
-            Organization name <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="organizationName"
-            value={formData.organizationName || ""}
-            onChange={(e) => updateField("organizationName", e.target.value)}
-            placeholder="Enter organization name"
-            className={errors.organizationName ? "border-destructive" : ""}
-          />
-          {errors.organizationName && (
-            <p className="text-destructive text-sm flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              {errors.organizationName}
-            </p>
-          )}
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="primaryContactName">
-              Primary contact name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="primaryContactName"
-              value={formData.primaryContactName || ""}
-              onChange={(e) =>
-                updateField("primaryContactName", e.target.value)
-              }
-              placeholder="Full name"
-              className={errors.primaryContactName ? "border-destructive" : ""}
-            />
-            {errors.primaryContactName && (
-              <p className="text-destructive text-sm flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
-                {errors.primaryContactName}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="primaryContactTitle">Primary contact title</Label>
-            <Input
-              id="primaryContactTitle"
-              value={formData.primaryContactTitle || ""}
-              onChange={(e) =>
-                updateField("primaryContactTitle", e.target.value)
-              }
-              placeholder="Title"
-            />
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="primaryContactEmail">
-              Primary contact email <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="primaryContactEmail"
-              type="email"
-              value={formData.primaryContactEmail || ""}
-              onChange={(e) =>
-                updateField("primaryContactEmail", e.target.value)
-              }
-              placeholder="email@example.com"
-              className={errors.primaryContactEmail ? "border-destructive" : ""}
-            />
-            {errors.primaryContactEmail && (
-              <p className="text-destructive text-sm flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
-                {errors.primaryContactEmail}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="primaryContactPhone">
-              Primary contact phone <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="primaryContactPhone"
-              type="tel"
-              value={formData.primaryContactPhone || ""}
-              onChange={(e) =>
-                updateField("primaryContactPhone", e.target.value)
-              }
-              placeholder="+1 (555) 000-0000"
-              className={errors.primaryContactPhone ? "border-destructive" : ""}
-            />
-            {errors.primaryContactPhone && (
-              <p className="text-destructive text-sm flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
-                {errors.primaryContactPhone}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="capitalProviderType">
-            Type of capital provider <span className="text-destructive">*</span>
-          </Label>
-          <RadioGroup
-            value={formData.capitalProviderType}
-            onValueChange={(value) => updateField("capitalProviderType", value)}
-            className={
-              errors.capitalProviderType
-                ? "border border-destructive rounded-md p-2"
-                : ""
-            }
-          >
-            {[
-              "Family Office",
-              "PE Fund",
-              "Credit Fund",
-              "Bank",
-              "SBIC",
-              "Other",
-            ].map((type) => (
-              <div key={type} className="flex items-center space-x-2">
-                <RadioGroupItem
-                  value={type.toLowerCase().replace(" ", "-")}
-                  id={type}
-                />
-                <Label htmlFor={type} className="font-normal cursor-pointer">
-                  {type}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-          {errors.capitalProviderType && (
-            <p className="text-destructive text-sm flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              {errors.capitalProviderType}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="investorType">
-            Investor type <span className="text-destructive">*</span>
-          </Label>
-          <RadioGroup
-            value={formData.investorType}
-            onValueChange={(value) => updateField("investorType", value)}
-            className={
-              errors.investorType
-                ? "border border-destructive rounded-md p-2"
-                : ""
-            }
-          >
-            {[
-              "Individual investor including HNWI's",
-              "Corporate Entities(LLC's, Corporations)",
-              "Trusts and foundations",
-              "Partnerships or LP's",
-            ].map((type) => (
-              <div key={type} className="flex items-center space-x-2">
-                <RadioGroupItem
-                  value={type
-                    .toLowerCase()
-                    .replace(/[()']/g, "")
-                    .replace(/\s+/g, "-")
-                    .replace(/,/g, "")}
-                  id={`investor-type-${type}`}
-                />
-                <Label
-                  htmlFor={`investor-type-${type}`}
-                  className="font-normal cursor-pointer"
-                >
-                  {type}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-          {errors.investorType && (
-            <p className="text-destructive text-sm flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              {errors.investorType}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="geographicFocus">Geographic focus (if any)</Label>
-          <Input
-            id="geographicFocus"
-            value={formData.geographicFocus || ""}
-            onChange={(e) => updateField("geographicFocus", e.target.value)}
-            placeholder="e.g., North America, Europe, Asia-Pacific"
-          />
-        </div>
-      </div>
-
-      {/* Section 2: Independent Sponsor Fit */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold border-b pb-2">
-          2. Independent Sponsor Fit
-        </h3>
-
-        <div className="space-y-2">
-          <Label>
-            Are you open to working with emerging independent sponsors?{" "}
-            <span className="text-destructive">*</span>
-          </Label>
-          <RadioGroup
-            value={formData.openToEmergingSponsor}
-            onValueChange={(value) =>
-              updateField("openToEmergingSponsor", value)
-            }
-            className={
-              errors.openToEmergingSponsor
-                ? "border border-destructive rounded-md p-2"
-                : ""
-            }
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="yes" id="sponsor-yes" />
-              <Label
-                htmlFor="sponsor-yes"
-                className="font-normal cursor-pointer"
-              >
-                Yes
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="no" id="sponsor-no" />
-              <Label
-                htmlFor="sponsor-no"
-                className="font-normal cursor-pointer"
-              >
-                No
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="case-by-case" id="sponsor-case" />
-              <Label
-                htmlFor="sponsor-case"
-                className="font-normal cursor-pointer"
-              >
-                Case-by-case
-              </Label>
-            </div>
-          </RadioGroup>
-          {errors.openToEmergingSponsor && (
-            <p className="text-destructive text-sm flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              {errors.openToEmergingSponsor}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="minimumRequirements">
-            Minimum requirements (if any)
-          </Label>
-          <Textarea
-            id="minimumRequirements"
-            value={formData.minimumRequirements || ""}
-            onChange={(e) => updateField("minimumRequirements", e.target.value)}
-            placeholder="e.g., prior deal count, fund size, co-investment expectations"
-            rows={3}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>
-            Does attribution from our team members prior deals matter to you?{" "}
-            <span className="text-destructive">*</span>
-          </Label>
-          <RadioGroup
-            value={formData.priorDealAttribution}
-            onValueChange={(value) =>
-              updateField("priorDealAttribution", value)
-            }
-            className={
-              errors.priorDealAttribution
-                ? "border border-destructive rounded-md p-2"
-                : ""
-            }
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="yes" id="attribution-yes" />
-              <Label
-                htmlFor="attribution-yes"
-                className="font-normal cursor-pointer"
-              >
-                Yes
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="no" id="attribution-no" />
-              <Label
-                htmlFor="attribution-no"
-                className="font-normal cursor-pointer"
-              >
-                No
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="somewhat" id="attribution-somewhat" />
-              <Label
-                htmlFor="attribution-somewhat"
-                className="font-normal cursor-pointer"
-              >
-                Somewhat
-              </Label>
-            </div>
-          </RadioGroup>
-          {errors.priorDealAttribution && (
-            <p className="text-destructive text-sm flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              {errors.priorDealAttribution}
-            </p>
-          )}
-        </div>
-
-        {formData.priorDealAttribution === "somewhat" && (
-          <div className="space-y-2">
-            <Label htmlFor="priorDealAttributionExplanation">
-              Please explain briefly
-            </Label>
-            <Textarea
-              id="priorDealAttributionExplanation"
-              value={formData.priorDealAttributionExplanation || ""}
-              onChange={(e) =>
-                updateField("priorDealAttributionExplanation", e.target.value)
-              }
-              rows={2}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Section 3: NDAs & Confidentiality */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold border-b pb-2">
-          3. NDAs & Confidentiality
-        </h3>
-
-        <div className="space-y-2">
-          <Label>
-            NDA preference <span className="text-destructive">*</span>
-          </Label>
-          <RadioGroup
-            value={formData.ndaPreference}
-            onValueChange={(value) => updateField("ndaPreference", value)}
-            className={
-              errors.ndaPreference
-                ? "border border-destructive rounded-md p-2"
-                : ""
-            }
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="general" id="nda-general" />
-              <Label
-                htmlFor="nda-general"
-                className="font-normal cursor-pointer"
-              >
-                Yes, general NDA is fine
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="deal-by-deal" id="nda-deal" />
-              <Label htmlFor="nda-deal" className="font-normal cursor-pointer">
-                Prefer deal-by-deal NDAs
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="other" id="nda-other" />
-              <Label htmlFor="nda-other" className="font-normal cursor-pointer">
-                Other
-              </Label>
-            </div>
-          </RadioGroup>
-          {errors.ndaPreference && (
-            <p className="text-destructive text-sm flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              {errors.ndaPreference}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="ndaLimitations">
-            Standard limitations or requirements
-          </Label>
-          <Textarea
-            id="ndaLimitations"
-            value={formData.ndaLimitations || ""}
-            onChange={(e) => updateField("ndaLimitations", e.target.value)}
-            placeholder="e.g., term, carve-outs, internal sharing"
-            rows={2}
-          />
-        </div>
       </div>
 
       {/* Section 4: Process & Timing */}
@@ -1398,12 +963,26 @@ export function InvestorQuestionnaire({
         </div>
       </div>
 
-      <div className="flex justify-end pt-4 border-t">
+      <div className="flex justify-between pt-4 border-t gap-3">
+        {onBack ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={onBack}
+            className="bg-transparent"
+          >
+            Back
+          </Button>
+        ) : (
+          <div />
+        )}
         <Button type="submit" size="lg" className="gap-2">
-          Continue to KYC Verification
+          <span>Save & Continue</span>
           <ArrowRight className="w-4 h-4" />
         </Button>
       </div>
     </form>
   );
 }
+

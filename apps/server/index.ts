@@ -6,7 +6,12 @@ import { cors } from "hono/cors";
 
 const app = new Hono()
   .use(logger())
-  .use(cors())
+  .use(
+    cors({
+      origin: ["https://investor-portal.dev", "http://localhost:3000"],
+      credentials: true,
+    })
+  )
   .get("/", (c) => c.json({ message: "Hello World" }))
   .route("/api/health", health)
   .route("/api/onboarding/submit", onboardingSubmit);

@@ -160,6 +160,13 @@ export const onboarding = pgTable(
     investorType: text("investor_type").notNull(),
     geographicFocus: text("geographic_focus"),
 
+    // Step 2: Accreditation & Status
+    accreditationStatus: text("accreditation_status"),
+    accreditationMethod: text("accreditation_method"),
+    entityTaxId: text("entity_tax_id"), // Tax ID / EIN for entity investors
+    entitySignatoryName: text("entity_signatory_name"), // Authorized signatory name
+    entitySignatoryTitle: text("entity_signatory_title"), // Authorized signatory title
+
     // Section 2: Independent Sponsor Fit
     openToEmergingSponsor: text("open_to_emerging_sponsor").notNull(),
     minimumRequirements: text("minimum_requirements"),
@@ -216,6 +223,11 @@ export const onboarding = pgTable(
     sectorsToAvoid: text("sectors_to_avoid"),
     dealSizeThresholds: text("deal_size_thresholds"),
     specificThemes: text("specific_themes"),
+
+    // Step 5: Legal & E-Sign
+    legalDocumentsAcknowledged: boolean("legal_documents_acknowledged").default(false),
+    electronicSignatureName: text("electronic_signature_name"), // Full legal name used for e-signature
+    electronicSignatureDate: text("electronic_signature_date"), // Date of e-signature
 
     // Status and metadata
     status: onboardingStatusEnum("status").default("draft").notNull(),
