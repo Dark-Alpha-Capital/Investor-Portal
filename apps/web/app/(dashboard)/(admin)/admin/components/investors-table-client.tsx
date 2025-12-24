@@ -1,13 +1,12 @@
 "use client";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
-import { useDebouncedCallback } from "use-debounce";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
-import { LayoutGrid, List, Search, CheckCircle2, XCircle, Ban, Eye, Loader2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { LayoutGrid, List, CheckCircle2, XCircle, Ban, Eye, Loader2 } from "lucide-react";
+import { SearchInput } from "@/components/search-input";
 import {
   Select,
   SelectContent,
@@ -323,14 +322,6 @@ export function InvestorsTableClient() {
   const pageParam = searchParams.get("investorsPage") || "1";
   const currentPage = Math.max(1, parseInt(pageParam, 10) || 1);
 
-  // Local search input state for immediate UI feedback
-  const [searchInput, setSearchInput] = useState(searchParam);
-
-  // Sync local state when URL param changes externally
-  useEffect(() => {
-    setSearchInput(searchParam);
-  }, [searchParam]);
-
   // Update URL params helper
   const updateParams = useCallback(
     (updates: Record<string, string>, resetPage = false) => {
@@ -350,17 +341,6 @@ export function InvestorsTableClient() {
     },
     [searchParams, pathname, router]
   );
-
-  // Debounced search that resets page to 1
-  const debouncedSearch = useDebouncedCallback((value: string) => {
-    updateParams({ investorsSearch: value }, true);
-  }, 300);
-
-  // Handle search input change
-  const handleSearchChange = (value: string) => {
-    setSearchInput(value);
-    debouncedSearch(value);
-  };
 
   // Query for paginated investors
   const { data, isLoading, isFetching, isError, error } = useQuery({
@@ -460,15 +440,11 @@ export function InvestorsTableClient() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
           {/* Search */}
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search investors..."
-              value={searchInput}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+          <SearchInput
+            paramKey="investorsSearch"
+            placeholder="Search investors..."
+            onResetPage={true}
+          />
 
           {/* KYC Status Filter */}
           <Select

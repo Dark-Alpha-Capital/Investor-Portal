@@ -3,13 +3,11 @@
 import React, { useState, useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
-import { useDebouncedSearch } from "@/hooks/use-debounced-search";
 import { useTRPC } from "@/trpc/client";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   LayoutGrid,
   List,
-  Search,
   Edit,
   Eye,
   Trash2,
@@ -21,7 +19,7 @@ import {
   ChevronRight,
   Loader2,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/search-input";
 import {
   Select,
   SelectContent,
@@ -541,15 +539,7 @@ export function DealsTable() {
   const status = searchParams.get("dealsStatus") || "all";
   const visibility = searchParams.get("dealsVisibility") || "all";
   const page = parseInt(searchParams.get("dealsPage") || "1", 10);
-
-  // Debounced search with URL sync
-  const {
-    value: searchInput,
-    onChange: setSearchInput,
-    debouncedValue: search,
-  } = useDebouncedSearch({
-    paramKey: "dealsSearch",
-  });
+  const search = searchParams.get("dealsSearch") || "";
 
   // Fetch deals with React Query and cache settings
   const { data, isLoading, isFetching, refetch } = useQuery({
@@ -561,9 +551,9 @@ export function DealsTable() {
       visibility: visibility !== "all" ? visibility : undefined,
     }),
     // Cache settings
-    staleTime: 2 * 60 * 1000,      // Data fresh for 2 minutes
-    gcTime: 10 * 60 * 1000,        // Keep in cache for 10 minutes
-    refetchOnMount: false,         // Don't refetch if data exists in cache
+    staleTime: 2 * 60 * 1000, // Data fresh for 2 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnMount: false, // Don't refetch if data exists in cache
     placeholderData: (previousData) => previousData, // Keep showing old data while fetching new
   });
 
@@ -651,15 +641,11 @@ export function DealsTable() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
             {/* Search */}
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search deals..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+            <SearchInput
+              paramKey="dealsSearch"
+              placeholder="Search deals..."
+              onResetPage={true}
+            />
 
             {/* Status Filter */}
             <Select

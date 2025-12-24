@@ -1,12 +1,10 @@
 "use client";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { LayoutGrid, List, Search, Loader2 } from "lucide-react";
-import { useDebouncedCallback } from "use-debounce";
+import { useCallback } from "react";
+import { LayoutGrid, List, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -24,6 +22,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
+import { SearchInput } from "@/components/search-input";
 import { DealsTableView } from "./deals-table-view";
 import { DealsCardView } from "./deals-card-view";
 
@@ -52,14 +51,6 @@ export function DealsMarketplace() {
   const pageParam = searchParams.get("page") || "1";
   const currentPage = Math.max(1, parseInt(pageParam, 10) || 1);
 
-  // Local search input state for immediate UI feedback
-  const [searchInput, setSearchInput] = useState(searchParam);
-
-  // Sync local state when URL param changes externally
-  useEffect(() => {
-    setSearchInput(searchParam);
-  }, [searchParam]);
-
   // Update URL params helper
   const updateParams = useCallback(
     (updates: Record<string, string>, resetPage = false) => {
@@ -79,17 +70,6 @@ export function DealsMarketplace() {
     },
     [searchParams, pathname, router]
   );
-
-  // Debounced search that resets page to 1
-  const debouncedSearch = useDebouncedCallback((value: string) => {
-    updateParams({ search: value }, true);
-  }, 300);
-
-  // Handle search input change
-  const handleSearchChange = (value: string) => {
-    setSearchInput(value);
-    debouncedSearch(value);
-  };
 
   // Query for paginated deals with caching
   const { data, isLoading, isFetching, isError, error } = useQuery({
@@ -179,15 +159,11 @@ export function DealsMarketplace() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
           {/* Search */}
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search deals..."
-              value={searchInput}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+          <SearchInput
+            paramKey="search"
+            placeholder="Search deals..."
+            onResetPage={true}
+          />
 
           {/* Status Filter */}
           <Select

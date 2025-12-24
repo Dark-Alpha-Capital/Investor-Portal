@@ -2,11 +2,20 @@
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useCallback, useState } from "react";
-import { LayoutGrid, List, Search, CheckCircle2, XCircle, Shield, Ban, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import { useDebouncedSearch } from "@/hooks/use-debounced-search";
+import {
+  LayoutGrid,
+  List,
+  CheckCircle2,
+  XCircle,
+  Shield,
+  Ban,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
 import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/search-input";
 import {
   Select,
   SelectContent,
@@ -93,7 +102,9 @@ function AdminsTableView({
               checked={allSelected}
               ref={(el) => {
                 if (el) {
-                  (el as HTMLButtonElement & { indeterminate: boolean }).indeterminate = someSelected;
+                  (
+                    el as HTMLButtonElement & { indeterminate: boolean }
+                  ).indeterminate = someSelected;
                 }
               }}
               onCheckedChange={onToggleSelectAll}
@@ -129,7 +140,9 @@ function AdminsTableView({
               </div>
             </TableCell>
             <TableCell>
-              <span className="text-sm text-muted-foreground">{admin.email}</span>
+              <span className="text-sm text-muted-foreground">
+                {admin.email}
+              </span>
             </TableCell>
             <TableCell>
               <div className="flex items-center gap-2">
@@ -155,7 +168,9 @@ function AdminsTableView({
                 ) : (
                   <>
                     <XCircle className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Unverified</span>
+                    <span className="text-sm text-muted-foreground">
+                      Unverified
+                    </span>
                   </>
                 )}
               </div>
@@ -313,7 +328,10 @@ function PaginationControls({
       <div className="flex items-center gap-1">
         {getPageNumbers().map((pageNum, idx) =>
           pageNum === "..." ? (
-            <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground">
+            <span
+              key={`ellipsis-${idx}`}
+              className="px-2 text-muted-foreground"
+            >
               ...
             </span>
           ) : (
@@ -357,11 +375,7 @@ export function AdminsTableClient() {
   const verified = searchParams.get("adminsVerified") || "all";
   const status = searchParams.get("adminsStatus") || "all";
   const page = parseInt(searchParams.get("adminsPage") || "1", 10);
-
-  // Debounced search with URL sync
-  const { value: searchInput, onChange: setSearchInput, debouncedValue: search } = useDebouncedSearch({
-    paramKey: "adminsSearch",
-  });
+  const search = searchParams.get("adminsSearch") || "";
 
   // Fetch admins with React Query
   const { data, isLoading, isFetching } = useQuery({
@@ -373,9 +387,9 @@ export function AdminsTableClient() {
       status: status !== "all" ? status : undefined,
     }),
     // Cache settings
-    staleTime: 2 * 60 * 1000,      // Data fresh for 2 minutes
-    gcTime: 10 * 60 * 1000,        // Keep in cache for 10 minutes
-    refetchOnMount: false,         // Don't refetch if data exists in cache
+    staleTime: 2 * 60 * 1000, // Data fresh for 2 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnMount: false, // Don't refetch if data exists in cache
     placeholderData: (previousData) => previousData, // Keep showing old data while fetching new
   });
 
@@ -433,15 +447,11 @@ export function AdminsTableClient() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
           {/* Search */}
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search admins..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+          <SearchInput
+            paramKey="adminsSearch"
+            placeholder="Search admins..."
+            onResetPage={true}
+          />
 
           {/* Verified Filter */}
           <Select
@@ -504,11 +514,10 @@ export function AdminsTableClient() {
       {/* Results count and selection info */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {pagination?.totalCount ?? 0} administrator{(pagination?.totalCount ?? 0) !== 1 ? "s" : ""} found
+          {pagination?.totalCount ?? 0} administrator
+          {(pagination?.totalCount ?? 0) !== 1 ? "s" : ""} found
           {selectedIds.size > 0 && (
-            <span className="ml-2">
-              ({selectedIds.size} selected)
-            </span>
+            <span className="ml-2">({selectedIds.size} selected)</span>
           )}
         </p>
         {isFetching && !isLoading && (
@@ -523,7 +532,9 @@ export function AdminsTableClient() {
         </div>
       ) : admins.length === 0 ? (
         <div className="py-12 text-center">
-          <p className="text-muted-foreground">No administrators match your filters.</p>
+          <p className="text-muted-foreground">
+            No administrators match your filters.
+          </p>
           <p className="text-sm text-muted-foreground mt-2">
             Try adjusting your search criteria.
           </p>
