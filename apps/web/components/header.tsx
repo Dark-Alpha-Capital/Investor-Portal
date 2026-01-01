@@ -35,8 +35,6 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
 
-  console.log(session);
-
   const navItems = [
     { name: "Home", href: "/" },
     { name: "About Us", href: "/about" },

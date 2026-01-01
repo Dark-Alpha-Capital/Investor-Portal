@@ -1,8 +1,9 @@
-import { caller } from "@/trpc/server";
+type Deal = {
+  description: string | null;
+  teaserSummary: string | null;
+};
 
-export async function DescriptionTab({ dealId }: { dealId: string }) {
-  const result = await caller.deals.getById({ dealId });
-  const deal = result.deal;
+export function DescriptionTab({ deal }: { deal: Deal }) {
 
   return (
     <div className="space-y-6">

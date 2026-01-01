@@ -3,15 +3,23 @@ import { TRPCError } from "@trpc/server";
 import { baseProcedure, createTRPCRouter } from "../init";
 import { user } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
+import { getSession } from "@/lib/get-session";
 
 export const authRouter = createTRPCRouter({
   /**
    * Get current session
    */
   getSession: baseProcedure.query(async ({ ctx }) => {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "You must be logged in to get session",
+      });
+    }
     return {
-      session: ctx.session,
-      user: ctx.session?.user ?? null,
+      session: session,
+      user: session.user,
     };
   }),
 

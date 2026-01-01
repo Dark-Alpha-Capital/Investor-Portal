@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useTRPC } from "@/trpc/client";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import {
   LayoutGrid,
   List,
@@ -56,6 +56,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { useClientSession } from "@/lib/get-client-session";
+import type { DealsData } from "../lib/get-deals-cached";
+import { revalidateDealsCache } from "../lib/actions";
+
+type DealsTableProps = {
+  initialData?: DealsData;
+};
 
 type Deal = {
   id: string;
@@ -520,12 +526,13 @@ function PaginationControls({
   );
 }
 
-export function DealsTable() {
+export function DealsTable({ initialData }: DealsTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const trpc = useTRPC();
   const { data: session } = useClientSession();
+  const [isPending, startTransition] = useTransition();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [dealToDelete, setDealToDelete] = useState<{
     id: string;
@@ -541,26 +548,12 @@ export function DealsTable() {
   const page = parseInt(searchParams.get("dealsPage") || "1", 10);
   const search = searchParams.get("dealsSearch") || "";
 
-  // Fetch deals with React Query and cache settings
-  const { data, isLoading, isFetching, refetch } = useQuery({
-    ...trpc.admin.getDeals.queryOptions({
-      page,
-      limit: 12,
-      search: search || undefined,
-      status: status !== "all" ? status : undefined,
-      visibility: visibility !== "all" ? visibility : undefined,
-    }),
-    // Cache settings
-    staleTime: 2 * 60 * 1000, // Data fresh for 2 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
-    refetchOnMount: false, // Don't refetch if data exists in cache
-    placeholderData: (previousData) => previousData, // Keep showing old data while fetching new
-  });
+  // Use server-fetched cached data directly
+  // Data is fetched with `use cache` in getDealsCached and passed down
+  const deals = initialData?.deals ?? [];
+  const pagination = initialData?.pagination;
 
-  const deals = data?.deals ?? [];
-  const pagination = data?.pagination;
-
-  // Update URL params
+  // Update URL params - wrapped in transition to show pending state
   const updateParams = useCallback(
     (updates: Record<string, string>) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -571,9 +564,11 @@ export function DealsTable() {
           params.delete(key);
         }
       });
-      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      startTransition(() => {
+        router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      });
     },
-    [searchParams, pathname, router]
+    [searchParams, pathname, router, startTransition]
   );
 
   // Handle page change
@@ -587,11 +582,14 @@ export function DealsTable() {
   // Mutation for deleting deals
   const { mutate: deleteDeal, isPending: isDeleting } = useMutation(
     trpc.deals.delete.mutationOptions({
-      onSuccess: () => {
+      onSuccess: async () => {
         toast.success("Deal deleted successfully");
-        refetch();
         setDeleteDialogOpen(false);
         setDealToDelete(null);
+        // Revalidate the cache tag to invalidate cached data
+        await revalidateDealsCache();
+        // Refresh to get fresh data from server
+        router.refresh();
       },
       onError: (error: any) => {
         toast.error(error.message || "Failed to delete deal");
@@ -714,17 +712,13 @@ export function DealsTable() {
               <span className="ml-2">({selectedIds.size} selected)</span>
             )}
           </p>
-          {isFetching && !isLoading && (
+          {isPending && (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           )}
         </div>
 
         {/* Content */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : deals.length === 0 ? (
+        {deals.length === 0 ? (
           <div className="py-12">
             <div className="flex flex-col items-center justify-center text-center">
               <p className="text-muted-foreground mb-4">

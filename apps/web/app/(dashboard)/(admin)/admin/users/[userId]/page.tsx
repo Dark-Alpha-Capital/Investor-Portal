@@ -1,8 +1,8 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { authSession } from "@/app/(auth)/auth";
 import { getUserWithOnboarding } from "@repo/db/queries";
-import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertCircle } from "lucide-react";
 import { UserHeader } from "./components/user-header";
@@ -11,12 +11,21 @@ import { AdminUserView } from "./components/admin-user-view";
 import { OnboardingOverview } from "./components/onboarding-overview";
 import { OnboardingDetails } from "./components/onboarding-details";
 import { DocumentsList } from "./components/documents-list";
+import { UserDetailSkeleton } from "@/components/skeleton/user-detail-skeleton";
 
 type Params = {
   userId: Promise<string>;
 };
 
 const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
+  return (
+    <Suspense fallback={<UserDetailSkeleton />}>
+      <FetchUserWrapper p={params} />
+    </Suspense>
+  );
+};
+
+async function FetchUserWrapper({ p }: { p: Promise<Params> }) {
   const session = await authSession();
 
   if (!session) {
@@ -32,24 +41,31 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
     redirect("/dashboard");
   }
 
-  const resolvedParams = await params;
+  const resolvedParams = await p;
   const userId = await resolvedParams.userId;
+
+  return (
+    <Suspense fallback={<UserDetailSkeleton />}>
+      <FetchUserContent userId={userId} />
+    </Suspense>
+  );
+}
+
+async function FetchUserContent({ userId }: { userId: string }) {
   const userData = await getUserWithOnboarding(userId);
 
   if (!userData) {
     return (
-      <div className="container mx-auto p-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h2 className="text-lg font-semibold mb-2">User Not Found</h2>
-              <p className="text-sm text-muted-foreground">
-                The user you're looking for doesn't exist.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="container mx-auto p-6 max-w-6xl">
+        <div className="rounded-lg border bg-card p-8">
+          <div className="text-center py-12">
+            <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-lg font-semibold mb-2">User Not Found</h2>
+            <p className="text-sm text-muted-foreground">
+              The user you're looking for doesn't exist.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -58,18 +74,16 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
 
   if (!user) {
     return (
-      <div className="container mx-auto p-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h2 className="text-lg font-semibold mb-2">User Not Found</h2>
-              <p className="text-sm text-muted-foreground">
-                The user you're looking for doesn't exist.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="container mx-auto p-6 max-w-6xl">
+        <div className="rounded-lg border bg-card p-8">
+          <div className="text-center py-12">
+            <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-lg font-semibold mb-2">User Not Found</h2>
+            <p className="text-sm text-muted-foreground">
+              The user you're looking for doesn't exist.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -77,9 +91,10 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
   const isAdminUser = user.role === "admin";
 
   return (
-    <div className="container mx-auto p-4 max-w-6xl">
-      <Card>
-        <CardContent className="p-6">
+    <div className="container mx-auto p-6 max-w-6xl">
+      <div className="space-y-6">
+        {/* User Header Section */}
+        <div className="rounded-lg border bg-card p-6">
           <UserHeader
             user={{
               id: user.id,
@@ -91,39 +106,38 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
               kycStatus: user.kycStatus,
             }}
           />
+        </div>
 
+        {/* Main Content Section */}
+        <div className="rounded-lg border bg-card p-6">
           {isAdminUser ? (
-            <div className="mt-4">
-              <AdminUserView
+            <AdminUserView
+              user={{
+                email: user.email,
+                createdAt: user.createdAt,
+                emailVerified: user.emailVerified,
+                banned: user.banned,
+                banReason: user.banReason,
+                banExpires: user.banExpires,
+                isOnboardingCompleted: user.isOnboardingCompleted,
+              }}
+            />
+          ) : (
+            <>
+              <UserBasicInfo
                 user={{
                   email: user.email,
                   createdAt: user.createdAt,
                   emailVerified: user.emailVerified,
+                  isOnboardingCompleted: user.isOnboardingCompleted,
                   banned: user.banned,
                   banReason: user.banReason,
                   banExpires: user.banExpires,
-                  isOnboardingCompleted: user.isOnboardingCompleted,
                 }}
               />
-            </div>
-          ) : (
-            <>
-              <div className="mt-4">
-                <UserBasicInfo
-                  user={{
-                    email: user.email,
-                    createdAt: user.createdAt,
-                    emailVerified: user.emailVerified,
-                    isOnboardingCompleted: user.isOnboardingCompleted,
-                    banned: user.banned,
-                    banReason: user.banReason,
-                    banExpires: user.banExpires,
-                  }}
-                />
-              </div>
 
               {!user.isOnboardingCompleted ? (
-                <div className="mt-4 pt-4 border-t">
+                <div className="mt-6 pt-6 border-t">
                   <div className="flex items-center gap-2 mb-2">
                     <AlertCircle className="w-4 h-4 text-muted-foreground" />
                     <h3 className="text-sm font-semibold">Onboarding Status</h3>
@@ -133,7 +147,7 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
                   </p>
                 </div>
               ) : onboarding ? (
-                <div className="mt-4 pt-4 border-t">
+                <div className="mt-6 pt-6 border-t">
                   <Tabs defaultValue="overview" className="w-full">
                     <TabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -145,7 +159,7 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
                       </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="overview" className="mt-4">
+                    <TabsContent value="overview" className="mt-6">
                       <OnboardingOverview
                         onboarding={onboarding}
                         user={{
@@ -156,17 +170,17 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
                       />
                     </TabsContent>
 
-                    <TabsContent value="onboarding" className="mt-4">
+                    <TabsContent value="onboarding" className="mt-6">
                       <OnboardingDetails onboarding={onboarding} />
                     </TabsContent>
 
-                    <TabsContent value="documents" className="mt-4">
+                    <TabsContent value="documents" className="mt-6">
                       <DocumentsList documents={documents} />
                     </TabsContent>
                   </Tabs>
                 </div>
               ) : (
-                <div className="mt-4 pt-4 border-t">
+                <div className="mt-6 pt-6 border-t">
                   <div className="flex items-center gap-2 mb-2">
                     <AlertCircle className="w-4 h-4 text-muted-foreground" />
                     <h3 className="text-sm font-semibold">Onboarding Data</h3>
@@ -179,10 +193,10 @@ const AdminUserPage = async ({ params }: { params: Promise<Params> }) => {
               )}
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
-};
+}
 
 export default AdminUserPage;

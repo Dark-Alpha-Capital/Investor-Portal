@@ -1,26 +1,17 @@
 import React, { Suspense } from "react";
+import { headers } from "next/headers";
 import { authSession } from "@/app/(auth)/auth";
 import { redirect } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocumentsList } from "./components/documents-list";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { DocumentsSkeleton } from "@/components/skeleton/documents-skeleton";
+import { caller } from "@/trpc/server";
 
 const DocumentsPage = async () => {
-  const session = await authSession();
-
-  if (!session) {
-    redirect("/login");
-  }
-
-  // Redirect admins
-  if (session.user.role === "admin") {
-    redirect("/admin");
-  }
-
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl">
+    <div>
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/dashboard">
@@ -37,25 +28,50 @@ const DocumentsPage = async () => {
           </div>
         </div>
       </div>
-
-      <Suspense
-        fallback={
-          <Card>
-            <CardContent className="py-12">
-              <div className="flex items-center justify-center">
-                <div className="animate-pulse text-muted-foreground">
-                  Loading documents...
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        }
-      >
-        <DocumentsList />
+      <Suspense fallback={<DocumentsSkeleton />}>
+        <FetchDocumentsWrapper />
       </Suspense>
     </div>
   );
 };
 
-export default DocumentsPage;
+async function FetchDocumentsWrapper() {
+  // Access headers first to mark request data access (required for Cache Components)
+  await headers();
 
+  const session = await authSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  // Redirect admins
+  if (session.user.role === "admin") {
+    redirect("/admin");
+  }
+
+  return (
+    <div className="container mx-auto py-8 px-4 max-w-7xl">
+      <Suspense fallback={<DocumentsSkeleton />}>
+        <FetchDocumentsContent />
+      </Suspense>
+    </div>
+  );
+}
+
+async function FetchDocumentsContent() {
+  const documents = await caller.investments.getDocuments();
+
+  // Convert Date objects to ISO strings for client component
+  const formattedDocuments = documents.map((doc) => ({
+    ...doc,
+    periodStart: doc.periodStart ? doc.periodStart.toISOString() : null,
+    periodEnd: doc.periodEnd ? doc.periodEnd.toISOString() : null,
+    uploadedAt: doc.uploadedAt.toISOString(),
+    createdAt: doc.createdAt.toISOString(),
+  }));
+
+  return <DocumentsList documents={formattedDocuments} />;
+}
+
+export default DocumentsPage;

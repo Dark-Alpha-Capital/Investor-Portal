@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { randomUUID } from "crypto";
-import { protectedProcedure, createTRPCRouter } from "../init";
+import { baseProcedure, createTRPCRouter } from "../init";
 import { onboarding, user } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
 import { onboardingQueue, emailQueue } from "@/lib/redis";
@@ -10,6 +10,7 @@ import {
   type OnboardingInvestorConfirmationJobData,
   type OnboardingAdminNotificationJobData,
 } from "@repo/mail/types";
+import { getSession } from "@/lib/get-session";
 
 // Admin email for onboarding notifications - can be configured via env var
 const ADMIN_NOTIFICATION_EMAIL =
@@ -127,17 +128,24 @@ const onboardingSubmitSchema = z.object({
 });
 
 export const onboardingRouter = createTRPCRouter({
-  submit: protectedProcedure
+  submit: baseProcedure
     .input(onboardingSubmitSchema)
     .mutation(async ({ input, ctx }) => {
       const { investorData, files } = input;
-      const userId = ctx.userId;
+      const session = await getSession();
+      if (!session?.user) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to submit onboarding",
+        });
+      }
+      const userId = session.user.id;
 
       // Verify user exists
       const [userRecord] = await ctx.db
         .select({ id: user.id })
         .from(user)
-        .where(eq(user.id, userId as string))
+        .where(eq(user.id, userId))
         .limit(1);
 
       if (!userRecord) {
@@ -172,7 +180,7 @@ export const onboardingRouter = createTRPCRouter({
 
       const onboardingData = {
         id: onboardingId,
-        userId: userId as string,
+        userId: userId,
         // Section 1: Investor / Lender Details
         organizationName: trimRequired(investorData.organizationName),
         primaryContactName: trimRequired(investorData.primaryContactName),
@@ -323,7 +331,7 @@ export const onboardingRouter = createTRPCRouter({
           .set({
             isOnboardingCompleted: true,
           })
-          .where(eq(user.id, userId as string));
+          .where(eq(user.id, userId));
       } catch (error) {
         console.error("Error updating user onboarding status:", error);
         throw new TRPCError({
@@ -343,7 +351,7 @@ export const onboardingRouter = createTRPCRouter({
           "upload-onboarding-files",
           {
             onboardingId,
-            investorId: userId as string,
+            investorId: userId,
             files: files.map((file) => ({
               documentType: file.documentType,
               fileName: file.name,
@@ -421,13 +429,20 @@ export const onboardingRouter = createTRPCRouter({
     }),
 
   // Get job progress
-  getJobProgress: protectedProcedure
+  getJobProgress: baseProcedure
     .input(
       z.object({
         jobId: z.string(),
       })
     )
     .query(async ({ input, ctx }) => {
+      const session = await getSession();
+      if (!session?.user) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to get job progress",
+        });
+      }
       const job = await onboardingQueue.getJob(input.jobId);
 
       if (!job) {
@@ -439,7 +454,7 @@ export const onboardingRouter = createTRPCRouter({
         investorId: string;
       };
 
-      if (jobData.investorId !== ctx.userId) {
+      if (jobData.investorId !== session.user.id) {
         throw new Error("Unauthorized");
       }
 

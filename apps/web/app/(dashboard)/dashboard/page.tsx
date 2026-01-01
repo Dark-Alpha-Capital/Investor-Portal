@@ -1,48 +1,25 @@
-import React from "react";
-import { authSession } from "@/app/(auth)/auth";
-import { redirect } from "next/navigation";
-import { getUserWithKycStatus } from "@repo/db/queries";
-import { KycReviewScreen } from "./components/kyc-review";
-import { KycPendingDocsScreen } from "./components/kyc-pending-docs";
-import { KycRejectedScreen } from "./components/kyc-rejected";
-import { DashboardMain } from "./components/dashboard-main";
+import { Suspense } from "react";
+import { DashboardContent } from "./components/dashboard-content";
+import { DashboardSkeleton } from "@/components/skeleton/dashboard-skeleton";
 
-const DashboardPage = async () => {
-  const session = await authSession();
-
-  if (!session) {
-    redirect("/login");
-  }
-
-  const userData = await getUserWithKycStatus(session.user.id);
-
-  if (!userData) {
-    redirect("/login");
-  }
-
-  // If user hasn't completed onboarding, redirect to onboarding
-  if (!userData.isOnboardingCompleted) {
-    redirect("/onboarding");
-  }
-
-  console.log(userData);
-
-  // Render different screens based on KYC status
-  // Ensure kycStatus is properly typed and handled
-  const kycStatus = userData.kycStatus;
-  switch (kycStatus) {
-    case "review":
-      return <KycReviewScreen />;
-    case "pending_docs":
-      return <KycPendingDocsScreen />;
-    case "rejected":
-      return <KycRejectedScreen />;
-    case "approved":
-      return <DashboardMain />;
-    default:
-      // Default to review screen if status is unknown or null
-      return <KycReviewScreen />;
-  }
+/**
+ * Dashboard Page using Next.js Cache Components pattern.
+ *
+ * Structure:
+ * - Static shell: Page wrapper (prerendered)
+ * - Dynamic content: DashboardContent wrapped in Suspense (streamed at request time)
+ *
+ * The DashboardContent component:
+ * - Handles runtime data (session check)
+ * - Calls cached data fetching function
+ * - Renders the appropriate screen based on KYC status
+ */
+const DashboardPage = () => {
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <DashboardContent />
+    </Suspense>
+  );
 };
 
 export default DashboardPage;

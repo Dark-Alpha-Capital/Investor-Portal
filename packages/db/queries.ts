@@ -1,5 +1,13 @@
 import { db } from ".";
-import { user, onboarding, onboardingDocument } from "./schema";
+import {
+  user,
+  onboarding,
+  onboardingDocument,
+  deal,
+  dealInvite,
+  dealInterest,
+  investment,
+} from "./schema";
 import { and, eq, or, isNull, ne } from "drizzle-orm";
 
 /**
@@ -153,6 +161,156 @@ export const getAllInvestorsWithKycStatus = async () => {
     return investors;
   } catch (error) {
     console.error("Error fetching investors with KYC status:", error);
+    return [];
+  }
+};
+
+/**
+ * Get all investors (non-admin users) for curation
+ * @returns Array of investors with KYC status and onboarding completion status
+ */
+export const getAllInvestors = async () => {
+  try {
+    const investors = await db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        kycStatus: user.kycStatus,
+        isOnboardingCompleted: user.isOnboardingCompleted,
+        createdAt: user.createdAt,
+      })
+      .from(user)
+      .where(or(ne(user.role, "admin"), isNull(user.role)))
+      .orderBy(user.name);
+
+    return investors;
+  } catch (error) {
+    console.error("Error fetching investors:", error);
+    return [];
+  }
+};
+
+/**
+ * Get a deal by its ID
+ * @param dealId The deal ID
+ * @returns The deal record or null if not found
+ */
+export const getDealById = async (dealId: string) => {
+  try {
+    const records = await db
+      .select()
+      .from(deal)
+      .where(eq(deal.id, dealId))
+      .limit(1);
+    return records[0] || null;
+  } catch (error) {
+    console.error("Error fetching deal by ID:", error);
+    return null;
+  }
+};
+
+/**
+ * Get all deal invites with user information for a specific deal
+ * @param dealId The deal ID
+ * @returns Array of deal invites with user data
+ */
+export const getDealInvitesWithUsersByDealId = async (dealId: string) => {
+  try {
+    const invites = await db
+      .select({
+        id: dealInvite.id,
+        userId: dealInvite.userId,
+        curationNote: dealInvite.curationNote,
+        createdAt: dealInvite.createdAt,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+          kycStatus: user.kycStatus,
+          isOnboardingCompleted: user.isOnboardingCompleted,
+        },
+      })
+      .from(dealInvite)
+      .innerJoin(user, eq(dealInvite.userId, user.id))
+      .where(eq(dealInvite.dealId, dealId));
+
+    return invites;
+  } catch (error) {
+    console.error("Error fetching deal invites with users:", error);
+    return [];
+  }
+};
+
+/**
+ * Get all deal interests with user information for a specific deal
+ * @param dealId The deal ID
+ * @returns Array of deal interests with user data
+ */
+export const getDealInterestsWithUsersByDealId = async (dealId: string) => {
+  try {
+    const interests = await db
+      .select({
+        id: dealInterest.id,
+        userId: dealInterest.userId,
+        status: dealInterest.status,
+        proposedAmount: dealInterest.proposedAmount,
+        createdAt: dealInterest.createdAt,
+        updatedAt: dealInterest.updatedAt,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+        },
+      })
+      .from(dealInterest)
+      .innerJoin(user, eq(dealInterest.userId, user.id))
+      .where(eq(dealInterest.dealId, dealId));
+
+    return interests;
+  } catch (error) {
+    console.error("Error fetching deal interests with users:", error);
+    return [];
+  }
+};
+
+/**
+ * Get all investments with user information for a specific deal
+ * @param dealId The deal ID
+ * @returns Array of investments with user data
+ */
+export const getDealInvestmentsWithUsersByDealId = async (dealId: string) => {
+  try {
+    const investments = await db
+      .select({
+        id: investment.id,
+        userId: investment.userId,
+        committedAmount: investment.committedAmount,
+        fundedAmount: investment.fundedAmount,
+        currentValue: investment.currentValue,
+        distributions: investment.distributions,
+        status: investment.status,
+        ownershipPercentage: investment.ownershipPercentage,
+        committedDate: investment.committedDate,
+        createdAt: investment.createdAt,
+        updatedAt: investment.updatedAt,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+        },
+      })
+      .from(investment)
+      .innerJoin(user, eq(investment.userId, user.id))
+      .where(eq(investment.dealId, dealId));
+
+    return investments;
+  } catch (error) {
+    console.error("Error fetching deal investments with users:", error);
     return [];
   }
 };

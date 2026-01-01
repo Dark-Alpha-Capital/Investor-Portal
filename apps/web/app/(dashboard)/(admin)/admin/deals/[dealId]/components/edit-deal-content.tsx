@@ -1,13 +1,55 @@
-import { Suspense } from "react";
+import "server-only";
 import { redirect } from "next/navigation";
+import { authSession } from "@/app/(auth)/auth";
+import { cacheLife, cacheTag } from "next/cache";
+import { Suspense } from "react";
 import { caller } from "@/trpc/server";
 import { DealForm } from "../../components/deal-form";
 
-type EditDealFormProps = {
-  dealId: string;
+type EditDealContentProps = {
+  params: Promise<{
+    dealId: string;
+  }>;
 };
 
-export async function EditDealForm({ dealId }: EditDealFormProps) {
+export async function EditDealContent({ params }: EditDealContentProps) {
+  const session = await authSession();
+
+  if (!session) {
+    console.log("User is not logged in");
+    redirect("/login");
+  }
+
+  if (session.user.role !== "admin") {
+    console.log("User is not admin");
+    console.log(session.user.role);
+    redirect("/dashboard");
+  }
+
+  const { dealId } = await params;
+  console.log("Deal ID:", dealId);
+
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-pulse text-muted-foreground">
+            Loading deal...
+          </div>
+        </div>
+      }
+    >
+      <FetchEditDealWrapper dealId={dealId} />
+    </Suspense>
+  );
+}
+
+async function FetchEditDealWrapper({ dealId }: { dealId: string }) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(`deal-${dealId}`);
+  cacheTag("admin-deals");
+
   try {
     const result = await caller.deals.getById({ dealId });
 
@@ -37,21 +79,10 @@ export async function EditDealForm({ dealId }: EditDealFormProps) {
       closeDate: deal.closeDate ?? undefined,
     };
 
-    return (
-      <Suspense
-        fallback={
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-pulse text-muted-foreground">
-              Loading deal...
-            </div>
-          </div>
-        }
-      >
-        <DealForm dealId={dealId} initialData={formData} />
-      </Suspense>
-    );
+    return <DealForm dealId={dealId} initialData={formData} />;
   } catch (error) {
     console.error("Error fetching deal:", error);
     redirect("/admin/deals");
   }
 }
+

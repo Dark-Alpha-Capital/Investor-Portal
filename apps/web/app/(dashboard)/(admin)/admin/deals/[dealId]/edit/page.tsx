@@ -1,7 +1,5 @@
-import React, { Suspense } from "react";
-import { authSession } from "@/app/(auth)/auth";
-import { redirect } from "next/navigation";
-import { EditDealForm } from "../components/edit-deal-form";
+import { Suspense } from "react";
+import { EditDealContent } from "../components/edit-deal-content";
 import BackButton from "@/components/back-button";
 
 type PageProps = {
@@ -11,17 +9,6 @@ type PageProps = {
 };
 
 const EditDealPage = async ({ params }: PageProps) => {
-  const { dealId } = await params;
-  const session = await authSession();
-
-  if (!session) {
-    redirect("/login");
-  }
-
-  if (session.user.role !== "admin") {
-    redirect("/dashboard");
-  }
-
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       <BackButton />
@@ -39,7 +26,7 @@ const EditDealPage = async ({ params }: PageProps) => {
           </div>
         }
       >
-        <EditDealForm dealId={dealId} />
+        <EditDealContent params={params} />
       </Suspense>
     </div>
   );

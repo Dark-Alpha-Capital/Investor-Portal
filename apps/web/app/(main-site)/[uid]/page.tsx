@@ -1,15 +1,38 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { asImageSrc } from "@prismicio/client";
 import { SliceZone } from "@prismicio/react";
 
 import { createClient } from "@/prismicio";
 import { components } from "@/slices";
+import { Suspense } from "react";
+import { PageSkeleton } from "@/components/skeleton/page-skeleton";
 
-type Params = { uid: string };
+type Params = Promise<{ uid: string }>;
 
-export default async function Page({ params }: { params: Promise<Params> }) {
-  const { uid } = await params;
+export default async function Page({ params }: { params: Params }) {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <FetchPageWrapper p={params} />
+    </Suspense>
+  );
+}
+
+async function FetchPageWrapper({ p }: { p: Params }) {
+  // Access headers first to mark request data access (required for Cache Components)
+  await headers();
+  const { uid } = await p;
+  return (
+    <div>
+      <Suspense fallback={<PageSkeleton />}>
+        <FetchPageContent uid={uid} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function FetchPageContent({ uid }: { uid: string }) {
   const client = createClient();
   const page = await client.getByUID("page", uid).catch(() => notFound());
 
@@ -21,6 +44,8 @@ export async function generateMetadata({
 }: {
   params: Promise<Params>;
 }): Promise<Metadata> {
+  // Access headers first to mark request data access (required for Cache Components)
+  await headers();
   const { uid } = await params;
   const client = createClient();
   const page = await client.getByUID("page", uid).catch(() => notFound());

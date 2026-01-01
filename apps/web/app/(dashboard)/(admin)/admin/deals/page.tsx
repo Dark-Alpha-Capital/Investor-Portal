@@ -1,11 +1,9 @@
-import React from "react";
-import { authSession } from "@/app/(auth)/auth";
-import { redirect } from "next/navigation";
-import { DealsTable } from "./components/deals-table";
+import { Suspense } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { HydrateClient, prefetch, trpc } from "@/trpc/server";
+import { DealsContent } from "./components/deals-content";
+import { DealsTableSkeleton } from "@/components/skeleton/deals-table-skeleton";
 
 type SearchParams = Promise<{
   dealsPage?: string;
@@ -14,58 +12,46 @@ type SearchParams = Promise<{
   dealsVisibility?: string;
 }>;
 
-const DealsPage = async ({ searchParams }: { searchParams: SearchParams }) => {
-  const session = await authSession();
-
-  if (!session) {
-    redirect("/login");
-  }
-
-  if (session.user.role !== "admin") {
-    redirect("/dashboard");
-  }
-
-  // Get search params for prefetching
-  const params = await searchParams;
-  const page = parseInt(params.dealsPage || "1", 10);
-  const search = params.dealsSearch || undefined;
-  const status = params.dealsStatus && params.dealsStatus !== "all" ? params.dealsStatus : undefined;
-  const visibility = params.dealsVisibility && params.dealsVisibility !== "all" ? params.dealsVisibility : undefined;
-
-  // Prefetch the deals query on the server with cache settings
-  prefetch({
-    ...trpc.admin.getDeals.queryOptions({
-      page,
-      limit: 12,
-      search,
-      status,
-      visibility,
-    }),
-    staleTime: 2 * 60 * 1000,  // Data fresh for 2 minutes
-    gcTime: 10 * 60 * 1000,    // Keep in cache for 10 minutes
-  });
-
+/**
+ * Admin Deals Page using Next.js Cache Components pattern.
+ *
+ * Structure:
+ * - Static shell: Header with title and "Create Deal" button (prerendered)
+ * - Dynamic content: DealsContent wrapped in Suspense (streamed at request time)
+ *
+ * The DealsContent component:
+ * - Handles runtime data (searchParams, session check)
+ * - Calls cached data fetching function
+ * - Passes initial data to client DealsTable component
+ */
+const DealsPage = ({ searchParams }: { searchParams: SearchParams }) => {
   return (
-    <HydrateClient>
-      <div className="container mx-auto py-8 px-4 max-w-7xl">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Deals Management</h1>
-            <p className="text-muted-foreground mt-2">
-              Create and manage investment deals
-            </p>
-          </div>
-          <Link href="/admin/deals/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Deal
-            </Button>
-          </Link>
+    <div className="container mx-auto py-8 px-4 max-w-7xl">
+      {/* Static shell - prerendered automatically */}
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Deals Management
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Create and manage investment deals
+          </p>
         </div>
-
-        <DealsTable />
+        <Link href="/admin/deals/new">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Deal
+          </Button>
+        </Link>
       </div>
-    </HydrateClient>
+
+      {/* Dynamic content - streamed at request time */}
+      {/* DealsContent handles runtime data (searchParams, session) */}
+      {/* and calls cached data fetching function */}
+      <Suspense fallback={<DealsTableSkeleton />}>
+        <DealsContent searchParams={searchParams} />
+      </Suspense>
+    </div>
   );
 };
 

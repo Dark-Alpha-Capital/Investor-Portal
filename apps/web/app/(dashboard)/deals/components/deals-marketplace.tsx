@@ -1,10 +1,9 @@
 "use client";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useTransition } from "react";
 import { LayoutGrid, List, Loader2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { useTRPC } from "@/trpc/client";
+import type { MarketplaceDealsData } from "../lib/get-marketplace-deals-cached";
 import {
   Select,
   SelectContent,
@@ -37,11 +36,15 @@ const STATUSES = [
 
 const ITEMS_PER_PAGE = 12;
 
-export function DealsMarketplace() {
+type DealsMarketplaceProps = {
+  initialData?: MarketplaceDealsData;
+};
+
+export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const trpc = useTRPC();
+  const [isPending, startTransition] = useTransition();
 
   // Get filter values from URL params
   const view = searchParams.get("view") || "card";
@@ -51,7 +54,7 @@ export function DealsMarketplace() {
   const pageParam = searchParams.get("page") || "1";
   const currentPage = Math.max(1, parseInt(pageParam, 10) || 1);
 
-  // Update URL params helper
+  // Update URL params helper - wrapped in transition to show pending state
   const updateParams = useCallback(
     (updates: Record<string, string>, resetPage = false) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -66,29 +69,16 @@ export function DealsMarketplace() {
       if (resetPage) {
         params.delete("page");
       }
-      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      startTransition(() => {
+        router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      });
     },
-    [searchParams, pathname, router]
+    [searchParams, pathname, router, startTransition]
   );
 
-  // Query for paginated deals with caching
-  const { data, isLoading, isFetching, isError, error } = useQuery({
-    ...trpc.deals.getMarketplaceDeals.queryOptions({
-      page: currentPage,
-      limit: ITEMS_PER_PAGE,
-      search: searchParam || undefined,
-      status: status !== "all" ? status : undefined,
-      sector: sector !== "all" ? sector : undefined,
-    }),
-    // Cache settings for deals marketplace
-    staleTime: 2 * 60 * 1000, // Data fresh for 2 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
-    refetchOnMount: false, // Don't refetch if data exists in cache
-    placeholderData: (previousData) => previousData, // Keep showing old data while fetching new
-  });
-
-  const deals = data?.deals ?? [];
-  const pagination = data?.pagination ?? {
+  // Use server-fetched cached data directly
+  const deals = initialData?.deals ?? [];
+  const pagination = initialData?.pagination ?? {
     page: 1,
     limit: ITEMS_PER_PAGE,
     totalCount: 0,
@@ -96,7 +86,7 @@ export function DealsMarketplace() {
     hasNextPage: false,
     hasPrevPage: false,
   };
-  const availableSectors = data?.filters?.sectors ?? [];
+  const availableSectors = initialData?.filters?.sectors ?? [];
 
   // Handle page change
   const handlePageChange = (page: number) => {
@@ -223,44 +213,22 @@ export function DealsMarketplace() {
       {/* Results count */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {isLoading ? (
-            "Loading..."
-          ) : (
-            <>
-              {pagination.totalCount} deal
-              {pagination.totalCount !== 1 ? "s" : ""} found
-              {pagination.totalPages > 1 && (
-                <span className="ml-1">
-                  (page {currentPage} of {pagination.totalPages})
-                </span>
-              )}
-            </>
+          {pagination.totalCount} deal
+          {pagination.totalCount !== 1 ? "s" : ""} found
+          {pagination.totalPages > 1 && (
+            <span className="ml-1">
+              (page {currentPage} of {pagination.totalPages})
+            </span>
           )}
         </p>
-        {/* Background fetch indicator */}
-        {isFetching && !isLoading && (
+        {/* Navigation pending indicator */}
+        {isPending && (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         )}
       </div>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="py-12 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      )}
-
-      {/* Error State */}
-      {isError && (
-        <div className="py-12 text-center">
-          <p className="text-destructive">
-            Failed to load deals: {error?.message || "Unknown error"}
-          </p>
-        </div>
-      )}
-
       {/* Empty State */}
-      {!isLoading && !isError && deals.length === 0 && (
+      {deals.length === 0 && (
         <div className="py-12 text-center">
           <p className="text-muted-foreground">No deals match your filters.</p>
           <p className="text-sm text-muted-foreground mt-2">
@@ -270,7 +238,7 @@ export function DealsMarketplace() {
       )}
 
       {/* Deals Display */}
-      {!isLoading && !isError && deals.length > 0 && (
+      {deals.length > 0 && (
         <>
           {view === "table" ? (
             <DealsTableView deals={deals} />

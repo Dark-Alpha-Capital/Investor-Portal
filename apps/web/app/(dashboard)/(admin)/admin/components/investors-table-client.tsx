@@ -1,10 +1,9 @@
 "use client";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useTransition } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { useTRPC } from "@/trpc/client";
+import type { InvestorsData } from "../lib/get-investors-cached";
 import { LayoutGrid, List, CheckCircle2, XCircle, Ban, Eye, Loader2 } from "lucide-react";
 import { SearchInput } from "@/components/search-input";
 import {
@@ -305,11 +304,15 @@ function InvestorsCardView({
   );
 }
 
-export function InvestorsTableClient() {
+type InvestorsTableClientProps = {
+  initialData?: InvestorsData;
+};
+
+export function InvestorsTableClient({ initialData }: InvestorsTableClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const trpc = useTRPC();
+  const [isPending, startTransition] = useTransition();
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -322,7 +325,7 @@ export function InvestorsTableClient() {
   const pageParam = searchParams.get("investorsPage") || "1";
   const currentPage = Math.max(1, parseInt(pageParam, 10) || 1);
 
-  // Update URL params helper
+  // Update URL params helper - wrapped in transition to show pending state
   const updateParams = useCallback(
     (updates: Record<string, string>, resetPage = false) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -337,29 +340,16 @@ export function InvestorsTableClient() {
       if (resetPage) {
         params.delete("investorsPage");
       }
-      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      startTransition(() => {
+        router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      });
     },
-    [searchParams, pathname, router]
+    [searchParams, pathname, router, startTransition]
   );
 
-  // Query for paginated investors
-  const { data, isLoading, isFetching, isError, error } = useQuery({
-    ...trpc.admin.getInvestors.queryOptions({
-      page: currentPage,
-      limit: ITEMS_PER_PAGE,
-      search: searchParam || undefined,
-      kycStatus: kycStatus !== "all" ? kycStatus : undefined,
-      verified: verified !== "all" ? verified : undefined,
-    }),
-    // Cache settings
-    staleTime: 2 * 60 * 1000,      // Data fresh for 2 minutes
-    gcTime: 10 * 60 * 1000,        // Keep in cache for 10 minutes
-    refetchOnMount: false,         // Don't refetch if data exists in cache
-    placeholderData: (previousData) => previousData, // Keep showing old data while fetching new
-  });
-
-  const investors = data?.investors ?? [];
-  const pagination = data?.pagination ?? {
+  // Use server-fetched cached data directly
+  const investors = initialData?.investors ?? [];
+  const pagination = initialData?.pagination ?? {
     page: 1,
     limit: ITEMS_PER_PAGE,
     totalCount: 0,
@@ -503,46 +493,24 @@ export function InvestorsTableClient() {
       {/* Results count and selection info */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {isLoading ? (
-            "Loading..."
-          ) : (
-            <>
-              {pagination.totalCount} investor{pagination.totalCount !== 1 ? "s" : ""} found
-              {pagination.totalPages > 1 && (
-                <span className="ml-1">
-                  (page {currentPage} of {pagination.totalPages})
-                </span>
-              )}
-              {selectedIds.size > 0 && (
-                <span className="ml-2">({selectedIds.size} selected)</span>
-              )}
-            </>
+          {pagination.totalCount} investor{pagination.totalCount !== 1 ? "s" : ""} found
+          {pagination.totalPages > 1 && (
+            <span className="ml-1">
+              (page {currentPage} of {pagination.totalPages})
+            </span>
+          )}
+          {selectedIds.size > 0 && (
+            <span className="ml-2">({selectedIds.size} selected)</span>
           )}
         </p>
         {/* Background fetch indicator */}
-        {isFetching && !isLoading && (
+        {isPending && (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         )}
       </div>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="py-12 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      )}
-
-      {/* Error State */}
-      {isError && (
-        <div className="py-12 text-center">
-          <p className="text-destructive">
-            Failed to load investors: {error?.message || "Unknown error"}
-          </p>
-        </div>
-      )}
-
       {/* Empty State */}
-      {!isLoading && !isError && investors.length === 0 && (
+      {investors.length === 0 && (
         <div className="py-12 text-center">
           <p className="text-muted-foreground">No investors match your filters.</p>
           <p className="text-sm text-muted-foreground mt-2">
@@ -552,7 +520,7 @@ export function InvestorsTableClient() {
       )}
 
       {/* Content */}
-      {!isLoading && !isError && investors.length > 0 && (
+      {investors.length > 0 && (
         <>
           {view === "table" ? (
             <InvestorsTableView

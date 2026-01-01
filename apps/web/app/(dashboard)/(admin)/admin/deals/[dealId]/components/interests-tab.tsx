@@ -1,4 +1,3 @@
-import { caller } from "@/trpc/server";
 import {
   Card,
   CardContent,
@@ -18,6 +17,21 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Target } from "lucide-react";
 import Link from "next/link";
+
+type Interest = {
+  id: string;
+  userId: string;
+  status: string;
+  proposedAmount: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
+  };
+};
 
 const interestStatusColors: Record<string, string> = {
   interested: "default",
@@ -47,9 +61,7 @@ const formatDate = (dateString: string | null | undefined): string => {
   });
 };
 
-export async function InterestsTab({ dealId }: { dealId: string }) {
-  const result = await caller.deals.getInterests({ dealId });
-  const interests = result.interests;
+export function InterestsTab({ interests }: { interests: Interest[] }) {
 
   return (
     <Card>

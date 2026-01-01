@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download, FileText, Calendar } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -29,6 +27,10 @@ type InvestmentDocument = {
   createdAt: string;
   dealName: string;
   dealId: string;
+};
+
+type DocumentsListProps = {
+  documents: InvestmentDocument[];
 };
 
 const formatFileSize = (bytes: string): string => {
@@ -60,41 +62,27 @@ const getDocumentTypeLabel = (type: string): string => {
     tax_statement: "Tax Statement",
     distribution_notice: "Distribution Notice",
   };
-  return labels[type] || type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+  return (
+    labels[type] ||
+    type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+  );
 };
 
-export function DocumentsList() {
-  const [documents, setDocuments] = useState<InvestmentDocument[]>([]);
-  const [filteredDocuments, setFilteredDocuments] = useState<InvestmentDocument[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function DocumentsList({
+  documents: initialDocuments,
+}: DocumentsListProps) {
+  const [filteredDocuments, setFilteredDocuments] = useState<
+    InvestmentDocument[]
+  >([]);
   const [filterType, setFilterType] = useState<string>("all");
   const [filterDeal, setFilterDeal] = useState<string>("all");
 
   useEffect(() => {
-    fetchDocuments();
-  }, []);
-
-  useEffect(() => {
     filterDocuments();
-  }, [documents, filterType, filterDeal]);
-
-  const fetchDocuments = async () => {
-    try {
-      const response = await fetch("/api/investments/documents");
-      const data = await response.json();
-
-      if (data.success) {
-        setDocuments(data.documents || []);
-      }
-    } catch (error) {
-      console.error("Error fetching documents:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [initialDocuments, filterType, filterDeal]);
 
   const filterDocuments = () => {
-    let filtered = [...documents];
+    let filtered = [...initialDocuments];
 
     if (filterType !== "all") {
       filtered = filtered.filter((doc) => doc.documentType === filterType);
@@ -108,13 +96,15 @@ export function DocumentsList() {
   };
 
   const uniqueDeals = Array.from(
-    new Set(documents.map((doc) => doc.dealId))
+    new Set(initialDocuments.map((doc) => doc.dealId))
   ).map((dealId) => {
-    const doc = documents.find((d) => d.dealId === dealId);
+    const doc = initialDocuments.find((d) => d.dealId === dealId);
     return { id: dealId, name: doc?.dealName || "Unknown" };
   });
 
-  const uniqueTypes = Array.from(new Set(documents.map((doc) => doc.documentType)));
+  const uniqueTypes = Array.from(
+    new Set(initialDocuments.map((doc) => doc.documentType))
+  );
 
   const handleDownload = (document: InvestmentDocument) => {
     if (document.fileUrl) {
@@ -124,145 +114,126 @@ export function DocumentsList() {
     }
   };
 
-  if (isLoading) {
+  if (initialDocuments.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-12">
-          <div className="space-y-4">
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (documents.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-12">
-          <div className="text-center text-muted-foreground">
-            <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium mb-2">No documents available</p>
-            <p className="text-sm">
-              Documents will appear here once they are uploaded for your investments.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-lg border bg-card p-12">
+        <div className="text-center text-muted-foreground">
+          <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p className="text-lg font-medium mb-2">No documents available</p>
+          <p className="text-sm">
+            Documents will appear here once they are uploaded for your
+            investments.
+          </p>
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="space-y-6">
       {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">Document Type</label>
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  {uniqueTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {getDocumentTypeLabel(type)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">Deal</label>
-              <Select value={filterDeal} onValueChange={setFilterDeal}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Deals</SelectItem>
-                  {uniqueDeals.map((deal) => (
-                    <SelectItem key={deal.id} value={deal.id}>
-                      {deal.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="rounded-lg border bg-card p-6">
+        <h3 className="text-lg font-semibold mb-4">Filters</h3>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <label className="text-sm font-medium mb-2 block">
+              Document Type
+            </label>
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {uniqueTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {getDocumentTypeLabel(type)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex-1">
+            <label className="text-sm font-medium mb-2 block">Deal</label>
+            <Select value={filterDeal} onValueChange={setFilterDeal}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Deals</SelectItem>
+                {uniqueDeals.map((deal) => (
+                  <SelectItem key={deal.id} value={deal.id}>
+                    {deal.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
 
       {/* Documents List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            Documents ({filteredDocuments.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {filteredDocuments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>No documents match your filters</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredDocuments.map((document) => (
-                <div
-                  key={document.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <FileText className="w-5 h-5 text-primary" />
+      <div className="rounded-lg border bg-card p-6">
+        <h3 className="text-lg font-semibold mb-6">
+          Documents ({filteredDocuments.length})
+        </h3>
+        {filteredDocuments.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No documents match your filters</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredDocuments.map((document) => (
+              <div
+                key={document.id}
+                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-start gap-4 flex-1">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-semibold truncate">
+                        {document.fileName}
+                      </h4>
+                      <Badge variant="outline">
+                        {getDocumentTypeLabel(document.documentType)}
+                      </Badge>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold truncate">{document.fileName}</h4>
-                        <Badge variant="outline">
-                          {getDocumentTypeLabel(document.documentType)}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                        <span>{document.dealName}</span>
-                        {document.year && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {document.year}
-                          </span>
-                        )}
-                        {document.periodStart && document.periodEnd && (
-                          <span>
-                            {formatDate(document.periodStart)} - {formatDate(document.periodEnd)}
-                          </span>
-                        )}
-                        <span>{formatFileSize(document.fileSize)}</span>
-                        <span>Uploaded {formatDate(document.uploadedAt)}</span>
-                      </div>
+                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                      <span>{document.dealName}</span>
+                      {document.year && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {document.year}
+                        </span>
+                      )}
+                      {document.periodStart && document.periodEnd && (
+                        <span>
+                          {formatDate(document.periodStart)} -{" "}
+                          {formatDate(document.periodEnd)}
+                        </span>
+                      )}
+                      <span>{formatFileSize(document.fileSize)}</span>
+                      <span>Uploaded {formatDate(document.uploadedAt)}</span>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDownload(document)}
-                    disabled={!document.fileUrl}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download
-                  </Button>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDownload(document)}
+                  disabled={!document.fileUrl}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-

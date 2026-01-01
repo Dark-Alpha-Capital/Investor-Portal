@@ -6,19 +6,34 @@ import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { montserrat, raleway, fira_code } from "@/app/fonts";
 import { TRPCReactProvider } from "@/trpc/client";
+import { generatePageMetadata, generateOrganizationJsonLd, siteConfig } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/json-ld";
 
-export const metadata: Metadata = {
-  title: "Investors Dark Alpha Capital",
-  description: "Investors Dark Alpha Capital",
-};
+export const metadata: Metadata = generatePageMetadata({
+  title: siteConfig.name,
+  description: siteConfig.description,
+  keywords: [
+    "private equity",
+    "venture capital",
+    "accredited investor",
+    "investment platform",
+    "alternative investments",
+    "DarkAlpha Capital",
+  ],
+});
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const organizationJsonLd = generateOrganizationJsonLd();
+
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <JsonLd data={organizationJsonLd} />
+      </head>
       <body
         className={`${montserrat.variable} ${raleway.variable} ${fira_code.variable} antialiased`}
       >

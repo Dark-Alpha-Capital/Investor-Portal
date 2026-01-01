@@ -7,7 +7,7 @@ import {
   investment,
   user,
 } from "@repo/db/schema";
-import { protectedProcedure, adminProcedure, createTRPCRouter } from "../init";
+import { baseProcedure, createTRPCRouter } from "../init";
 import slugify from "slugify";
 import { getSession } from "@/lib/get-session";
 import { createDealSchema } from "@/lib/schemas/create-deal-schema";
@@ -29,14 +29,14 @@ import { FileStat } from "webdav";
 import { revalidatePath } from "next/cache";
 
 export const dealsRouter = createTRPCRouter({
-  getDeals: protectedProcedure.query(async ({ ctx }) => {
+  getDeals: baseProcedure.query(async ({ ctx }) => {
     const deals = await ctx.db
       .select()
       .from(deal)
       .orderBy(desc(deal.createdAt));
     return deals;
   }),
-  create: protectedProcedure
+  create: baseProcedure
     .input(createDealSchema)
     .mutation(async ({ input, ctx }) => {
       // Check if user is admin
@@ -130,7 +130,7 @@ export const dealsRouter = createTRPCRouter({
       }
     }),
 
-  update: protectedProcedure
+  update: baseProcedure
     .input(
       createDealSchema.extend({
         dealId: z.string().min(1, "Deal ID is required"),
@@ -272,7 +272,7 @@ export const dealsRouter = createTRPCRouter({
       }
     }),
 
-  delete: adminProcedure
+  delete: baseProcedure
     .input(z.object({ dealId: z.string().min(1, "Deal ID is required") }))
     .mutation(async ({ input, ctx }) => {
       // Check if deal exists
@@ -313,7 +313,7 @@ export const dealsRouter = createTRPCRouter({
       }
     }),
 
-  getById: protectedProcedure
+  getById: baseProcedure
     .input(z.object({ dealId: z.string() }))
     .query(async ({ input, ctx }) => {
       // Check if user is admin
@@ -355,7 +355,7 @@ export const dealsRouter = createTRPCRouter({
       };
     }),
 
-  getInvites: protectedProcedure
+  getInvites: baseProcedure
     .input(z.object({ dealId: z.string() }))
     .query(async ({ input, ctx }) => {
       // Check if user is admin
@@ -411,7 +411,7 @@ export const dealsRouter = createTRPCRouter({
       };
     }),
 
-  getInterests: protectedProcedure
+  getInterests: baseProcedure
     .input(z.object({ dealId: z.string() }))
     .query(async ({ input, ctx }) => {
       // Check if user is admin
@@ -469,7 +469,7 @@ export const dealsRouter = createTRPCRouter({
       };
     }),
 
-  getInvestments: protectedProcedure
+  getInvestments: baseProcedure
     .input(z.object({ dealId: z.string() }))
     .query(async ({ input, ctx }) => {
       // Check if user is admin
@@ -537,7 +537,7 @@ export const dealsRouter = createTRPCRouter({
       };
     }),
 
-  getFiles: protectedProcedure
+  getFiles: baseProcedure
     .input(z.object({ dealId: z.string() }))
     .query(async ({ input, ctx }) => {
       // Check if user is admin
@@ -644,7 +644,7 @@ export const dealsRouter = createTRPCRouter({
       }
     }),
 
-  uploadFile: protectedProcedure
+  uploadFile: baseProcedure
     .input(
       z.object({
         dealId: z.string(),
@@ -838,7 +838,7 @@ export const dealsRouter = createTRPCRouter({
       }
     }),
 
-  getInvestors: protectedProcedure.query(async ({ ctx }) => {
+  getInvestors: baseProcedure.query(async ({ ctx }) => {
     // Check if user is admin
     const session = await getSession();
     if (!session?.user || session.user.role !== "admin") {
@@ -871,7 +871,7 @@ export const dealsRouter = createTRPCRouter({
     };
   }),
 
-  addInvites: protectedProcedure
+  addInvites: baseProcedure
     .input(
       z.object({
         dealId: z.string(),
@@ -961,7 +961,7 @@ export const dealsRouter = createTRPCRouter({
       };
     }),
 
-  removeInvites: protectedProcedure
+  removeInvites: baseProcedure
     .input(
       z.object({
         dealId: z.string(),
@@ -999,7 +999,7 @@ export const dealsRouter = createTRPCRouter({
       };
     }),
 
-  getPublicDeals: protectedProcedure.query(async ({ ctx }) => {
+  getPublicDeals: baseProcedure.query(async ({ ctx }) => {
     const session = await getSession();
 
     if (!session?.user) {
@@ -1059,7 +1059,7 @@ export const dealsRouter = createTRPCRouter({
     };
   }),
 
-  getMarketplaceDeals: protectedProcedure
+  getMarketplaceDeals: baseProcedure
     .input(
       z.object({
         page: z.number().min(1).default(1),
@@ -1073,11 +1073,19 @@ export const dealsRouter = createTRPCRouter({
       const { page, limit, search, status, sector } = input;
       const offset = (page - 1) * limit;
 
+      const session = await getSession();
+      if (!session?.user) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to view deals",
+        });
+      }
+
       // Get user's KYC status
       const [userRecord] = await ctx.db
         .select({ kycStatus: user.kycStatus })
         .from(user)
-        .where(eq(user.id, ctx.session?.user?.id ?? ""))
+        .where(eq(user.id, session.user.id))
         .limit(1);
 
       const isAccredited = userRecord?.kycStatus === "approved";
@@ -1089,7 +1097,7 @@ export const dealsRouter = createTRPCRouter({
           curationNote: dealInvite.curationNote,
         })
         .from(dealInvite)
-        .where(eq(dealInvite.userId, ctx.session?.user?.id ?? ""));
+        .where(eq(dealInvite.userId, session.user.id));
 
       const invitedDealIds = invitedDeals.map((d) => d.dealId);
       const invitedDealNotes = new Map(
@@ -1211,12 +1219,13 @@ export const dealsRouter = createTRPCRouter({
       };
     }),
 
-  getCuratedDeals: protectedProcedure.query(async ({ ctx }) => {
-    if (!ctx.session?.user) {
-      return {
-        success: true,
-        deals: [],
-      };
+  getCuratedDeals: baseProcedure.query(async ({ ctx }) => {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "You must be logged in to view curated deals",
+      });
     }
 
     // Fetch invite-only deals that the user has been invited to
@@ -1248,7 +1257,7 @@ export const dealsRouter = createTRPCRouter({
       .innerJoin(deal, eq(dealInvite.dealId, deal.id))
       .where(
         and(
-          eq(dealInvite.userId, ctx.session.user.id),
+          eq(dealInvite.userId, session.user.id),
           ne(deal.status, "draft") // Exclude draft deals
         )
       )
@@ -1270,10 +1279,11 @@ export const dealsRouter = createTRPCRouter({
     };
   }),
 
-  getDealForView: protectedProcedure
+  getDealForView: baseProcedure
     .input(z.object({ dealId: z.string() }))
     .query(async ({ input, ctx }) => {
-      if (!ctx.session?.user) {
+      const session = await getSession();
+      if (!session?.user) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "You must be logged in to view deals",
@@ -1310,7 +1320,7 @@ export const dealsRouter = createTRPCRouter({
         const [userRecord] = await ctx.db
           .select({ kycStatus: user.kycStatus })
           .from(user)
-          .where(eq(user.id, ctx.session.user.id))
+          .where(eq(user.id, session.user.id))
           .limit(1);
 
         if (userRecord?.kycStatus !== "approved") {
@@ -1327,7 +1337,7 @@ export const dealsRouter = createTRPCRouter({
           .where(
             and(
               eq(dealInvite.dealId, dealRecord.id),
-              eq(dealInvite.userId, ctx.session.user.id)
+              eq(dealInvite.userId, session.user.id)
             )
           )
           .limit(1);
@@ -1349,7 +1359,7 @@ export const dealsRouter = createTRPCRouter({
         .where(
           and(
             eq(dealInterest.dealId, actualDealId),
-            eq(dealInterest.userId, ctx.session.user.id)
+            eq(dealInterest.userId, session.user.id)
           )
         )
         .limit(1);
@@ -1361,7 +1371,7 @@ export const dealsRouter = createTRPCRouter({
         .where(
           and(
             eq(investment.dealId, actualDealId),
-            eq(investment.userId, ctx.session.user.id)
+            eq(investment.userId, session.user.id)
           )
         )
         .limit(1);
@@ -1375,7 +1385,7 @@ export const dealsRouter = createTRPCRouter({
           .where(
             and(
               eq(dealInvite.dealId, actualDealId),
-              eq(dealInvite.userId, ctx.session.user.id)
+              eq(dealInvite.userId, session.user.id)
             )
           )
           .limit(1);
@@ -1419,7 +1429,7 @@ export const dealsRouter = createTRPCRouter({
       };
     }),
 
-  expressInterest: protectedProcedure
+  expressInterest: baseProcedure
     .input(
       z.object({
         dealId: z.string(),
@@ -1433,7 +1443,8 @@ export const dealsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      if (!ctx.session?.user) {
+      const session = await getSession();
+      if (!session?.user) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "You must be logged in to express interest",
@@ -1464,7 +1475,7 @@ export const dealsRouter = createTRPCRouter({
         const [userRecord] = await ctx.db
           .select({ kycStatus: user.kycStatus })
           .from(user)
-          .where(eq(user.id, ctx.session.user.id))
+          .where(eq(user.id, session.user.id))
           .limit(1);
 
         if (userRecord?.kycStatus !== "approved") {
@@ -1481,7 +1492,7 @@ export const dealsRouter = createTRPCRouter({
           .where(
             and(
               eq(dealInvite.dealId, actualDealId),
-              eq(dealInvite.userId, ctx.session.user.id)
+              eq(dealInvite.userId, session.user.id)
             )
           )
           .limit(1);
@@ -1501,7 +1512,7 @@ export const dealsRouter = createTRPCRouter({
         .where(
           and(
             eq(dealInterest.dealId, actualDealId),
-            eq(dealInterest.userId, ctx.session.user.id)
+            eq(dealInterest.userId, session.user.id)
           )
         )
         .limit(1);
@@ -1535,7 +1546,7 @@ export const dealsRouter = createTRPCRouter({
           .values({
             id: randomUUID(),
             dealId: actualDealId,
-            userId: ctx.session.user.id,
+            userId: session.user.id,
             status: input.status,
             proposedAmount: input.proposedAmount ?? null,
           })

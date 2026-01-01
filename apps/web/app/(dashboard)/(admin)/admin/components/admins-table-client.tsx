@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useTransition } from "react";
 import {
   LayoutGrid,
   List,
@@ -13,8 +13,7 @@ import {
   ChevronRight,
   Loader2,
 } from "lucide-react";
-import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
+import type { AdminsData } from "../lib/get-admins-cached";
 import { SearchInput } from "@/components/search-input";
 import {
   Select,
@@ -361,11 +360,15 @@ function PaginationControls({
   );
 }
 
-export function AdminsTableClient() {
+type AdminsTableClientProps = {
+  initialData?: AdminsData;
+};
+
+export function AdminsTableClient({ initialData }: AdminsTableClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const trpc = useTRPC();
+  const [isPending, startTransition] = useTransition();
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -377,26 +380,11 @@ export function AdminsTableClient() {
   const page = parseInt(searchParams.get("adminsPage") || "1", 10);
   const search = searchParams.get("adminsSearch") || "";
 
-  // Fetch admins with React Query
-  const { data, isLoading, isFetching } = useQuery({
-    ...trpc.admin.getAdmins.queryOptions({
-      page,
-      limit: 12,
-      search: search || undefined,
-      verified: verified !== "all" ? verified : undefined,
-      status: status !== "all" ? status : undefined,
-    }),
-    // Cache settings
-    staleTime: 2 * 60 * 1000, // Data fresh for 2 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
-    refetchOnMount: false, // Don't refetch if data exists in cache
-    placeholderData: (previousData) => previousData, // Keep showing old data while fetching new
-  });
+  // Use server-fetched cached data directly
+  const admins = initialData?.admins ?? [];
+  const pagination = initialData?.pagination;
 
-  const admins = data?.admins ?? [];
-  const pagination = data?.pagination;
-
-  // Update URL params
+  // Update URL params - wrapped in transition to show pending state
   const updateParams = useCallback(
     (updates: Record<string, string>) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -407,9 +395,11 @@ export function AdminsTableClient() {
           params.delete(key);
         }
       });
-      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      startTransition(() => {
+        router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      });
     },
-    [searchParams, pathname, router]
+    [searchParams, pathname, router, startTransition]
   );
 
   // Handle page change
@@ -520,17 +510,13 @@ export function AdminsTableClient() {
             <span className="ml-2">({selectedIds.size} selected)</span>
           )}
         </p>
-        {isFetching && !isLoading && (
+        {isPending && (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         )}
       </div>
 
       {/* Content */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : admins.length === 0 ? (
+      {admins.length === 0 ? (
         <div className="py-12 text-center">
           <p className="text-muted-foreground">
             No administrators match your filters.

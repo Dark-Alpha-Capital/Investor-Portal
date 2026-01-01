@@ -16,6 +16,7 @@ bun run dev              # Start all apps in development mode (turbo)
 bun run build            # Build all apps
 bun run lint             # Lint all apps
 bun run check-types      # TypeScript type checking
+bun run format           # Format code with Prettier
 ```
 
 ### Individual Apps
@@ -47,12 +48,12 @@ bun run db:studio        # Open Drizzle Studio GUI
 
 - **apps/web**: Next.js 16 frontend with App Router, React 19, tRPC client
 - **apps/server**: Hono API server (Bun runtime) for file handling and onboarding submission
-- **apps/worker**: BullMQ background job processor for reports, deals, and onboarding tasks
+- **apps/worker**: BullMQ background job processor for reports, deals, onboarding, and emails
 - **packages/db**: Drizzle ORM schema and database package (`@repo/db`)
+- **packages/mail**: Email sending with React Email templates (`@repo/mail`)
 - **packages/ui**: Shared UI components (currently minimal)
 - **packages/typescript-config**: Shared TypeScript configs
 - **packages/eslint-config**: Shared ESLint configs
-- \*\*packages/mail: For Sending emails
 
 ### Key Technologies
 
@@ -61,7 +62,7 @@ bun run db:studio        # Open Drizzle Studio GUI
 - **API**: tRPC for web app, Hono for server
 - **Queue**: BullMQ with Redis
 - **Storage**: Google Cloud Storage and Nextcloud (WebDAV)
-- **Email**: Resend
+- **Email**: Resend with React Email templates
 - **UI**: Tailwind CSS v4, shadcn/ui components, Radix UI primitives
 
 ### Data Flow
@@ -69,7 +70,17 @@ bun run db:studio        # Open Drizzle Studio GUI
 1. **Web App** (`apps/web`) handles UI and tRPC API routes
 2. **tRPC routers** (`apps/web/trpc/routers/`) define procedures for auth, users, deals, onboarding
 3. **Server** (`apps/server`) handles file operations and heavy processing
-4. **Worker** (`apps/worker`) processes background jobs (reports, deal creation, document uploads)
+4. **Worker** (`apps/worker`) processes background jobs via BullMQ queues
+
+### Worker Queues
+
+The worker (`apps/worker`) processes four BullMQ queues:
+- `report-queue`: Report generation (concurrency: 10)
+- `deal-queue`: Deal-related processing (concurrency: 10)
+- `onboarding-queue`: Document uploads and KYC processing (concurrency: 5)
+- `email-queue`: Email sending (concurrency: 10)
+
+To add a new queue: create a handler in `apps/worker/handlers/`, import it in `apps/worker/index.ts`, and register a new `Worker` instance with the queue name.
 
 ### Database Schema (packages/db/schema.ts)
 
@@ -113,7 +124,26 @@ Server-specific (apps/server):
 
 ## Important Patterns
 
-- Database imports use `@repo/db` scoped package with exports: `.`, `./schema`, `./queries`
-- tRPC context includes `db`, `session`, and `userId` - see `apps/web/trpc/init.ts`
-- File uploads go through worker queue for async processing
-- Prismic CMS is integrated for marketing content (see `slices/` directory)
+### Package Imports
+
+- Database: `@repo/db` with exports `.`, `./schema`, `./queries`
+- Mail: `@repo/mail` with exports `.`, `./emails`, `./types`
+
+### tRPC Context
+
+tRPC context includes `db`, `session`, and `userId` - see `apps/web/trpc/init.ts`
+
+### File Uploads
+
+File uploads go through the worker queue for async processing via BullMQ
+
+### CMS Integration
+
+Prismic CMS is integrated for marketing content (see `slices/` directory)
+
+### Hono Server Type Export
+
+The server exports `AppType` for type-safe client usage:
+```typescript
+import type { AppType } from "server";
+```

@@ -1,17 +1,20 @@
-import { caller } from "@/trpc/server";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Users, Target, TrendingUp, FolderOpen, AlignLeft } from "lucide-react";
 
-export async function TabCounts({ dealId }: { dealId: string }) {
-  const [invitesResult, interestsResult, investmentsResult, filesResult] =
-    await Promise.all([
-      caller.deals.getInvites({ dealId }),
-      caller.deals.getInterests({ dealId }),
-      caller.deals.getInvestments({ dealId }),
-      caller.deals.getFiles({ dealId }),
-    ]);
+type TabCountsProps = {
+  invitesCount: number;
+  interestsCount: number;
+  investmentsCount: number;
+  filesCount: number;
+};
 
+export function TabCounts({
+  invitesCount,
+  interestsCount,
+  investmentsCount,
+  filesCount,
+}: TabCountsProps) {
   return (
     <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-flex">
       <TabsTrigger value="overview" className="flex items-center gap-2">
@@ -25,36 +28,36 @@ export async function TabCounts({ dealId }: { dealId: string }) {
       <TabsTrigger value="invites" className="flex items-center gap-2">
         <Users className="h-4 w-4" />
         Invites
-        {invitesResult.invites.length > 0 && (
+        {invitesCount > 0 && (
           <Badge variant="secondary" className="ml-1">
-            {invitesResult.invites.length}
+            {invitesCount}
           </Badge>
         )}
       </TabsTrigger>
       <TabsTrigger value="interests" className="flex items-center gap-2">
         <Target className="h-4 w-4" />
         Interests
-        {interestsResult.interests.length > 0 && (
+        {interestsCount > 0 && (
           <Badge variant="secondary" className="ml-1">
-            {interestsResult.interests.length}
+            {interestsCount}
           </Badge>
         )}
       </TabsTrigger>
       <TabsTrigger value="investments" className="flex items-center gap-2">
         <TrendingUp className="h-4 w-4" />
         Investments
-        {investmentsResult.investments.length > 0 && (
+        {investmentsCount > 0 && (
           <Badge variant="secondary" className="ml-1">
-            {investmentsResult.investments.length}
+            {investmentsCount}
           </Badge>
         )}
       </TabsTrigger>
       <TabsTrigger value="files" className="flex items-center gap-2">
         <FolderOpen className="h-4 w-4" />
         Files
-        {filesResult.files.length > 0 && (
+        {filesCount > 0 && (
           <Badge variant="secondary" className="ml-1">
-            {filesResult.files.length}
+            {filesCount}
           </Badge>
         )}
       </TabsTrigger>

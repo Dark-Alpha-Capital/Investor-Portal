@@ -1,9 +1,19 @@
-import { caller } from "@/trpc/server";
 import { FilesTabWrapper } from "./files-tab-wrapper";
 
-export async function FilesTabServer({ dealId }: { dealId: string }) {
-  const result = await caller.deals.getFiles({ dealId });
-  const files = result.files;
+type DealFile = {
+  name: string;
+  size: number;
+  lastModified: string;
+  mimeType: string;
+  downloadUrl: string;
+};
 
+export function FilesTabServer({
+  dealId,
+  files,
+}: {
+  dealId: string;
+  files: DealFile[];
+}) {
   return <FilesTabWrapper dealId={dealId} files={files} />;
 }

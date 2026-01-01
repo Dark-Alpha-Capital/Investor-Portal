@@ -1,4 +1,3 @@
-import { caller } from "@/trpc/server";
 import {
   Table,
   TableBody,
@@ -10,6 +9,21 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 
+type Invite = {
+  id: string;
+  userId: string;
+  curationNote: string | null;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
+    kycStatus: string;
+    isOnboardingCompleted: boolean;
+  };
+};
+
 const formatDate = (dateString: string | null | undefined): string => {
   if (!dateString) return "-";
   return new Date(dateString).toLocaleDateString("en-US", {
@@ -19,9 +33,7 @@ const formatDate = (dateString: string | null | undefined): string => {
   });
 };
 
-export async function InvitesTab({ dealId }: { dealId: string }) {
-  const result = await caller.deals.getInvites({ dealId });
-  const invites = result.invites;
+export function InvitesTab({ invites }: { invites: Invite[] }) {
 
   return (
     <div className="space-y-6">

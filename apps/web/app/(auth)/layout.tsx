@@ -4,11 +4,9 @@ import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { montserrat, raleway, fira_code } from "@/app/fonts";
 import { TRPCReactProvider } from "@/trpc/client";
+import { generateNoIndexMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Investors Dark Alpha Capital",
-  description: "Investors Dark Alpha Capital",
-};
+export const metadata: Metadata = generateNoIndexMetadata("Sign In | DarkAlpha Capital");
 
 export default function RootLayout({
   children,

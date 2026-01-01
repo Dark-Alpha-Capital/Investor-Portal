@@ -1,4 +1,3 @@
-import { caller } from "@/trpc/server";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 
@@ -68,10 +67,7 @@ const formatDate = (dateString: string | null | undefined): string => {
   });
 };
 
-export async function OverviewTab({ dealId }: { dealId: string }) {
-  const result = await caller.deals.getById({ dealId });
-  const deal = result.deal;
-
+export function OverviewTab({ deal }: { deal: Deal }) {
   return (
     <div className="max-w-3xl mx-auto">
       <Table>
