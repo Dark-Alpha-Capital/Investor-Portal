@@ -657,6 +657,23 @@ export function KycDocuments({
           </ul>
         </div>
 
+        {/* Error Summary */}
+        {Object.keys(errors).length > 0 && (
+          <div className="p-4 bg-destructive/10 border border-destructive rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              <h4 className="font-semibold text-destructive">
+                Please fix the following errors:
+              </h4>
+            </div>
+            <ul className="list-disc list-inside space-y-1 text-sm text-destructive">
+              {Object.entries(errors).map(([field, error]) => (
+                <li key={field}>{error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="flex gap-3 pt-4">
           <Button
             type="button"

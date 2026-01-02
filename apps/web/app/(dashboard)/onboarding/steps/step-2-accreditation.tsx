@@ -19,7 +19,7 @@ type Step2AccreditationProps = {
 
 const step2Schema = z
   .object({
-    investorType: z.string().optional(),
+    legalEntityType: z.enum(["individual", "entity"]).optional(),
     openToEmergingSponsor: z
       .string()
       .min(1, "Please select an option for emerging sponsors"),
@@ -46,10 +46,8 @@ const step2Schema = z
     entitySignatoryTitle: z.string().optional(),
   })
   .superRefine((data, ctx) => {
-    const isEntity =
-      data.investorType &&
-      data.investorType !==
-        "individual-investor-including-hnwis".toLowerCase();
+    // Use legalEntityType to determine if entity-specific fields are required
+    const isEntity = data.legalEntityType === "entity";
 
     if (isEntity) {
       if (!data.entityTaxId?.trim()) {
@@ -98,11 +96,17 @@ export function Step2Accreditation({
       }
       setErrors(fieldErrors);
 
+      // Scroll to first error
       const firstErrorKey = Object.keys(fieldErrors)[0];
       if (firstErrorKey) {
         setTimeout(() => {
-          let targetElement: HTMLElement | null =
-            (document.getElementById(firstErrorKey) as HTMLElement) || null;
+          let targetElement: HTMLElement | null = document.querySelector(
+            `[data-field="${firstErrorKey}"]`
+          ) as HTMLElement;
+
+          if (!targetElement) {
+            targetElement = document.getElementById(firstErrorKey) as HTMLElement;
+          }
 
           if (!targetElement) {
             targetElement = document.querySelector(
@@ -116,7 +120,7 @@ export function Step2Accreditation({
             ) as HTMLElement;
             if (errorMessage) {
               const container = errorMessage.closest(
-                ".space-y-2"
+                ".space-y-4, .space-y-2"
               ) as HTMLElement;
               targetElement = container || errorMessage;
             }
@@ -127,8 +131,10 @@ export function Step2Accreditation({
               behavior: "smooth",
               block: "center",
             });
+          } else {
+            window.scrollTo({ top: 0, behavior: "smooth" });
           }
-        }, 0);
+        }, 100);
       }
 
       return;
@@ -495,9 +501,7 @@ export function Step2Accreditation({
           )}
         </div>
 
-        {(formData.investorType &&
-          formData.investorType !==
-            "individual-investor-including-hnwis") && (
+        {formData.legalEntityType === "entity" && (
           <div className="space-y-4">
             <h4 className="text-sm font-semibold">
               Entity details (for corporate / trust / partnership investors)
@@ -562,6 +566,23 @@ export function Step2Accreditation({
           </div>
         )}
       </div>
+
+      {/* Error Summary */}
+      {Object.keys(errors).length > 0 && (
+        <div className="p-4 bg-destructive/10 border border-destructive rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="w-5 h-5 text-destructive" />
+            <h4 className="font-semibold text-destructive">
+              Please fix the following errors:
+            </h4>
+          </div>
+          <ul className="list-disc list-inside space-y-1 text-sm text-destructive">
+            {Object.entries(errors).map(([field, error]) => (
+              <li key={field}>{error}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="flex justify-between pt-4 border-t gap-3">
         {onBack ? (

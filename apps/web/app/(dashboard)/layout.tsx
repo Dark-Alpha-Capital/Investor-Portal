@@ -11,7 +11,9 @@ import { TRPCReactProvider } from "@/trpc/client";
 import { JobTrackingProvider } from "@/contexts/job-tracking-context";
 import { generateNoIndexMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = generateNoIndexMetadata("Investor Dashboard | DarkAlpha Capital");
+export const metadata: Metadata = generateNoIndexMetadata(
+  "Investor Dashboard | DarkAlpha Capital"
+);
 
 export default function DashboardLayout({
   children,
@@ -32,9 +34,7 @@ export default function DashboardLayout({
           <SidebarProvider>
             <TRPCReactProvider>
               <JobTrackingProvider>
-                <Suspense fallback={<DashboardSidebarSkeleton />}>
-                  <DashboardSidebar />
-                </Suspense>
+                <DashboardSidebar />
                 <main className="flex-1">{children}</main>
               </JobTrackingProvider>
             </TRPCReactProvider>

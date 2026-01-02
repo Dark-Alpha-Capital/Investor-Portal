@@ -108,7 +108,7 @@ export function InterestsTab({ interests }: { interests: Interest[] }) {
                           </AvatarFallback>
                         </Avatar>
                         <Link
-                          href={`/admin/users/${interest.user.id}`}
+                          href={`/admin/compliance/investors/${interest.user.id}`}
                           className="font-medium hover:underline"
                         >
                           {interest.user.name}

@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, DollarSign, TrendingUp, FileText } from "lucide-react";
+import { DollarSign, TrendingUp, FileText, Pencil } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ClearanceStatusCard } from "./clearance-status-card";
+import { useTRPC } from "@/trpc/client";
+import { useQuery } from "@tanstack/react-query";
+import type { ClearanceStatus } from "@/lib/permissions";
 
 type PortfolioMetrics = {
   capitalCommitted: number;
@@ -41,6 +45,13 @@ export function DashboardMain() {
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const trpc = useTRPC();
+
+  // Fetch clearance status using tRPC
+  const { data: clearanceData, isLoading: clearanceLoading } = useQuery(
+    trpc.compliance.getMyClearance.queryOptions()
+  );
+
   useEffect(() => {
     fetchPortfolio();
   }, []);
@@ -61,6 +72,10 @@ export function DashboardMain() {
     }
   };
 
+  // Extract clearance status and conditions
+  const clearanceStatus = (clearanceData?.clearance?.status as ClearanceStatus) ?? null;
+  const clearanceConditions = (clearanceData?.clearance?.conditionsJson as string[]) ?? null;
+
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -71,30 +86,40 @@ export function DashboardMain() {
               Welcome to your investor portal
             </p>
           </div>
-          <Link href="/dashboard/documents">
-            <Button variant="outline">
-              <FileText className="mr-2 h-4 w-4" />
-              Documents
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/profile/edit-onboarding">
+              <Button variant="outline">
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit Profile
+              </Button>
+            </Link>
+            <Link href="/dashboard/documents">
+              <Button variant="outline">
+                <FileText className="mr-2 h-4 w-4" />
+                Documents
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Clearance Status Card - Full Width */}
+        <div className="mb-6">
+          {clearanceLoading ? (
+            <Card className="p-6">
+              <Skeleton className="h-6 w-40 mb-2" />
+              <Skeleton className="h-4 w-60" />
+            </Card>
+          ) : (
+            <ClearanceStatusCard
+              status={clearanceStatus}
+              conditions={clearanceConditions}
+              isOnboardingCompleted={true}
+            />
+          )}
         </div>
 
         {/* Portfolio Metrics */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold">KYC Status</h3>
-                <p className="text-sm text-muted-foreground">Approved</p>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Your KYC verification has been completed successfully.
-            </p>
-          </Card>
+        <div className="grid gap-6 md:grid-cols-3 mb-6">
 
           <Card className="p-6">
             <div className="flex items-center gap-3 mb-2">

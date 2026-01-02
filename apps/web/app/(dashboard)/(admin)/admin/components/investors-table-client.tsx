@@ -200,7 +200,7 @@ function InvestorsTableView({
               </span>
             </TableCell>
             <TableCell className="text-right">
-              <Link href={`/admin/users/${investor.id}`}>
+              <Link href={`/admin/compliance/investors/${investor.id}`}>
                 <Button variant="outline" size="sm">
                   <Eye className="mr-2 h-4 w-4" />
                   View
@@ -291,7 +291,7 @@ function InvestorsCardView({
 
           {/* Action */}
           <div className="pt-2 border-t border-border">
-            <Link href={`/admin/users/${investor.id}`} className="block">
+            <Link href={`/admin/compliance/investors/${investor.id}`} className="block">
               <Button variant="outline" size="sm" className="w-full">
                 <Eye className="mr-2 h-4 w-4" />
                 View Profile

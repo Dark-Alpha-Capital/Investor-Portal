@@ -1,8 +1,16 @@
 import { z } from "zod";
 import { randomUUID } from "crypto";
 import { baseProcedure, createTRPCRouter } from "../init";
-import { onboarding, user } from "@repo/db/schema";
-import { eq } from "drizzle-orm";
+import {
+  onboarding,
+  onboardingDocument,
+  onboardingEditHistory,
+  user,
+  beneficialOwner,
+  authorizedSignatory,
+  kycAttestation,
+} from "@repo/db/schema";
+import { eq, desc } from "drizzle-orm";
 import { onboardingQueue, emailQueue } from "@/lib/redis";
 import { TRPCError } from "@trpc/server";
 import {
@@ -16,8 +24,49 @@ import { getSession } from "@/lib/get-session";
 const ADMIN_NOTIFICATION_EMAIL =
   process.env.ADMIN_NOTIFICATION_EMAIL || EMAIL_CONFIG.defaultAdminEmail;
 
+// Zod schema for beneficial owner
+const beneficialOwnerSchema = z.object({
+  id: z.string(),
+  fullName: z.string().min(1, "Full name is required"),
+  dateOfBirth: z.string().optional().or(z.literal("")),
+  nationality: z.string().optional().or(z.literal("")),
+  ownershipPercentage: z.number().min(0).max(100),
+  controlType: z.string().optional().or(z.literal("")),
+  isPep: z.boolean().default(false),
+  pepDetails: z.string().optional().or(z.literal("")),
+  // Address
+  addressLine1: z.string().optional().or(z.literal("")),
+  addressLine2: z.string().optional().or(z.literal("")),
+  city: z.string().optional().or(z.literal("")),
+  stateProvince: z.string().optional().or(z.literal("")),
+  postalCode: z.string().optional().or(z.literal("")),
+  country: z.string().optional().or(z.literal("")),
+  countryOfResidence: z.string().optional().or(z.literal("")),
+  // ID document
+  idDocumentType: z.string().optional().or(z.literal("")),
+  idDocumentNumber: z.string().optional().or(z.literal("")),
+  idExpiryDate: z.string().optional().or(z.literal("")),
+});
+
+// Zod schema for authorized signatory
+const authorizedSignatorySchema = z.object({
+  id: z.string(),
+  fullName: z.string().min(1, "Full name is required"),
+  title: z.string().optional().or(z.literal("")),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  phone: z.string().optional().or(z.literal("")),
+  authorizationScope: z.string().optional().or(z.literal("")),
+  authorizationLimit: z.number().optional(),
+  idDocumentType: z.string().optional().or(z.literal("")),
+  idDocumentNumber: z.string().optional().or(z.literal("")),
+  boardResolutionDate: z.string().optional().or(z.literal("")),
+});
+
 // Zod schema matching InvestorData type
 const investorDataSchema = z.object({
+  // KYC1: Legal Entity Type (driver field for conditional compliance logic)
+  legalEntityType: z.enum(["individual", "entity"]).optional(),
+
   // Section 1: Investor / Lender Details
   organizationName: z.string().min(1, "Organization name is required"),
   primaryContactName: z.string().min(1, "Primary contact name is required"),
@@ -34,6 +83,20 @@ const investorDataSchema = z.object({
   entityTaxId: z.string().optional(),
   entitySignatoryName: z.string().optional(),
   entitySignatoryTitle: z.string().optional(),
+
+  // Individual-specific compliance fields (KYC2)
+  pepStatus: z.boolean().optional(),
+  pepDetails: z.string().optional().or(z.literal("")),
+  sourceOfWealthNarrative: z.string().optional().or(z.literal("")),
+
+  // Entity-specific compliance fields (KYC3-5)
+  beneficialOwners: z.array(beneficialOwnerSchema).optional(),
+  authorizedSignatories: z.array(authorizedSignatorySchema).optional(),
+
+  // Mandatory attestations (KYC7)
+  accuracyAttestation: z.boolean().optional(),
+  sanctionsDeclaration: z.boolean().optional(),
+  dataConsent: z.boolean().optional(),
 
   // Section 2: Independent Sponsor Fit
   openToEmergingSponsor: z
@@ -181,6 +244,22 @@ export const onboardingRouter = createTRPCRouter({
       const onboardingData = {
         id: onboardingId,
         userId: userId,
+
+        // KYC1: Legal Entity Type
+        legalEntityType: investorData.legalEntityType ?? null,
+
+        // Individual-specific compliance fields (KYC2)
+        pepStatus: investorData.pepStatus ?? false,
+        pepDetails: toNullIfEmpty(investorData.pepDetails),
+        sourceOfWealthNarrative: toNullIfEmpty(
+          investorData.sourceOfWealthNarrative
+        ),
+
+        // Mandatory attestations (KYC7) - stored on onboarding for quick access
+        accuracyAttestation: investorData.accuracyAttestation ?? false,
+        sanctionsDeclaration: investorData.sanctionsDeclaration ?? false,
+        dataConsent: investorData.dataConsent ?? false,
+
         // Section 1: Investor / Lender Details
         organizationName: trimRequired(investorData.organizationName),
         primaryContactName: trimRequired(investorData.primaryContactName),
@@ -323,6 +402,123 @@ export const onboardingRouter = createTRPCRouter({
         });
       }
 
+      // Insert beneficial owners for entity investors
+      if (
+        investorData.legalEntityType === "entity" &&
+        investorData.beneficialOwners &&
+        investorData.beneficialOwners.length > 0
+      ) {
+        try {
+          const uboRecords = investorData.beneficialOwners.map((ubo) => ({
+            id: randomUUID(),
+            onboardingId: onboardingId,
+            fullName: ubo.fullName,
+            dateOfBirth: ubo.dateOfBirth || null,
+            nationality: ubo.nationality || null,
+            countryOfResidence: ubo.countryOfResidence || null,
+            ownershipPercentage: ubo.ownershipPercentage,
+            controlType: ubo.controlType || null,
+            addressLine1: ubo.addressLine1 || null,
+            addressLine2: ubo.addressLine2 || null,
+            city: ubo.city || null,
+            stateProvince: ubo.stateProvince || null,
+            postalCode: ubo.postalCode || null,
+            country: ubo.country || null,
+            idDocumentType: ubo.idDocumentType || null,
+            idDocumentNumber: ubo.idDocumentNumber || null,
+            idExpiryDate: ubo.idExpiryDate || null,
+            isPep: ubo.isPep || false,
+            pepDetails: ubo.pepDetails || null,
+          }));
+
+          await ctx.db.insert(beneficialOwner).values(uboRecords);
+          console.log(
+            `Inserted ${uboRecords.length} beneficial owner(s) for onboarding ${onboardingId}`
+          );
+        } catch (error) {
+          console.error("Error saving beneficial owners:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to save beneficial owner data",
+            cause: error,
+          });
+        }
+      }
+
+      // Insert authorized signatories for entity investors
+      if (
+        investorData.legalEntityType === "entity" &&
+        investorData.authorizedSignatories &&
+        investorData.authorizedSignatories.length > 0
+      ) {
+        try {
+          const signatoryRecords = investorData.authorizedSignatories.map(
+            (sig) => ({
+              id: randomUUID(),
+              onboardingId: onboardingId,
+              fullName: sig.fullName,
+              title: sig.title || null,
+              email: sig.email || null,
+              phone: sig.phone || null,
+              authorizationScope: sig.authorizationScope || null,
+              authorizationLimit: sig.authorizationLimit || null,
+              idDocumentType: sig.idDocumentType || null,
+              idDocumentNumber: sig.idDocumentNumber || null,
+              boardResolutionDate: sig.boardResolutionDate || null,
+            })
+          );
+
+          await ctx.db.insert(authorizedSignatory).values(signatoryRecords);
+          console.log(
+            `Inserted ${signatoryRecords.length} authorized signatory(ies) for onboarding ${onboardingId}`
+          );
+        } catch (error) {
+          console.error("Error saving authorized signatories:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to save authorized signatory data",
+            cause: error,
+          });
+        }
+      }
+
+      // Create KYC attestation record with timestamps
+      if (
+        investorData.accuracyAttestation ||
+        investorData.sanctionsDeclaration ||
+        investorData.dataConsent
+      ) {
+        try {
+          const now = new Date();
+          await ctx.db.insert(kycAttestation).values({
+            id: randomUUID(),
+            onboardingId: onboardingId,
+            accuracyAttested: investorData.accuracyAttestation || false,
+            accuracyAttestedAt: investorData.accuracyAttestation ? now : null,
+            sanctionsDeclarationAttested:
+              investorData.sanctionsDeclaration || false,
+            sanctionsDeclarationAttestedAt: investorData.sanctionsDeclaration
+              ? now
+              : null,
+            dataConsentAttested: investorData.dataConsent || false,
+            dataConsentAttestedAt: investorData.dataConsent ? now : null,
+            // IP and user agent can be captured from request headers if needed
+            ipAddress: null,
+            userAgent: null,
+          });
+          console.log(
+            `Created KYC attestation record for onboarding ${onboardingId}`
+          );
+        } catch (error) {
+          console.error("Error saving KYC attestation:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to save KYC attestation data",
+            cause: error,
+          });
+        }
+      }
+
       // Update user onboarding status
 
       try {
@@ -372,6 +568,36 @@ export const onboardingRouter = createTRPCRouter({
         );
 
         jobId = job.id;
+
+        // Create document records in the database
+        // These records will be updated by the worker with the final file paths
+        const documentRecords = files.map((file) => {
+          // Sanitize file name (same logic as worker)
+          const sanitizedFileName = file.name
+            .replace(/[^a-zA-Z0-9._-]/g, "_")
+            .replace(/\.\./g, "_");
+          // Construct expected file path (matching worker's path construction)
+          const expectedFilePath = `/investors/${userId}/onboarding/kyc-files/${sanitizedFileName}`;
+
+          return {
+            id: randomUUID(),
+            onboardingId,
+            documentType: file.documentType,
+            fileName: file.name,
+            fileSize: String(file.size),
+            fileType: file.type,
+            filePath: expectedFilePath, // Will be the path in Nextcloud
+            fileUrl: null, // Can be set later if needed for direct access
+            status: "pending" as const,
+          };
+        });
+
+        // Insert all document records
+        await ctx.db.insert(onboardingDocument).values(documentRecords);
+
+        console.log(
+          `[Onboarding] Created ${documentRecords.length} document records for onboarding ${onboardingId}`
+        );
       } else {
         jobId = undefined;
         console.log("No files to upload");
@@ -467,6 +693,287 @@ export const onboardingRouter = createTRPCRouter({
         progress: typeof progress === "number" ? progress : 0,
         returnvalue: job.returnvalue,
         failedReason: job.failedReason,
+      };
+    }),
+
+  // Get onboarding for editing (investor can view their submitted data)
+  getMyOnboarding: baseProcedure.query(async ({ ctx }) => {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "You must be logged in",
+      });
+    }
+
+    const userId = session.user.id;
+
+    // Get the user's onboarding
+    const [onboardingData] = await ctx.db
+      .select()
+      .from(onboarding)
+      .where(eq(onboarding.userId, userId))
+      .orderBy(desc(onboarding.createdAt))
+      .limit(1);
+
+    if (!onboardingData) {
+      return {
+        success: true,
+        onboarding: null,
+        editHistory: [],
+      };
+    }
+
+    // Get edit history
+    const editHistory = await ctx.db
+      .select()
+      .from(onboardingEditHistory)
+      .where(eq(onboardingEditHistory.onboardingId, onboardingData.id))
+      .orderBy(desc(onboardingEditHistory.editedAt));
+
+    return {
+      success: true,
+      onboarding: onboardingData,
+      editHistory,
+    };
+  }),
+
+  // Update onboarding data (investor can edit after submission)
+  updateOnboarding: baseProcedure
+    .input(
+      z.object({
+        // All editable fields (partial - only send what changed)
+        organizationName: z.string().optional(),
+        primaryContactName: z.string().optional(),
+        primaryContactTitle: z.string().optional(),
+        primaryContactEmail: z.string().email().optional(),
+        primaryContactPhone: z.string().optional(),
+        capitalProviderType: z.string().optional(),
+        investorType: z.string().optional(),
+        geographicFocus: z.string().optional(),
+        accreditationStatus: z.string().optional(),
+        accreditationMethod: z.string().optional(),
+        entityTaxId: z.string().optional(),
+        entitySignatoryName: z.string().optional(),
+        entitySignatoryTitle: z.string().optional(),
+        openToEmergingSponsor: z.string().optional(),
+        minimumRequirements: z.string().optional(),
+        priorDealAttribution: z.string().optional(),
+        priorDealAttributionExplanation: z.string().optional(),
+        ndaPreference: z.string().optional(),
+        ndaLimitations: z.string().optional(),
+        timingToLOI: z.string().optional(),
+        timingToCommitment: z.string().optional(),
+        timingDrivers: z.string().optional(),
+        economicsDescription: z.string().optional(),
+        preferredRole: z.string().optional(),
+        governanceExpectations: z.string().optional(),
+        provideSupportLetter: z.string().optional(),
+        joinBrokerConversations: z.string().optional(),
+        supportLetterStages: z.array(z.string()).optional(),
+        receiveUpdates: z.string().optional(),
+        updateFrequency: z.string().optional(),
+        updateFormat: z.array(z.string()).optional(),
+        industryPreferences: z.string().optional(),
+        equityCheckSize: z.string().optional(),
+        enterpriseValueRange: z.string().optional(),
+        ebitdaRange: z.string().optional(),
+        preferredOwnership: z.string().optional(),
+        typicalHoldPeriod: z.string().optional(),
+        transactionTypes: z.array(z.string()).optional(),
+        leverageTolerance: z.string().optional(),
+        revenueCharacteristics: z.string().optional(),
+        customerConcentration: z.string().optional(),
+        marginsAndCashFlow: z.string().optional(),
+        assetProfile: z.string().optional(),
+        managementInvolvement: z.string().optional(),
+        sectorsOfInterest: z.string().optional(),
+        sectorsToAvoid: z.string().optional(),
+        dealSizeThresholds: z.string().optional(),
+        specificThemes: z.string().optional(),
+        // Compliance fields
+        legalEntityType: z.enum(["individual", "entity"]).optional(),
+        pepStatus: z.boolean().optional(),
+        pepDetails: z.string().optional(),
+        sourceOfWealthNarrative: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const session = await getSession();
+      if (!session?.user) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in",
+        });
+      }
+
+      const userId = session.user.id;
+
+      // Get current onboarding
+      const [currentOnboarding] = await ctx.db
+        .select()
+        .from(onboarding)
+        .where(eq(onboarding.userId, userId))
+        .orderBy(desc(onboarding.createdAt))
+        .limit(1);
+
+      if (!currentOnboarding) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No onboarding found to edit",
+        });
+      }
+
+      // Check if editing is allowed
+      if (currentOnboarding.isEditable === false) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This onboarding can no longer be edited",
+        });
+      }
+
+      // Field label mapping for human-readable edit history
+      const fieldLabels: Record<string, string> = {
+        organizationName: "Organization Name",
+        primaryContactName: "Primary Contact Name",
+        primaryContactTitle: "Primary Contact Title",
+        primaryContactEmail: "Primary Contact Email",
+        primaryContactPhone: "Primary Contact Phone",
+        capitalProviderType: "Capital Provider Type",
+        investorType: "Investor Type",
+        geographicFocus: "Geographic Focus",
+        accreditationStatus: "Accreditation Status",
+        accreditationMethod: "Accreditation Method",
+        entityTaxId: "Entity Tax ID",
+        entitySignatoryName: "Entity Signatory Name",
+        entitySignatoryTitle: "Entity Signatory Title",
+        openToEmergingSponsor: "Open to Emerging Sponsor",
+        minimumRequirements: "Minimum Requirements",
+        priorDealAttribution: "Prior Deal Attribution",
+        priorDealAttributionExplanation: "Prior Deal Attribution Explanation",
+        ndaPreference: "NDA Preference",
+        ndaLimitations: "NDA Limitations",
+        timingToLOI: "Timing to LOI",
+        timingToCommitment: "Timing to Commitment",
+        timingDrivers: "Timing Drivers",
+        economicsDescription: "Economics Description",
+        preferredRole: "Preferred Role",
+        governanceExpectations: "Governance Expectations",
+        provideSupportLetter: "Provide Support Letter",
+        joinBrokerConversations: "Join Broker Conversations",
+        supportLetterStages: "Support Letter Stages",
+        receiveUpdates: "Receive Updates",
+        updateFrequency: "Update Frequency",
+        updateFormat: "Update Format",
+        industryPreferences: "Industry Preferences",
+        equityCheckSize: "Equity Check Size",
+        enterpriseValueRange: "Enterprise Value Range",
+        ebitdaRange: "EBITDA Range",
+        preferredOwnership: "Preferred Ownership",
+        typicalHoldPeriod: "Typical Hold Period",
+        transactionTypes: "Transaction Types",
+        leverageTolerance: "Leverage Tolerance",
+        revenueCharacteristics: "Revenue Characteristics",
+        customerConcentration: "Customer Concentration",
+        marginsAndCashFlow: "Margins and Cash Flow",
+        assetProfile: "Asset Profile",
+        managementInvolvement: "Management Involvement",
+        sectorsOfInterest: "Sectors of Interest",
+        sectorsToAvoid: "Sectors to Avoid",
+        dealSizeThresholds: "Deal Size Thresholds",
+        specificThemes: "Specific Themes",
+        legalEntityType: "Legal Entity Type",
+        pepStatus: "PEP Status",
+        pepDetails: "PEP Details",
+        sourceOfWealthNarrative: "Source of Wealth Narrative",
+      };
+
+      // Track changes
+      const changes: {
+        fieldName: string;
+        fieldLabel: string;
+        previousValue: string | null;
+        newValue: string | null;
+      }[] = [];
+
+      // Build update object and track changes
+      const updateData: Record<string, unknown> = {};
+
+      for (const [key, newValue] of Object.entries(input)) {
+        if (newValue === undefined) continue;
+
+        const currentValue = currentOnboarding[key as keyof typeof currentOnboarding];
+
+        // Stringify values for comparison
+        const currentStr = currentValue === null || currentValue === undefined
+          ? null
+          : typeof currentValue === "object"
+            ? JSON.stringify(currentValue)
+            : String(currentValue);
+        const newStr = newValue === null || newValue === undefined
+          ? null
+          : typeof newValue === "object"
+            ? JSON.stringify(newValue)
+            : String(newValue);
+
+        // Only track if actually changed
+        if (currentStr !== newStr) {
+          changes.push({
+            fieldName: key,
+            fieldLabel: fieldLabels[key] || key,
+            previousValue: currentStr,
+            newValue: newStr,
+          });
+          updateData[key] = newValue;
+        }
+      }
+
+      // If no actual changes, return early
+      if (changes.length === 0) {
+        return {
+          success: true,
+          message: "No changes detected",
+          changesCount: 0,
+        };
+      }
+
+      // Update the onboarding record
+      const currentEditCount = parseInt(currentOnboarding.editCount || "0", 10);
+      await ctx.db
+        .update(onboarding)
+        .set({
+          ...updateData,
+          lastEditedAt: new Date(),
+          lastEditedBy: userId,
+          editCount: String(currentEditCount + 1),
+        })
+        .where(eq(onboarding.id, currentOnboarding.id));
+
+      // Insert edit history records
+      const editHistoryRecords = changes.map((change) => ({
+        id: randomUUID(),
+        onboardingId: currentOnboarding.id,
+        userId,
+        fieldName: change.fieldName,
+        fieldLabel: change.fieldLabel,
+        previousValue: change.previousValue,
+        newValue: change.newValue,
+        editedAt: new Date(),
+      }));
+
+      if (editHistoryRecords.length > 0) {
+        await ctx.db.insert(onboardingEditHistory).values(editHistoryRecords);
+      }
+
+      console.log(
+        `[Onboarding] User ${userId} edited ${changes.length} field(s) on onboarding ${currentOnboarding.id}`
+      );
+
+      return {
+        success: true,
+        message: `Successfully updated ${changes.length} field(s)`,
+        changesCount: changes.length,
+        changes: changes.map((c) => c.fieldLabel),
       };
     }),
 });

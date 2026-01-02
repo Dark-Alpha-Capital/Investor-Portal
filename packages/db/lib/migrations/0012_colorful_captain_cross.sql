@@ -1,0 +1,1 @@
+ALTER TYPE "public"."audit_action" ADD VALUE 'document_reviewed' BEFORE 'capital_notice_created';

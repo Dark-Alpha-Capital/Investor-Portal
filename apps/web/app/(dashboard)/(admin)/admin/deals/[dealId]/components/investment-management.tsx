@@ -569,7 +569,7 @@ export function InvestmentManagement({
                           </AvatarFallback>
                         </Avatar>
                         <Link
-                          href={`/admin/users/${investment.user.id}`}
+                          href={`/admin/compliance/investors/${investment.user.id}`}
                           className="font-medium hover:underline"
                         >
                           {investment.user.name}

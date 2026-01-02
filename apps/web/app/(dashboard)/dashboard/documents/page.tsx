@@ -14,12 +14,12 @@ const DocumentsPage = async () => {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard">
-            <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/dashboard">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Dashboard
-            </Button>
-          </Link>
+            </Link>
+          </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Documents</h1>
             <p className="text-muted-foreground mt-1">
@@ -36,9 +36,6 @@ const DocumentsPage = async () => {
 };
 
 async function FetchDocumentsWrapper() {
-  // Access headers first to mark request data access (required for Cache Components)
-  await headers();
-
   const session = await authSession();
 
   if (!session) {

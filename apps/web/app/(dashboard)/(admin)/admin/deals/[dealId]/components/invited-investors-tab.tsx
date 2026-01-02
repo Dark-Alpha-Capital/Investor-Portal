@@ -115,7 +115,7 @@ export function InvitedInvestorsTab({
                     </AvatarFallback>
                   </Avatar>
                   <Link
-                    href={`/admin/users/${invite.user.id}`}
+                    href={`/admin/compliance/investors/${invite.user.id}`}
                     className="font-medium hover:underline"
                   >
                     {invite.user.name}

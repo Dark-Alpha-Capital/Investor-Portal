@@ -12,7 +12,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { StepIndicator } from "./step-indicator";
 import { Step1AccountProfile } from "./steps/step-1-account-profile";
 import { Step2Accreditation } from "./steps/step-2-accreditation";
+import { Step3EntityCompliance } from "./steps/step-3-entity-compliance";
 import { Step4InvestmentProfile } from "./steps/step-4-investment-profile";
+import { StepAttestations } from "./steps/step-attestations";
 import { KycDocuments } from "./kyc-documents";
 import { OnboardingComplete } from "./onboarding-complete";
 import { JobProgressTracker } from "./components/job-progress-tracker";
@@ -20,7 +22,56 @@ import { useTRPC } from "@/trpc/client";
 import { useJobTracking } from "@/contexts/job-tracking-context";
 import { toast } from "sonner";
 
+// Beneficial Owner type for repeating UBO entries
+export type BeneficialOwnerData = {
+  id: string;
+  fullName: string;
+  dateOfBirth: string;
+  nationality: string;
+  countryOfResidence: string;
+  ownershipPercentage: number;
+  controlType: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  stateProvince: string;
+  postalCode: string;
+  country: string;
+  idDocumentType: string;
+  isPep: boolean;
+  pepDetails: string;
+};
+
+// Authorized Signatory type for repeating signatory entries
+export type AuthorizedSignatoryData = {
+  id: string;
+  fullName: string;
+  title: string;
+  email: string;
+  phone: string;
+  authorizationScope: string;
+};
+
 export type InvestorData = {
+  // ======= COMPLIANCE GOVERNANCE FIELDS =======
+  // KYC1: Legal Entity Type (driver field)
+  legalEntityType?: "individual" | "entity";
+
+  // KYC2: Individual-specific compliance fields
+  pepStatus?: boolean;
+  pepDetails?: string;
+  sourceOfWealthNarrative?: string;
+
+  // KYC7: Mandatory attestations
+  accuracyAttestation?: boolean;
+  sanctionsDeclaration?: boolean;
+  dataConsent?: boolean;
+
+  // Repeating groups (stored separately but tracked here for form state)
+  beneficialOwners?: BeneficialOwnerData[];
+  authorizedSignatories?: AuthorizedSignatoryData[];
+
+  // ======= ORIGINAL FIELDS =======
   // Section 1: Investor / Lender Details
   organizationName: string;
   primaryContactName: string;
@@ -140,7 +191,11 @@ export type KycData = {
   fatcaCrsPartnership: File | null;
 };
 
-const TOTAL_STEPS = 5;
+// Step counts based on investor type
+// Entity: 1-Account, 2-Accreditation, 3-EntityCompliance, 4-KYCDocs, 5-InvestmentProfile, 6-Attestations, 7-LegalSign
+// Individual: 1-Account, 2-Accreditation, 3-KYCDocs, 4-InvestmentProfile, 5-Attestations, 6-LegalSign
+const TOTAL_STEPS_ENTITY = 7;
+const TOTAL_STEPS_INDIVIDUAL = 6;
 const STORAGE_KEY_INVESTOR_DATA = "onboarding_investor_data";
 const STORAGE_KEY_STEP = "onboarding_current_step";
 
@@ -175,6 +230,12 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
   const [kycData, setKycData] = useState<Partial<KycData>>({});
   const [isComplete, setIsComplete] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // Compute total steps based on legal entity type
+  const isEntityInvestor = investorData.legalEntityType === "entity";
+  const totalSteps = isEntityInvestor
+    ? TOTAL_STEPS_ENTITY
+    : TOTAL_STEPS_INDIVIDUAL;
 
   // Transition for navigation between steps
   const [isNavigating, startNavigation] = useTransition();
@@ -258,7 +319,9 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
 
         if (savedStep && Number.parseInt(savedStep) !== currentStep) {
           const step = Number.parseInt(savedStep);
-          if (step >= 1 && step <= TOTAL_STEPS) {
+          // Use max possible steps to avoid issues when switching entity type
+          const maxSteps = Math.max(TOTAL_STEPS_ENTITY, TOTAL_STEPS_INDIVIDUAL);
+          if (step >= 1 && step <= maxSteps) {
             const params = new URLSearchParams(searchParams.toString());
             params.set("step", step.toString());
             router.replace(`${pathname}?${params.toString()}`);
@@ -303,12 +366,12 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
 
   // Ensure step is valid
   useEffect(() => {
-    if (currentStep < 1 || currentStep > TOTAL_STEPS) {
+    if (currentStep < 1 || currentStep > totalSteps) {
       const params = new URLSearchParams(searchParams.toString());
       params.set("step", "1");
       router.replace(`${pathname}?${params.toString()}`);
     }
-  }, [currentStep, router, pathname, searchParams]);
+  }, [currentStep, router, pathname, searchParams, totalSteps]);
 
   const clearLocalStorage = () => {
     if (typeof window !== "undefined") {
@@ -347,7 +410,7 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
         ...data,
       }));
       const params = new URLSearchParams(searchParams.toString());
-      const nextStep = Math.min(currentStep + 1, TOTAL_STEPS);
+      const nextStep = Math.min(currentStep + 1, totalSteps);
       params.set("step", nextStep.toString());
       router.push(`${pathname}?${params.toString()}`);
     });
@@ -359,7 +422,7 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
     startNavigation(() => {
       setKycData(data);
       const params = new URLSearchParams(searchParams.toString());
-      const nextStep = Math.min(currentStep + 1, TOTAL_STEPS);
+      const nextStep = Math.min(currentStep + 1, totalSteps);
       params.set("step", nextStep.toString());
       router.push(`${pathname}?${params.toString()}`);
     });
@@ -492,6 +555,25 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
 
       // Ensure all fields have default values for optional ones and required fields are present
       const fullInvestorData: InvestorData = {
+        // ======= COMPLIANCE GOVERNANCE FIELDS =======
+        // KYC1: Legal Entity Type
+        legalEntityType: mergedData.legalEntityType,
+
+        // KYC2: Individual-specific compliance fields
+        pepStatus: mergedData.pepStatus,
+        pepDetails: mergedData.pepDetails ?? "",
+        sourceOfWealthNarrative: mergedData.sourceOfWealthNarrative ?? "",
+
+        // KYC7: Mandatory attestations
+        accuracyAttestation: mergedData.accuracyAttestation,
+        sanctionsDeclaration: mergedData.sanctionsDeclaration,
+        dataConsent: mergedData.dataConsent,
+
+        // Entity compliance (UBOs and Signatories)
+        beneficialOwners: mergedData.beneficialOwners,
+        authorizedSignatories: mergedData.authorizedSignatories,
+
+        // ======= ORIGINAL FIELDS =======
         // Required fields - these should be validated above
         organizationName: mergedData.organizationName ?? "",
         primaryContactName: mergedData.primaryContactName ?? "",
@@ -624,8 +706,9 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
         {/* Progress Indicator */}
         <StepIndicator
           currentStep={currentStep}
-          totalSteps={TOTAL_STEPS}
+          totalSteps={totalSteps}
           onStepClick={readOnly ? undefined : navigateToStep}
+          isEntityInvestor={isEntityInvestor}
         />
 
         {(isNavigating || isSubmittingOnboarding) && (
@@ -639,13 +722,21 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
 
         <JobProgressTracker />
 
+        {/*
+          Step flow based on legal entity type:
+          Entity (7 steps): 1-Account, 2-Accreditation, 3-EntityCompliance, 4-KYCDocs, 5-InvestmentProfile, 6-Attestations, 7-LegalSign
+          Individual (6 steps): 1-Account, 2-Accreditation, 3-KYCDocs, 4-InvestmentProfile, 5-Attestations, 6-LegalSign
+        */}
         <div className="mt-4">
+          {/* Step 1: Account Profile (same for both) */}
           {currentStep === 1 && (
             <Step1AccountProfile
               initialData={investorData}
               onSubmit={handleInvestorSubmit}
             />
           )}
+
+          {/* Step 2: Accreditation (same for both) */}
           {currentStep === 2 && (
             <Step2Accreditation
               initialData={investorData}
@@ -653,7 +744,16 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
               onBack={handleBack}
             />
           )}
-          {currentStep === 3 && (
+
+          {/* Step 3: Entity Compliance (only for entities) OR KYC Documents (for individuals) */}
+          {currentStep === 3 && isEntityInvestor && (
+            <Step3EntityCompliance
+              initialData={investorData}
+              onSubmit={handleInvestorSubmit}
+              onBack={handleBack}
+            />
+          )}
+          {currentStep === 3 && !isEntityInvestor && (
             <KycDocuments
               initialData={kycData}
               investorType={investorData.investorType || ""}
@@ -662,14 +762,52 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
               isSubmitting={isSubmitting}
             />
           )}
-          {currentStep === 4 && (
+
+          {/* Step 4: KYC Documents (entity) OR Investment Profile (individual) */}
+          {currentStep === 4 && isEntityInvestor && (
+            <KycDocuments
+              initialData={kycData}
+              investorType={investorData.investorType || ""}
+              onSubmit={handleKycSubmit}
+              onBack={handleBack}
+              isSubmitting={isSubmitting}
+            />
+          )}
+          {currentStep === 4 && !isEntityInvestor && (
             <Step4InvestmentProfile
               initialData={investorData}
               onSubmit={handleInvestorSubmit}
               onBack={handleBack}
             />
           )}
-          {currentStep === 5 && !readOnly && (
+
+          {/* Step 5: Investment Profile (entity) OR Attestations (individual) */}
+          {currentStep === 5 && isEntityInvestor && (
+            <Step4InvestmentProfile
+              initialData={investorData}
+              onSubmit={handleInvestorSubmit}
+              onBack={handleBack}
+            />
+          )}
+          {currentStep === 5 && !isEntityInvestor && (
+            <StepAttestations
+              initialData={investorData}
+              onSubmit={handleInvestorSubmit}
+              onBack={handleBack}
+              legalEntityType={investorData.legalEntityType}
+            />
+          )}
+
+          {/* Step 6: Attestations (entity) OR Legal E-Sign (individual) */}
+          {currentStep === 6 && isEntityInvestor && (
+            <StepAttestations
+              initialData={investorData}
+              onSubmit={handleInvestorSubmit}
+              onBack={handleBack}
+              legalEntityType={investorData.legalEntityType}
+            />
+          )}
+          {currentStep === 6 && !isEntityInvestor && !readOnly && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-bold mb-2">
@@ -747,6 +885,149 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
                     </Label>
                     <Input
                       id="legalDate"
+                      type="date"
+                      value={legalData.date}
+                      onChange={(e) =>
+                        setLegalData((prev) => ({
+                          ...prev,
+                          date: e.target.value,
+                        }))
+                      }
+                      className={legalErrors.date ? "border-destructive" : ""}
+                    />
+                    {legalErrors.date && (
+                      <p className="text-destructive text-sm flex items-center gap-1">
+                        <span>{legalErrors.date}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={handleBack}
+                  disabled={isSubmittingOnboarding}
+                  className="gap-2 bg-transparent"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  disabled={isSubmittingOnboarding}
+                  className="flex-1 gap-2"
+                  onClick={() => {
+                    const result = legalSchema.safeParse(legalData);
+                    if (!result.success) {
+                      const fieldErrors: Record<string, string> = {};
+                      for (const issue of result.error.issues) {
+                        const field = issue.path[0];
+                        if (typeof field === "string" && !fieldErrors[field]) {
+                          fieldErrors[field] = issue.message;
+                        }
+                      }
+                      setLegalErrors(fieldErrors);
+                      return;
+                    }
+
+                    setLegalErrors({});
+                    const override: Partial<InvestorData> = {
+                      legalDocumentsAcknowledged: true,
+                      electronicSignatureName: result.data.name,
+                      electronicSignatureDate: result.data.date,
+                    };
+                    handleFinalSubmit(override);
+                  }}
+                >
+                  {isSubmittingOnboarding ? "Submitting..." : "Submit & Finish"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 7: Legal E-Sign (entity only) */}
+          {currentStep === 7 && isEntityInvestor && !readOnly && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">
+                  Legal Disclosures & E-Sign
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Please confirm that you have reviewed the offering documents
+                  and consent to electronic signatures.
+                </p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                In the next release, this step will be wired to full PPM /
+                Operating Agreement / Subscription Agreement review and DocuSign
+                or similar. For now, this confirmation records your consent and
+                routes your onboarding for compliance review.
+              </p>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      id="legalAgreeEntity"
+                      checked={legalData.agree}
+                      onCheckedChange={(checked) =>
+                        setLegalData((prev) => ({
+                          ...prev,
+                          agree: Boolean(checked),
+                        }))
+                      }
+                    />
+                    <Label
+                      htmlFor="legalAgreeEntity"
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      I confirm that I have reviewed the Private Placement
+                      Memorandum, Operating Agreement, and Subscription
+                      Agreement (as applicable) and agree to receive and sign
+                      documents electronically.
+                    </Label>
+                  </div>
+                  {legalErrors.agree && (
+                    <p className="text-destructive text-sm flex items-center gap-1">
+                      <span>{legalErrors.agree}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="legalNameEntity">
+                      Signature (full legal name){" "}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="legalNameEntity"
+                      value={legalData.name}
+                      onChange={(e) =>
+                        setLegalData((prev) => ({
+                          ...prev,
+                          name: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter full legal name"
+                      className={legalErrors.name ? "border-destructive" : ""}
+                    />
+                    {legalErrors.name && (
+                      <p className="text-destructive text-sm flex items-center gap-1">
+                        <span>{legalErrors.name}</span>
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="legalDateEntity">
+                      Signature date <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="legalDateEntity"
                       type="date"
                       value={legalData.date}
                       onChange={(e) =>

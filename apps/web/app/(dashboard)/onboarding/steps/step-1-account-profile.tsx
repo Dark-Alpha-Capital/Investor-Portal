@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { InvestorData } from "../onboarding-flow";
 import { AlertCircle, ArrowRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Step1AccountProfileProps = {
   initialData: Partial<InvestorData>;
@@ -17,6 +18,10 @@ type Step1AccountProfileProps = {
 };
 
 const step1Schema = z.object({
+  // KYC1: Legal Entity Type (driver field for conditional compliance logic)
+  legalEntityType: z.enum(["individual", "entity"], {
+    message: "Please select your investor classification",
+  }),
   organizationName: z
     .string()
     .min(1, "Organization name is required")
@@ -50,7 +55,10 @@ export function Step1AccountProfile({
   const [formData, setFormData] = useState<Partial<InvestorData>>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const updateField = (field: keyof InvestorData, value: string) => {
+  const updateField = (
+    field: keyof InvestorData,
+    value: string | "individual" | "entity"
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }));
@@ -71,25 +79,35 @@ export function Step1AccountProfile({
       }
       setErrors(fieldErrors);
 
+      // Scroll to the first error element
       const firstErrorKey = Object.keys(fieldErrors)[0];
       if (firstErrorKey) {
         setTimeout(() => {
-          let targetElement: HTMLElement | null =
-            (document.getElementById(firstErrorKey) as HTMLElement) || null;
+          // Try to find the element with data-field attribute first (most reliable)
+          let targetElement: HTMLElement | null = document.querySelector(
+            `[data-field="${firstErrorKey}"]`
+          ) as HTMLElement;
 
+          // Fallback to ID
+          if (!targetElement) {
+            targetElement = document.getElementById(firstErrorKey) as HTMLElement;
+          }
+
+          // Fallback to name attribute
           if (!targetElement) {
             targetElement = document.querySelector(
               `[name="${firstErrorKey}"]`
             ) as HTMLElement;
           }
 
+          // Fallback to error message element
           if (!targetElement) {
             const errorMessage = document.querySelector(
               `[data-error-for="${firstErrorKey}"]`
             ) as HTMLElement;
             if (errorMessage) {
               const container = errorMessage.closest(
-                ".space-y-2"
+                ".space-y-4, .space-y-2"
               ) as HTMLElement;
               targetElement = container || errorMessage;
             }
@@ -100,8 +118,15 @@ export function Step1AccountProfile({
               behavior: "smooth",
               block: "center",
             });
+            // Try to focus the element if it's focusable
+            if (targetElement.focus) {
+              targetElement.focus();
+            }
+          } else {
+            // If no element found, scroll to top of form where errors might be
+            window.scrollTo({ top: 0, behavior: "smooth" });
           }
-        }, 0);
+        }, 100);
       }
 
       return;
@@ -120,6 +145,91 @@ export function Step1AccountProfile({
           Please provide the information below to help us understand your
           investor profile and preferences.
         </p>
+      </div>
+
+      {/* KYC1: Legal Entity Type - Driver Field */}
+      <div
+        data-field="legalEntityType"
+        className={cn(
+          "space-y-4 p-4 rounded-lg border-2 transition-colors",
+          errors.legalEntityType
+            ? "border-destructive bg-destructive/5"
+            : formData.legalEntityType
+              ? "border-primary/50 bg-primary/5"
+              : "border-muted-foreground/30 bg-muted/50"
+        )}
+      >
+        <div>
+          <h3 className="text-lg font-semibold">
+            Investor Classification <span className="text-destructive">*</span>
+          </h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            Please select one. This determines the compliance requirements for your onboarding.
+          </p>
+        </div>
+        {errors.legalEntityType && (
+          <div className="flex items-center gap-2 p-3 bg-destructive/10 rounded-md border border-destructive">
+            <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+            <p className="text-destructive text-sm font-medium">
+              {errors.legalEntityType}
+            </p>
+          </div>
+        )}
+        <RadioGroup
+          value={formData.legalEntityType}
+          onValueChange={(value) =>
+            updateField("legalEntityType", value as "individual" | "entity")
+          }
+          className="space-y-3"
+        >
+          <div
+            className={cn(
+              "flex items-start space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer",
+              formData.legalEntityType === "individual"
+                ? "border-primary bg-primary/5"
+                : "border-muted hover:border-muted-foreground/50 hover:bg-muted/50"
+            )}
+            onClick={() => updateField("legalEntityType", "individual")}
+          >
+            <RadioGroupItem value="individual" id="legal-entity-individual" className="mt-1" />
+            <div className="space-y-1">
+              <Label
+                htmlFor="legal-entity-individual"
+                className="font-medium cursor-pointer text-base"
+              >
+                Individual Investor
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                High Net Worth Individuals (HNWIs), personal accounts, or
+                individual trusts where you are the sole beneficial owner.
+              </p>
+            </div>
+          </div>
+          <div
+            className={cn(
+              "flex items-start space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer",
+              formData.legalEntityType === "entity"
+                ? "border-primary bg-primary/5"
+                : "border-muted hover:border-muted-foreground/50 hover:bg-muted/50"
+            )}
+            onClick={() => updateField("legalEntityType", "entity")}
+          >
+            <RadioGroupItem value="entity" id="legal-entity-entity" className="mt-1" />
+            <div className="space-y-1">
+              <Label
+                htmlFor="legal-entity-entity"
+                className="font-medium cursor-pointer text-base"
+              >
+                Entity Investor
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Corporations, LLCs, Partnerships, Trusts with multiple
+                beneficiaries, Foundations, or other legal entities. Additional
+                UBO documentation required.
+              </p>
+            </div>
+          </div>
+        </RadioGroup>
       </div>
 
       <div className="space-y-4">
@@ -322,6 +432,23 @@ export function Step1AccountProfile({
           />
         </div>
       </div>
+
+      {/* Error Summary */}
+      {Object.keys(errors).length > 0 && (
+        <div className="p-4 bg-destructive/10 border border-destructive rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="w-5 h-5 text-destructive" />
+            <h4 className="font-semibold text-destructive">
+              Please fix the following errors:
+            </h4>
+          </div>
+          <ul className="list-disc list-inside space-y-1 text-sm text-destructive">
+            {Object.entries(errors).map(([field, error]) => (
+              <li key={field}>{error}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="flex justify-between pt-4 border-t gap-3">
         {onBack ? (
