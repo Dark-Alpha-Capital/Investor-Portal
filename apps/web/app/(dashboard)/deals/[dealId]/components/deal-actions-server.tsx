@@ -9,7 +9,7 @@ export async function DealActionsServer({
   dealId,
 }: DealActionsServerProps) {
   const result = await caller.deals.getDealForView({ dealId });
-  
+
   // Only show actions if user doesn't have an investment
   if (result.userInvestment) {
     return null;
@@ -20,6 +20,7 @@ export async function DealActionsServer({
       dealId={dealId}
       userInterest={result.userInterest}
       minInvestment={result.deal.minInvestment}
+      permissions={result.permissions}
     />
   );
 }

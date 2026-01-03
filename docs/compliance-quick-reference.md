@@ -1,5 +1,7 @@
 # Compliance System Quick Reference
 
+> **See also:** [Deal Marketplace Access](./deal-marketplace-access.md) for detailed access control documentation.
+
 ## tRPC Procedures
 
 ### Admin Procedures (require admin role)
@@ -18,7 +20,9 @@ const { data } = await trpc.compliance.getInvestorDetails.useQuery({
   userId: "user_123",
 });
 
-// Set clearance status
+// Set clearance status (auto-grants vehiclePermission for all non-draft deals)
+// NOTE: "cleared" and "cleared_with_conditions" require isOnboardingCompleted = true
+// Will throw BAD_REQUEST error if trying to grant clearance without completed KYC
 await trpc.compliance.setClearance.mutate({
   userId: "user_123",
   status: "cleared", // "pending" | "cleared" | "cleared_with_conditions" | "rejected"
@@ -26,9 +30,20 @@ await trpc.compliance.setClearance.mutate({
   notes: "Internal note",
 });
 
-// Grant vehicle access
+// Grant vehicle access to a specific deal
 await trpc.compliance.grantVehicleAccess.mutate({
   userId: "user_123",
+  dealId: "deal_456",
+  permissions: {
+    canViewTeaser: true,
+    canViewDocuments: true,
+    canExpressInterest: true,
+    canInvest: true,
+  },
+});
+
+// Bulk grant deal access to all cleared investors (use when publishing new deals)
+await trpc.compliance.grantDealToAllClearedInvestors.mutate({
   dealId: "deal_456",
   permissions: {
     canViewTeaser: true,
@@ -77,6 +92,11 @@ import {
   hasVehicleAccess,
   getVehicleAccessLevel,
   canAccessRoute,
+  // New functions for marketplace
+  getVisibleDealIds,
+  canViewDeal,
+  getDealPermissions,
+  isUserAdmin,
 } from "@/lib/permissions";
 
 // Complete access info
@@ -91,12 +111,12 @@ if (clearance?.status === "cleared") {
   // User is cleared
 }
 
-// Check specific deal access
+// Check specific deal access (legacy)
 if (await hasVehicleAccess(userId, dealId)) {
   // User can access this deal
 }
 
-// Get detailed permissions
+// Get detailed permissions (legacy)
 const perms = await getVehicleAccessLevel(userId, dealId);
 if (perms?.canViewDocuments) {
   // User can download documents
@@ -106,6 +126,23 @@ if (perms?.canViewDocuments) {
 const { allowed, redirectTo } = await canAccessRoute(userId, pathname);
 if (!allowed) {
   redirect(redirectTo);
+}
+
+// NEW: Get all deals a user can see in marketplace
+const visibleDealIds = await getVisibleDealIds(userId);
+
+// NEW: Check if user can view a specific deal
+if (await canViewDeal(userId, dealId)) {
+  // Deal appears in user's marketplace
+}
+
+// NEW: Get complete permissions for a deal (recommended)
+const permissions = await getDealPermissions(userId, dealId);
+// Returns: { canViewTeaser, canViewDocuments, canExpressInterest, canInvest, clearanceStatus, hasPermission }
+
+// NEW: Check if user is admin (bypasses all checks)
+if (await isUserAdmin(userId)) {
+  // Full access to everything
 }
 ```
 
@@ -178,12 +215,14 @@ import { ClearanceStatusCard } from "@/app/(dashboard)/dashboard/components/clea
 
 ## Clearance Statuses
 
-| Status | Access Level |
-|--------|--------------|
-| `null` / `pending` | View deal names only |
-| `cleared` | Full access |
-| `cleared_with_conditions` | Limited access per conditions |
-| `rejected` | No access |
+| Status | Access Level | Requires Completed KYC |
+|--------|--------------|------------------------|
+| `null` / `pending` | View deal names only | No |
+| `cleared` | Full access | **Yes** |
+| `cleared_with_conditions` | Limited access per conditions | **Yes** |
+| `rejected` | No access | No |
+
+**KYC Gate:** Clearance can only be granted (`cleared` or `cleared_with_conditions`) after the investor has completed their onboarding (`isOnboardingCompleted = true`). The UI will disable these options and show a warning if KYC is not complete.
 
 ## Common Conditions (Presets)
 

@@ -1,8 +1,23 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { db } from "@repo/db";
-import { deal, dealInvite, user } from "@repo/db/schema";
-import { desc, and, or, ne, ilike, eq, sql, inArray } from "drizzle-orm";
+import {
+  deal,
+  vehiclePermission,
+  user,
+  investorClearance,
+} from "@repo/db/schema";
+import {
+  desc,
+  and,
+  or,
+  ne,
+  ilike,
+  eq,
+  sql,
+  inArray,
+  isNull,
+} from "drizzle-orm";
 
 type GetMarketplaceDealsParams = {
   userId: string;
@@ -17,7 +32,10 @@ type GetMarketplaceDealsParams = {
  * Cached function to fetch marketplace deals for a specific user.
  * Uses Next.js Cache Components with cacheLife and cacheTag.
  *
- * Cache is per-user because visibility depends on user's KYC status and invites.
+ * Cache is per-user because visibility depends on:
+ * 1. User's clearance status (must be cleared or cleared_with_conditions)
+ * 2. User's vehiclePermission records (determines which deals are visible)
+ *
  * Arguments (including userId) become part of the cache key.
  */
 export async function getMarketplaceDealsCached({
@@ -28,34 +46,53 @@ export async function getMarketplaceDealsCached({
   status,
   sector,
 }: GetMarketplaceDealsParams) {
-  "use cache";
-  cacheLife("minutes");
-  cacheTag(`marketplace-deals-${userId}`);
-
   const offset = (page - 1) * limit;
 
-  // Get user's KYC status
+  // Check user's role (admins see all deals)
   const [userRecord] = await db
-    .select({ kycStatus: user.kycStatus })
+    .select({ role: user.role })
     .from(user)
     .where(eq(user.id, userId))
     .limit(1);
 
-  const isAccredited = userRecord?.kycStatus === "approved";
+  const isAdmin = userRecord?.role === "admin";
 
-  // Get user's invited deal IDs
-  const invitedDeals = await db
-    .select({
-      dealId: dealInvite.dealId,
-      curationNote: dealInvite.curationNote,
-    })
-    .from(dealInvite)
-    .where(eq(dealInvite.userId, userId));
+  // Check user's clearance status
+  const [clearanceRecord] = await db
+    .select({ status: investorClearance.status })
+    .from(investorClearance)
+    .where(eq(investorClearance.userId, userId))
+    .orderBy(desc(investorClearance.createdAt))
+    .limit(1);
 
-  const invitedDealIds = invitedDeals.map((d) => d.dealId);
-  const invitedDealNotes = new Map(
-    invitedDeals.map((d) => [d.dealId, d.curationNote])
-  );
+  const clearanceStatus = clearanceRecord?.status ?? null;
+  const isCleared =
+    clearanceStatus === "cleared" ||
+    clearanceStatus === "cleared_with_conditions";
+
+  // Get user's permitted deal IDs (where canViewTeaser = true and not revoked)
+  // Only fetch if user is cleared (or admin)
+  let permittedDealIds: string[] = [];
+  let permissionNotes = new Map<string, string | null>();
+
+  if (isCleared || isAdmin) {
+    const permissions = await db
+      .select({
+        dealId: vehiclePermission.dealId,
+        notes: vehiclePermission.notes,
+      })
+      .from(vehiclePermission)
+      .where(
+        and(
+          eq(vehiclePermission.userId, userId),
+          eq(vehiclePermission.canViewTeaser, true),
+          isNull(vehiclePermission.revokedAt)
+        )
+      );
+
+    permittedDealIds = permissions.map((p) => p.dealId);
+    permissionNotes = new Map(permissions.map((p) => [p.dealId, p.notes]));
+  }
 
   // Build base conditions
   const baseConditions = [ne(deal.status, "draft")];
@@ -96,20 +133,36 @@ export async function getMarketplaceDealsCached({
     baseConditions.push(ilike(deal.sector, sector));
   }
 
-  // Build visibility conditions
-  // User can see: public deals, accredited deals (if approved), and deals they're invited to
-  const visibilityConditions = [eq(deal.visibility, "public")];
+  // Build visibility condition based on vehiclePermission
+  // Admin sees all non-draft deals, cleared investors see only permitted deals
+  let whereCondition;
 
-  if (isAccredited) {
-    visibilityConditions.push(eq(deal.visibility, "accredited"));
+  if (isAdmin) {
+    // Admins see all non-draft deals
+    whereCondition = and(...baseConditions);
+  } else if (isCleared && permittedDealIds.length > 0) {
+    // Cleared investors see only deals they have permission for
+    whereCondition = and(...baseConditions, inArray(deal.id, permittedDealIds));
+  } else {
+    // Not cleared or no permissions = no deals
+    // Return empty result
+    return {
+      success: true,
+      deals: [],
+      pagination: {
+        page,
+        limit,
+        totalCount: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPrevPage: false,
+      },
+      filters: {
+        sectors: [],
+      },
+      clearanceStatus,
+    };
   }
-
-  if (invitedDealIds.length > 0) {
-    visibilityConditions.push(inArray(deal.id, invitedDealIds));
-  }
-
-  // Combine all conditions
-  const whereCondition = and(...baseConditions, or(...visibilityConditions));
 
   // Get total count
   const [countResult] = await db
@@ -129,11 +182,19 @@ export async function getMarketplaceDealsCached({
     .limit(limit)
     .offset(offset);
 
-  // Get unique sectors for filter dropdown
-  const sectorsResult = await db
-    .selectDistinct({ sector: deal.sector })
-    .from(deal)
-    .where(and(ne(deal.status, "draft"), or(...visibilityConditions)));
+  // Get unique sectors for filter dropdown (from permitted deals only)
+  let sectorsResult: { sector: string | null }[] = [];
+  if (isAdmin) {
+    sectorsResult = await db
+      .selectDistinct({ sector: deal.sector })
+      .from(deal)
+      .where(ne(deal.status, "draft"));
+  } else if (permittedDealIds.length > 0) {
+    sectorsResult = await db
+      .selectDistinct({ sector: deal.sector })
+      .from(deal)
+      .where(and(ne(deal.status, "draft"), inArray(deal.id, permittedDealIds)));
+  }
 
   const sectors = sectorsResult
     .map((s) => s.sector)
@@ -152,8 +213,11 @@ export async function getMarketplaceDealsCached({
       minInvestment: dealRecord.minInvestment?.toString() ?? null,
       targetIrr: dealRecord.targetIrr?.toString() ?? null,
       targetMoic: dealRecord.targetMoic?.toString() ?? null,
-      isCurated: invitedDealIds.includes(dealRecord.id),
-      curationNote: invitedDealNotes.get(dealRecord.id) ?? null,
+      // Deal is "curated" if user has a permission note for it
+      isCurated:
+        permissionNotes.has(dealRecord.id) &&
+        !!permissionNotes.get(dealRecord.id),
+      curationNote: permissionNotes.get(dealRecord.id) ?? null,
     })),
     pagination: {
       page,
@@ -166,6 +230,7 @@ export async function getMarketplaceDealsCached({
     filters: {
       sectors,
     },
+    clearanceStatus,
   };
 }
 

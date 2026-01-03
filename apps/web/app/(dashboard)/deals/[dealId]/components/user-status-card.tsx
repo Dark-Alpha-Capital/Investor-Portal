@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Shield, FileText, DollarSign, Eye } from "lucide-react";
 
 type UserInterest = {
   id: string;
@@ -20,9 +20,17 @@ type UserInvestment = {
   committedDate: string;
 } | null;
 
+type DealPermissions = {
+  canViewTeaser: boolean;
+  canViewDocuments: boolean;
+  canExpressInterest: boolean;
+  canInvest: boolean;
+};
+
 type UserStatusCardProps = {
   userInterest: UserInterest;
   userInvestment: UserInvestment;
+  permissions: DealPermissions;
 };
 
 const interestStatusLabels: Record<string, string> = {
@@ -60,17 +68,58 @@ const formatPercentage = (value: string | null | undefined): string => {
 export function UserStatusCard({
   userInterest,
   userInvestment,
+  permissions,
 }: UserStatusCardProps) {
-  if (!userInterest && !userInvestment) {
-    return null;
-  }
-
   return (
     <Card>
       <CardHeader>
         <CardTitle>Your Status</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Permission badges */}
+        <div className="flex flex-wrap gap-2">
+          <div
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+              permissions.canViewTeaser
+                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+            }`}
+          >
+            <Eye className="h-3 w-3" />
+            View Teaser
+          </div>
+          <div
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+              permissions.canViewDocuments
+                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+            }`}
+          >
+            <FileText className="h-3 w-3" />
+            View Documents
+          </div>
+          <div
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+              permissions.canExpressInterest
+                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+            }`}
+          >
+            <Shield className="h-3 w-3" />
+            Express Interest
+          </div>
+          <div
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+              permissions.canInvest
+                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+            }`}
+          >
+            <DollarSign className="h-3 w-3" />
+            Invest
+          </div>
+        </div>
+
         {userInvestment && (
           <div className="p-4 bg-primary/10 rounded-lg">
             <div className="flex items-center gap-2 mb-2">

@@ -6,6 +6,8 @@ import {
   dealInterest,
   investment,
   user,
+  vehiclePermission,
+  investorClearance,
 } from "@repo/db/schema";
 import { baseProcedure, createTRPCRouter } from "../init";
 import slugify from "slugify";
@@ -1286,53 +1288,82 @@ export const dealsRouter = createTRPCRouter({
         });
       }
 
-      // Exclude draft deals
-      if (dealRecord.status === "draft") {
+      // Exclude draft deals (except for admins)
+      const isAdmin = session.user.role === "admin";
+      if (dealRecord.status === "draft" && !isAdmin) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Deal not found",
         });
       }
 
-      // Check access based on visibility
-      if (dealRecord.visibility === "public") {
-        // Public deals are accessible to everyone
-      } else if (dealRecord.visibility === "accredited") {
-        // Check if user is accredited
-        const [userRecord] = await ctx.db
-          .select({ kycStatus: user.kycStatus })
-          .from(user)
-          .where(eq(user.id, session.user.id))
+      const actualDealId = dealRecord.id;
+
+      // Check access based on vehiclePermission (admins bypass this check)
+      let permissions = {
+        canViewTeaser: isAdmin,
+        canViewDocuments: isAdmin,
+        canExpressInterest: isAdmin,
+        canInvest: isAdmin,
+      };
+      let clearanceStatus: string | null = null;
+      let curationNote: string | null = null;
+
+      if (!isAdmin) {
+        // Check clearance status first
+        const [clearanceRecord] = await ctx.db
+          .select({ status: investorClearance.status })
+          .from(investorClearance)
+          .where(eq(investorClearance.userId, session.user.id))
+          .orderBy(desc(investorClearance.createdAt))
           .limit(1);
 
-        if (userRecord?.kycStatus !== "approved") {
+        clearanceStatus = clearanceRecord?.status ?? null;
+        const isCleared =
+          clearanceStatus === "cleared" ||
+          clearanceStatus === "cleared_with_conditions";
+
+        if (!isCleared) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "This deal is only available to accredited investors",
+            message: "You must be cleared by compliance to view deals",
           });
         }
-      } else if (dealRecord.visibility === "invite_only") {
-        // Check if user has been invited
-        const [invite] = await ctx.db
-          .select()
-          .from(dealInvite)
+
+        // Check vehiclePermission for this deal
+        const [permissionRecord] = await ctx.db
+          .select({
+            canViewTeaser: vehiclePermission.canViewTeaser,
+            canViewDocuments: vehiclePermission.canViewDocuments,
+            canExpressInterest: vehiclePermission.canExpressInterest,
+            canInvest: vehiclePermission.canInvest,
+            notes: vehiclePermission.notes,
+          })
+          .from(vehiclePermission)
           .where(
             and(
-              eq(dealInvite.dealId, dealRecord.id),
-              eq(dealInvite.userId, session.user.id)
+              eq(vehiclePermission.userId, session.user.id),
+              eq(vehiclePermission.dealId, actualDealId),
+              isNull(vehiclePermission.revokedAt)
             )
           )
           .limit(1);
 
-        if (!invite) {
+        if (!permissionRecord || !permissionRecord.canViewTeaser) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "You do not have access to this deal",
           });
         }
-      }
 
-      const actualDealId = dealRecord.id;
+        permissions = {
+          canViewTeaser: permissionRecord.canViewTeaser,
+          canViewDocuments: permissionRecord.canViewDocuments,
+          canExpressInterest: permissionRecord.canExpressInterest,
+          canInvest: permissionRecord.canInvest,
+        };
+        curationNote = permissionRecord.notes;
+      }
 
       // Get user's interest in this deal (if any)
       const [userInterest] = await ctx.db
@@ -1358,22 +1389,6 @@ export const dealsRouter = createTRPCRouter({
         )
         .limit(1);
 
-      // Get curation note if invite-only
-      let curationNote = null;
-      if (dealRecord.visibility === "invite_only") {
-        const [invite] = await ctx.db
-          .select({ curationNote: dealInvite.curationNote })
-          .from(dealInvite)
-          .where(
-            and(
-              eq(dealInvite.dealId, actualDealId),
-              eq(dealInvite.userId, session.user.id)
-            )
-          )
-          .limit(1);
-        curationNote = invite?.curationNote || null;
-      }
-
       return {
         success: true,
         deal: {
@@ -1387,6 +1402,9 @@ export const dealsRouter = createTRPCRouter({
           createdAt: dealRecord.createdAt.toISOString(),
           updatedAt: dealRecord.updatedAt?.toISOString() ?? null,
         },
+        // Permission flags for the UI to use
+        permissions,
+        clearanceStatus,
         userInterest: userInterest
           ? {
               ...userInterest,

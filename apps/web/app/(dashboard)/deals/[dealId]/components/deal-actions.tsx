@@ -26,10 +26,18 @@ type UserInterest = {
   updatedAt: string | null;
 } | null;
 
+type DealPermissions = {
+  canViewTeaser: boolean;
+  canViewDocuments: boolean;
+  canExpressInterest: boolean;
+  canInvest: boolean;
+};
+
 type DealActionsProps = {
   dealId: string;
   userInterest: UserInterest;
   minInvestment: string | null;
+  permissions: DealPermissions;
 };
 
 const interestStatusLabels: Record<string, string> = {
@@ -61,6 +69,7 @@ export function DealActions({
   dealId,
   userInterest,
   minInvestment,
+  permissions,
 }: DealActionsProps) {
   const router = useRouter();
   const trpc = useTRPC();
@@ -71,6 +80,10 @@ export function DealActions({
 
   // Separate loading states for each action
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
+
+  // Check permissions
+  const canExpressInterest = permissions.canExpressInterest;
+  const canInvest = permissions.canInvest;
 
   const { mutate: expressInterest } = useMutation(
     trpc.deals.expressInterest.mutationOptions({
@@ -134,6 +147,23 @@ export function DealActions({
     handleUpdateStatus("meeting_requested");
   };
 
+  // If user doesn't have permission to express interest, show restricted message
+  if (!canExpressInterest) {
+    return (
+      <div className="space-y-6">
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
+          <h3 className="text-sm font-semibold mb-2 text-amber-800 dark:text-amber-200">
+            Limited Access
+          </h3>
+          <p className="text-sm text-amber-700 dark:text-amber-300">
+            Your current permissions do not allow expressing interest in this deal.
+            Please contact our IR team if you would like to learn more about this opportunity.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Current Status Display */}
@@ -154,6 +184,16 @@ export function DealActions({
                 </span>
               </>
             )}
+          </p>
+        </div>
+      )}
+
+      {/* Show invest restriction notice if can express interest but can't invest */}
+      {canExpressInterest && !canInvest && (
+        <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <p className="text-xs text-blue-700 dark:text-blue-300">
+            <strong>Note:</strong> You can express interest in this deal, but investment
+            commitment requires additional clearance. Contact our IR team for details.
           </p>
         </div>
       )}

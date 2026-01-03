@@ -216,11 +216,81 @@ const legalSchema = z.object({
   date: z.string().min(1, "Signature date is required"),
 });
 
-type OnboardingFlowProps = {
-  readOnly?: boolean;
+// Type for existing onboarding data from server
+type ExistingOnboardingData = {
+  id: string;
+  legalEntityType: "individual" | "entity" | null;
+  organizationName: string;
+  primaryContactName: string;
+  primaryContactTitle: string | null;
+  primaryContactEmail: string;
+  primaryContactPhone: string;
+  capitalProviderType: string;
+  investorType: string;
+  geographicFocus: string | null;
+  accreditationStatus: string | null;
+  accreditationMethod: string | null;
+  entityTaxId: string | null;
+  entitySignatoryName: string | null;
+  entitySignatoryTitle: string | null;
+  pepStatus: boolean | null;
+  pepDetails: string | null;
+  sourceOfWealthNarrative: string | null;
+  accuracyAttestation: boolean | null;
+  sanctionsDeclaration: boolean | null;
+  dataConsent: boolean | null;
+  openToEmergingSponsor: string;
+  minimumRequirements: string | null;
+  priorDealAttribution: string;
+  priorDealAttributionExplanation: string | null;
+  ndaPreference: string;
+  ndaLimitations: string | null;
+  timingToLOI: string;
+  timingToCommitment: string;
+  timingDrivers: string | null;
+  economicsDescription: string;
+  preferredRole: string;
+  governanceExpectations: string | null;
+  provideSupportLetter: string;
+  joinBrokerConversations: string;
+  supportLetterStages: string[] | null;
+  receiveUpdates: string;
+  updateFrequency: string | null;
+  updateFormat: string[] | null;
+  industryPreferences: string | null;
+  equityCheckSize: string;
+  enterpriseValueRange: string | null;
+  ebitdaRange: string | null;
+  preferredOwnership: string;
+  typicalHoldPeriod: string | null;
+  transactionTypes: string[] | null;
+  leverageTolerance: string | null;
+  revenueCharacteristics: string;
+  customerConcentration: string | null;
+  marginsAndCashFlow: string | null;
+  assetProfile: string;
+  managementInvolvement: string | null;
+  sectorsOfInterest: string;
+  sectorsToAvoid: string | null;
+  dealSizeThresholds: string | null;
+  specificThemes: string | null;
+  legalDocumentsAcknowledged: boolean | null;
+  electronicSignatureName: string | null;
+  electronicSignatureDate: string | null;
+  [key: string]: unknown;
 };
 
-export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
+type OnboardingFlowProps = {
+  readOnly?: boolean;
+  editMode?: boolean;
+  existingOnboarding?: ExistingOnboardingData;
+};
+
+export function OnboardingFlow({
+  readOnly = false,
+  editMode = false,
+  existingOnboarding,
+}: OnboardingFlowProps = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -278,6 +348,22 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
       })
     );
 
+  // Update mutation for edit mode
+  const { mutate: updateOnboarding, isPending: isUpdatingOnboarding } =
+    useMutation(
+      trpc.onboarding.updateOnboarding.mutationOptions({
+        onSuccess: (result) => {
+          console.log("Onboarding updated successfully:", result);
+          toast.success(result.message || "Onboarding updated successfully");
+          setIsComplete(true);
+        },
+        onError: (error) => {
+          console.error("Onboarding update error:", error);
+          toast.error(error.message || "Failed to update onboarding");
+        },
+      })
+    );
+
   // Watch job completion from context to mark onboarding as complete
   useEffect(() => {
     if (!submittedJobId) return;
@@ -303,10 +389,87 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
     checkJob();
   }, [submittedJobId, getJob]);
 
-  // Load data from localStorage on mount
+  // Helper function to convert existing onboarding data to InvestorData format
+  const convertExistingToInvestorData = (
+    existing: ExistingOnboardingData
+  ): Partial<InvestorData> => {
+    return {
+      legalEntityType: existing.legalEntityType ?? undefined,
+      organizationName: existing.organizationName,
+      primaryContactName: existing.primaryContactName,
+      primaryContactTitle: existing.primaryContactTitle ?? "",
+      primaryContactEmail: existing.primaryContactEmail,
+      primaryContactPhone: existing.primaryContactPhone,
+      capitalProviderType: existing.capitalProviderType,
+      investorType: existing.investorType,
+      geographicFocus: existing.geographicFocus ?? "",
+      accreditationStatus: existing.accreditationStatus ?? undefined,
+      accreditationMethod: existing.accreditationMethod ?? undefined,
+      entityTaxId: existing.entityTaxId ?? undefined,
+      entitySignatoryName: existing.entitySignatoryName ?? undefined,
+      entitySignatoryTitle: existing.entitySignatoryTitle ?? undefined,
+      pepStatus: existing.pepStatus ?? undefined,
+      pepDetails: existing.pepDetails ?? "",
+      sourceOfWealthNarrative: existing.sourceOfWealthNarrative ?? "",
+      accuracyAttestation: existing.accuracyAttestation ?? undefined,
+      sanctionsDeclaration: existing.sanctionsDeclaration ?? undefined,
+      dataConsent: existing.dataConsent ?? undefined,
+      openToEmergingSponsor: existing.openToEmergingSponsor,
+      minimumRequirements: existing.minimumRequirements ?? "",
+      priorDealAttribution: existing.priorDealAttribution,
+      priorDealAttributionExplanation:
+        existing.priorDealAttributionExplanation ?? "",
+      ndaPreference: existing.ndaPreference,
+      ndaLimitations: existing.ndaLimitations ?? "",
+      timingToLOI: existing.timingToLOI,
+      timingToCommitment: existing.timingToCommitment,
+      timingDrivers: existing.timingDrivers ?? "",
+      economicsDescription: existing.economicsDescription,
+      preferredRole: existing.preferredRole,
+      governanceExpectations: existing.governanceExpectations ?? "",
+      provideSupportLetter: existing.provideSupportLetter,
+      joinBrokerConversations: existing.joinBrokerConversations,
+      supportLetterStages: existing.supportLetterStages ?? [],
+      receiveUpdates: existing.receiveUpdates,
+      updateFrequency: existing.updateFrequency ?? "",
+      updateFormat: existing.updateFormat ?? [],
+      industryPreferences: existing.industryPreferences ?? "",
+      equityCheckSize: existing.equityCheckSize,
+      enterpriseValueRange: existing.enterpriseValueRange ?? "",
+      ebitdaRange: existing.ebitdaRange ?? "",
+      preferredOwnership: existing.preferredOwnership,
+      typicalHoldPeriod: existing.typicalHoldPeriod ?? "",
+      transactionTypes: existing.transactionTypes ?? [],
+      leverageTolerance: existing.leverageTolerance ?? "",
+      revenueCharacteristics: existing.revenueCharacteristics,
+      customerConcentration: existing.customerConcentration ?? "",
+      marginsAndCashFlow: existing.marginsAndCashFlow ?? "",
+      assetProfile: existing.assetProfile,
+      managementInvolvement: existing.managementInvolvement ?? "",
+      sectorsOfInterest: existing.sectorsOfInterest,
+      sectorsToAvoid: existing.sectorsToAvoid ?? "",
+      dealSizeThresholds: existing.dealSizeThresholds ?? "",
+      specificThemes: existing.specificThemes ?? "",
+      legalDocumentsAcknowledged:
+        existing.legalDocumentsAcknowledged ?? undefined,
+      electronicSignatureName: existing.electronicSignatureName ?? undefined,
+      electronicSignatureDate: existing.electronicSignatureDate ?? undefined,
+    };
+  };
+
+  // Load data from localStorage on mount (or from existingOnboarding in edit mode)
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
+        // In edit mode, load from existing onboarding data
+        if (editMode && existingOnboarding) {
+          const converted = convertExistingToInvestorData(existingOnboarding);
+          setInvestorData(converted);
+          setIsLoaded(true);
+          return;
+        }
+
+        // Normal mode: load from localStorage
         const savedInvestorData = localStorage.getItem(
           STORAGE_KEY_INVESTOR_DATA
         );
@@ -333,11 +496,12 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
         setIsLoaded(true);
       }
     }
-  }, []); // Only run on mount
+  }, [editMode, existingOnboarding]); // Only run on mount or when edit mode changes
 
-  // Save investor data to localStorage whenever it changes
+  // Save investor data to localStorage whenever it changes (skip in edit mode)
   useEffect(() => {
     if (
+      !editMode &&
       isLoaded &&
       typeof window !== "undefined" &&
       Object.keys(investorData).length > 0
@@ -351,18 +515,18 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
         console.error("Error saving to localStorage:", error);
       }
     }
-  }, [investorData, isLoaded]);
+  }, [investorData, isLoaded, editMode]);
 
-  // Save current step to localStorage
+  // Save current step to localStorage (skip in edit mode)
   useEffect(() => {
-    if (isLoaded && typeof window !== "undefined") {
+    if (!editMode && isLoaded && typeof window !== "undefined") {
       try {
         localStorage.setItem(STORAGE_KEY_STEP, currentStep.toString());
       } catch (error) {
         console.error("Error saving step to localStorage:", error);
       }
     }
-  }, [currentStep, isLoaded]);
+  }, [currentStep, isLoaded, editMode]);
 
   // Ensure step is valid
   useEffect(() => {
@@ -633,7 +797,27 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
 
       console.log("fullInvestorData", fullInvestorData);
 
-      // Submit via tRPC
+      // In edit mode, call updateOnboarding instead of submit
+      if (editMode) {
+        // Convert InvestorData to update schema format (only send changed/filled fields)
+        const updateData: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(fullInvestorData)) {
+          // Skip arrays and complex objects that aren't in the update schema
+          if (key === "beneficialOwners" || key === "authorizedSignatories") {
+            continue;
+          }
+          if (value !== undefined && value !== null) {
+            updateData[key] = value;
+          }
+        }
+
+        updateOnboarding(
+          updateData as Parameters<typeof updateOnboarding>[0]
+        );
+        return;
+      }
+
+      // Submit via tRPC (new onboarding)
       submitOnboarding({
         investorData: fullInvestorData,
         files: filesToProcess,
@@ -659,6 +843,37 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
   };
 
   if (isComplete) {
+    // In edit mode, show a different completion screen
+    if (editMode) {
+      return (
+        <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-lg mx-auto text-center space-y-6">
+            <div className="p-4 rounded-full bg-green-100 dark:bg-green-900/30 w-fit mx-auto">
+              <svg
+                className="h-8 w-8 text-green-600 dark:text-green-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-semibold">Changes Saved Successfully</h1>
+            <p className="text-muted-foreground">
+              Your onboarding information has been updated.
+            </p>
+            <Button asChild>
+              <a href="/onboarding">Back to Onboarding</a>
+            </Button>
+          </div>
+        </div>
+      );
+    }
     return <OnboardingComplete />;
   }
 
@@ -677,18 +892,45 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
       <div className="max-w-3xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex justify-between items-start gap-4">
-          <div className="flex-1" />
+          <div className="flex-1">
+            {editMode && (
+              <Button asChild variant="ghost" size="sm">
+                <a href="/onboarding">
+                  <svg
+                    className="h-4 w-4 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                  Back
+                </a>
+              </Button>
+            )}
+          </div>
           <div className="flex-1 text-center space-y-2">
             <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-              {readOnly ? "Onboarding Form (View Only)" : "Investor Onboarding"}
+              {readOnly
+                ? "Onboarding Form (View Only)"
+                : editMode
+                  ? "Edit Onboarding"
+                  : "Investor Onboarding"}
             </h1>
             <p className="text-sm text-muted-foreground">
               {readOnly
                 ? "View the onboarding form structure and questions."
-                : "Complete your profile to start your investment journey."}
+                : editMode
+                  ? "Update your investor profile information."
+                  : "Complete your profile to start your investment journey."}
             </p>
           </div>
-          {!readOnly && (
+          {!readOnly && !editMode && (
             <div className="flex-1 flex justify-end">
               <Button
                 type="button"
@@ -701,6 +943,7 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
               </Button>
             </div>
           )}
+          {editMode && <div className="flex-1" />}
         </div>
 
         {/* Progress Indicator */}
@@ -711,11 +954,15 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
           isEntityInvestor={isEntityInvestor}
         />
 
-        {(isNavigating || isSubmittingOnboarding) && (
+        {(isNavigating || isSubmittingOnboarding || isUpdatingOnboarding) && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="w-4 h-4 animate-spin" />
             <span>
-              {isSubmittingOnboarding ? "Submitting..." : "Loading..."}
+              {isSubmittingOnboarding
+                ? "Submitting..."
+                : isUpdatingOnboarding
+                  ? "Saving changes..."
+                  : "Loading..."}
             </span>
           </div>
         )}
@@ -753,7 +1000,7 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
               onBack={handleBack}
             />
           )}
-          {currentStep === 3 && !isEntityInvestor && (
+          {currentStep === 3 && !isEntityInvestor && !editMode && (
             <KycDocuments
               initialData={kycData}
               investorType={investorData.investorType || ""}
@@ -762,9 +1009,46 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
               isSubmitting={isSubmitting}
             />
           )}
+          {/* In edit mode for individual: skip KYC step */}
+          {currentStep === 3 && !isEntityInvestor && editMode && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">KYC Documents</h2>
+                <p className="text-sm text-muted-foreground">
+                  Your KYC documents have already been uploaded. You can proceed
+                  to review your investment profile.
+                </p>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-4 text-sm">
+                <p className="text-muted-foreground">
+                  To upload new documents or update existing ones, please
+                  contact support.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={handleBack}
+                  className="gap-2 bg-transparent"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="flex-1"
+                  onClick={() => navigateToStep(4)}
+                >
+                  Continue
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Step 4: KYC Documents (entity) OR Investment Profile (individual) */}
-          {currentStep === 4 && isEntityInvestor && (
+          {currentStep === 4 && isEntityInvestor && !editMode && (
             <KycDocuments
               initialData={kycData}
               investorType={investorData.investorType || ""}
@@ -772,6 +1056,43 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
               onBack={handleBack}
               isSubmitting={isSubmitting}
             />
+          )}
+          {/* In edit mode for entity: skip KYC step */}
+          {currentStep === 4 && isEntityInvestor && editMode && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">KYC Documents</h2>
+                <p className="text-sm text-muted-foreground">
+                  Your KYC documents have already been uploaded. You can proceed
+                  to review your investment profile.
+                </p>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-4 text-sm">
+                <p className="text-muted-foreground">
+                  To upload new documents or update existing ones, please
+                  contact support.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={handleBack}
+                  className="gap-2 bg-transparent"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="flex-1"
+                  onClick={() => navigateToStep(5)}
+                >
+                  Continue
+                </Button>
+              </div>
+            </div>
           )}
           {currentStep === 4 && !isEntityInvestor && (
             <Step4InvestmentProfile
@@ -807,7 +1128,47 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
               legalEntityType={investorData.legalEntityType}
             />
           )}
-          {currentStep === 6 && !isEntityInvestor && !readOnly && (
+          {/* Edit mode for individual - final step with Save Changes */}
+          {currentStep === 6 && !isEntityInvestor && editMode && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">Review & Save Changes</h2>
+                <p className="text-sm text-muted-foreground">
+                  Review your changes and save them to update your onboarding
+                  information.
+                </p>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-4 text-sm">
+                <p className="text-muted-foreground">
+                  Your legal disclosures and e-signature from your original
+                  submission remain on file. Only the profile data you&apos;ve
+                  changed will be updated.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={handleBack}
+                  disabled={isUpdatingOnboarding}
+                  className="gap-2 bg-transparent"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  disabled={isUpdatingOnboarding}
+                  className="flex-1 gap-2"
+                  onClick={() => handleFinalSubmit()}
+                >
+                  {isUpdatingOnboarding ? "Saving..." : "Save All Changes"}
+                </Button>
+              </div>
+            </div>
+          )}
+          {currentStep === 6 && !isEntityInvestor && !readOnly && !editMode && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-bold mb-2">
@@ -950,7 +1311,47 @@ export function OnboardingFlow({ readOnly = false }: OnboardingFlowProps = {}) {
           )}
 
           {/* Step 7: Legal E-Sign (entity only) */}
-          {currentStep === 7 && isEntityInvestor && !readOnly && (
+          {/* Edit mode for entity - final step with Save Changes */}
+          {currentStep === 7 && isEntityInvestor && editMode && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">Review & Save Changes</h2>
+                <p className="text-sm text-muted-foreground">
+                  Review your changes and save them to update your onboarding
+                  information.
+                </p>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-4 text-sm">
+                <p className="text-muted-foreground">
+                  Your legal disclosures and e-signature from your original
+                  submission remain on file. Only the profile data you&apos;ve
+                  changed will be updated.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={handleBack}
+                  disabled={isUpdatingOnboarding}
+                  className="gap-2 bg-transparent"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  disabled={isUpdatingOnboarding}
+                  className="flex-1 gap-2"
+                  onClick={() => handleFinalSubmit()}
+                >
+                  {isUpdatingOnboarding ? "Saving..." : "Save All Changes"}
+                </Button>
+              </div>
+            </div>
+          )}
+          {currentStep === 7 && isEntityInvestor && !readOnly && !editMode && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-bold mb-2">

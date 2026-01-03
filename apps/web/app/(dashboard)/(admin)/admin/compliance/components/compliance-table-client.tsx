@@ -12,6 +12,8 @@ import {
   ShieldCheck,
   ShieldX,
   ShieldQuestion,
+  Building2,
+  Lock,
 } from "lucide-react";
 import { SearchInput } from "@/components/search-input";
 import {
@@ -59,6 +61,7 @@ type Investor = {
   kycStatus: string | null;
   isOnboardingCompleted: boolean | null;
   clearance: Clearance | null;
+  dealAccessCount: number;
 };
 
 type ComplianceData = {
@@ -278,6 +281,7 @@ export function ComplianceTableClient({
               <TableHead>Email</TableHead>
               <TableHead>Onboarding</TableHead>
               <TableHead>Clearance</TableHead>
+              <TableHead>Deal Access</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -285,61 +289,92 @@ export function ComplianceTableClient({
           <TableBody>
             {investors.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
+                <TableCell colSpan={7} className="h-24 text-center">
                   No investors found.
                 </TableCell>
               </TableRow>
             ) : (
-              investors.map((investor) => (
-                <TableRow key={investor.id} className="group">
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage
-                          src={investor.image || undefined}
-                          alt={investor.name || "User"}
-                        />
-                        <AvatarFallback>
-                          {getInitials(investor.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="font-medium">
-                        {investor.name || "No Name"}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {investor.email}
-                  </TableCell>
-                  <TableCell>
-                    {investor.isOnboardingCompleted ? (
-                      <Badge variant="default" className="gap-1">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Completed
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="gap-1">
-                        <Clock className="h-3 w-3" />
-                        Pending
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>{getClearanceStatusBadge(investor.clearance)}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(investor.createdAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild variant="ghost" size="sm">
-                      <Link
-                        href={`/admin/compliance/investors/${investor.id}`}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Review
-                      </Link>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
+              investors.map((investor) => {
+                // Determine if investor can access deals
+                const isCleared =
+                  investor.clearance?.status === "cleared" ||
+                  investor.clearance?.status === "cleared_with_conditions";
+                const hasAccess = isCleared && investor.dealAccessCount > 0;
+
+                return (
+                  <TableRow key={investor.id} className="group">
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage
+                            src={investor.image || undefined}
+                            alt={investor.name || "User"}
+                          />
+                          <AvatarFallback>
+                            {getInitials(investor.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">
+                          {investor.name || "No Name"}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {investor.email}
+                    </TableCell>
+                    <TableCell>
+                      {investor.isOnboardingCompleted ? (
+                        <Badge variant="default" className="gap-1">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Completed
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="gap-1">
+                          <Clock className="h-3 w-3" />
+                          Pending
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {getClearanceStatusBadge(investor.clearance)}
+                    </TableCell>
+                    <TableCell>
+                      {hasAccess ? (
+                        <div className="flex items-center gap-1.5 text-green-700 dark:text-green-400">
+                          <Building2 className="h-3.5 w-3.5" />
+                          <span className="text-sm font-medium">
+                            {investor.dealAccessCount} deal
+                            {investor.dealAccessCount !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                      ) : isCleared && investor.dealAccessCount === 0 ? (
+                        <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          <span className="text-sm">No deals</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Lock className="h-3.5 w-3.5" />
+                          <span className="text-sm">Blocked</span>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(investor.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button asChild variant="ghost" size="sm">
+                        <Link
+                          href={`/admin/compliance/investors/${investor.id}`}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Review
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

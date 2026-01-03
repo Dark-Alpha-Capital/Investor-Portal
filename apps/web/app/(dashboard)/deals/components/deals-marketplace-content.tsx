@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { authSession } from "@/app/(auth)/auth";
 import { getMarketplaceDealsCached } from "../lib/get-marketplace-deals-cached";
 import { DealsMarketplace } from "./deals-marketplace";
+import { cacheLife, cacheTag } from "next/cache";
+import React, { Suspense } from "react";
+import { DealsMarketplaceSkeleton } from "@/components/skeleton/deals-marketplace-skeleton";
 
 type SearchParams = Promise<{
   page?: string;
@@ -45,6 +48,37 @@ export async function DealsMarketplaceContent({
 
   // Call cached function with extracted values
   // Arguments (including userId) become part of cache key
+
+  return (
+    <Suspense fallback={<DealsMarketplaceSkeleton />}>
+      <FetchDealMarketplaceContent
+        userId={userId}
+        page={page}
+        search={search}
+        status={status}
+        sector={sector}
+      />
+    </Suspense>
+  );
+}
+
+async function FetchDealMarketplaceContent({
+  userId,
+  page,
+  search,
+  status,
+  sector,
+}: {
+  userId: string;
+  page: number;
+  search: string | undefined;
+  status: string | undefined;
+  sector: string | undefined;
+}) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(`marketplace-deals-${userId}`);
+
   const initialData = await getMarketplaceDealsCached({
     userId,
     page,

@@ -282,6 +282,157 @@ export type PermissionCheckResult = {
 };
 
 /**
+ * Get all deal IDs that a user can view in the marketplace
+ * This is the primary function for marketplace visibility
+ */
+export async function getVisibleDealIds(userId: string): Promise<string[]> {
+  // First check clearance status - must be cleared to see any deals
+  const clearance = await getUserClearance(userId);
+
+  // Not cleared = no deals visible
+  if (
+    !clearance ||
+    clearance.status === "pending" ||
+    clearance.status === "rejected"
+  ) {
+    return [];
+  }
+
+  // Get deals where user has canViewTeaser permission (active, not revoked)
+  const permissions = await db
+    .select({ dealId: vehiclePermission.dealId })
+    .from(vehiclePermission)
+    .where(
+      and(
+        eq(vehiclePermission.userId, userId),
+        eq(vehiclePermission.canViewTeaser, true),
+        isNull(vehiclePermission.revokedAt)
+      )
+    );
+
+  return permissions.map((p) => p.dealId);
+}
+
+/**
+ * Check if a user can view a specific deal in the marketplace
+ */
+export async function canViewDeal(
+  userId: string,
+  dealId: string
+): Promise<boolean> {
+  // Check clearance first
+  const clearance = await getUserClearance(userId);
+
+  if (
+    !clearance ||
+    clearance.status === "pending" ||
+    clearance.status === "rejected"
+  ) {
+    return false;
+  }
+
+  // Check vehicle permission
+  const [permission] = await db
+    .select({ canViewTeaser: vehiclePermission.canViewTeaser })
+    .from(vehiclePermission)
+    .where(
+      and(
+        eq(vehiclePermission.userId, userId),
+        eq(vehiclePermission.dealId, dealId),
+        isNull(vehiclePermission.revokedAt)
+      )
+    )
+    .limit(1);
+
+  return permission?.canViewTeaser ?? false;
+}
+
+/**
+ * Get complete deal permissions for a user
+ * Returns all 4 permission flags plus clearance context
+ */
+export async function getDealPermissions(
+  userId: string,
+  dealId: string
+): Promise<{
+  canViewTeaser: boolean;
+  canViewDocuments: boolean;
+  canExpressInterest: boolean;
+  canInvest: boolean;
+  clearanceStatus: ClearanceStatus | null;
+  hasPermission: boolean;
+} | null> {
+  // Check clearance first
+  const clearance = await getUserClearance(userId);
+
+  if (
+    !clearance ||
+    clearance.status === "pending" ||
+    clearance.status === "rejected"
+  ) {
+    return {
+      canViewTeaser: false,
+      canViewDocuments: false,
+      canExpressInterest: false,
+      canInvest: false,
+      clearanceStatus: clearance?.status ?? null,
+      hasPermission: false,
+    };
+  }
+
+  // Get vehicle permission for this deal
+  const [permission] = await db
+    .select({
+      canViewTeaser: vehiclePermission.canViewTeaser,
+      canViewDocuments: vehiclePermission.canViewDocuments,
+      canExpressInterest: vehiclePermission.canExpressInterest,
+      canInvest: vehiclePermission.canInvest,
+    })
+    .from(vehiclePermission)
+    .where(
+      and(
+        eq(vehiclePermission.userId, userId),
+        eq(vehiclePermission.dealId, dealId),
+        isNull(vehiclePermission.revokedAt)
+      )
+    )
+    .limit(1);
+
+  if (!permission) {
+    return {
+      canViewTeaser: false,
+      canViewDocuments: false,
+      canExpressInterest: false,
+      canInvest: false,
+      clearanceStatus: clearance.status,
+      hasPermission: false,
+    };
+  }
+
+  return {
+    canViewTeaser: permission.canViewTeaser,
+    canViewDocuments: permission.canViewDocuments,
+    canExpressInterest: permission.canExpressInterest,
+    canInvest: permission.canInvest,
+    clearanceStatus: clearance.status,
+    hasPermission: true,
+  };
+}
+
+/**
+ * Check if user is an admin (bypasses permission checks)
+ */
+export async function isUserAdmin(userId: string): Promise<boolean> {
+  const [userRecord] = await db
+    .select({ role: user.role })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+
+  return userRecord?.role === "admin";
+}
+
+/**
  * Check if user can access a specific route
  */
 export async function canAccessRoute(

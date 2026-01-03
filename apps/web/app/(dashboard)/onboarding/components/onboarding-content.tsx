@@ -217,7 +217,7 @@ async function FetchOnboardingWrapper({ userId }: { userId: string }) {
             <div className="flex flex-wrap gap-3 pt-2">
               {isEditable && (
                 <Button asChild>
-                  <Link href="/profile/edit-onboarding">
+                  <Link href="/onboarding/edit">
                     <Pencil className="h-4 w-4 mr-2" />
                     Edit Onboarding
                   </Link>

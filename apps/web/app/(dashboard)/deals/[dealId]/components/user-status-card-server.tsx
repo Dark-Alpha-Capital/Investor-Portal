@@ -13,6 +13,7 @@ export async function UserStatusCardServer({
     <UserStatusCard
       userInterest={result.userInterest}
       userInvestment={result.userInvestment}
+      permissions={result.permissions}
     />
   );
 }

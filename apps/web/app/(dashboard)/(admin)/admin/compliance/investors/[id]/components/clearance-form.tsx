@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ShieldCheck, ShieldX, AlertTriangle } from "lucide-react";
+import {
+  Loader2,
+  ShieldCheck,
+  ShieldX,
+  AlertTriangle,
+  Building2,
+  Lock,
+  Info,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +29,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -32,6 +41,7 @@ type ClearanceFormProps = {
   currentStatus: ClearanceStatus | null;
   currentConditions: string[] | null;
   currentNotes: string | null;
+  isOnboardingCompleted: boolean;
 };
 
 const STATUS_OPTIONS: { value: ClearanceStatus; label: string; icon: React.ReactNode }[] = [
@@ -58,12 +68,17 @@ export function ClearanceForm({
   currentStatus,
   currentConditions,
   currentNotes,
+  isOnboardingCompleted,
 }: ClearanceFormProps) {
   const router = useRouter();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
   const [status, setStatus] = useState<ClearanceStatus>(currentStatus || "pending");
+
+  // Check if trying to grant clearance without completed onboarding
+  const canGrantClearance = isOnboardingCompleted;
+  const isGrantingClearanceStatus = status === "cleared" || status === "cleared_with_conditions";
   const [conditions, setConditions] = useState<string[]>(currentConditions || []);
   const [customCondition, setCustomCondition] = useState("");
   const [notes, setNotes] = useState(currentNotes || "");
@@ -116,6 +131,18 @@ export function ClearanceForm({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* KYC Incomplete Warning */}
+        {!isOnboardingCompleted && (
+          <Alert className="bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800">
+            <AlertTriangle className="h-4 w-4 !text-red-600" />
+            <AlertDescription className="text-red-800 dark:text-red-200">
+              <strong>KYC Not Complete:</strong> This investor has not completed their
+              onboarding/KYC submission. Clearance cannot be granted until onboarding is
+              complete. You can only set status to &quot;Pending Review&quot; or &quot;Rejected&quot;.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Status Selection */}
         <div className="space-y-2">
           <Label htmlFor="status">Clearance Status</Label>
@@ -124,17 +151,71 @@ export function ClearanceForm({
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
             <SelectContent>
-              {STATUS_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  <div className="flex items-center gap-2">
-                    {option.icon}
-                    {option.label}
-                  </div>
-                </SelectItem>
-              ))}
+              {STATUS_OPTIONS.map((option) => {
+                const requiresKyc = option.value === "cleared" || option.value === "cleared_with_conditions";
+                const isDisabled = requiresKyc && !isOnboardingCompleted;
+
+                return (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    disabled={isDisabled}
+                  >
+                    <div className="flex items-center gap-2">
+                      {option.icon}
+                      {option.label}
+                      {isDisabled && (
+                        <span className="text-xs text-muted-foreground ml-1">(Requires KYC)</span>
+                      )}
+                    </div>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
+
+        {/* Access Implications Alert */}
+        {status === "cleared" && (
+          <Alert className="bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800">
+            <Building2 className="h-4 w-4 !text-green-600" />
+            <AlertDescription className="text-green-800 dark:text-green-200">
+              <strong>Full Access:</strong> This investor will be granted access to all
+              non-draft deals with full permissions (view docs, express interest, invest).
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {status === "cleared_with_conditions" && (
+          <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800">
+            <AlertTriangle className="h-4 w-4 !text-amber-600" />
+            <AlertDescription className="text-amber-800 dark:text-amber-200">
+              <strong>Conditional Access:</strong> This investor will see all deals but
+              with restricted permissions (no document access, cannot invest). Use the
+              Permissions tab to grant additional access to specific deals.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {status === "pending" && (
+          <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+            <Info className="h-4 w-4 !text-blue-600" />
+            <AlertDescription className="text-blue-800 dark:text-blue-200">
+              <strong>Pending:</strong> This investor cannot see any deals in the
+              marketplace while their clearance is pending review.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {status === "rejected" && (
+          <Alert className="bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800">
+            <Lock className="h-4 w-4 !text-red-600" />
+            <AlertDescription className="text-red-800 dark:text-red-200">
+              <strong>Blocked:</strong> This investor will be completely blocked from
+              accessing any deals in the marketplace.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Conditions (only for cleared_with_conditions) */}
         {status === "cleared_with_conditions" && (
@@ -231,7 +312,7 @@ export function ClearanceForm({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={setClearanceMutation.isPending}
+            disabled={setClearanceMutation.isPending || (isGrantingClearanceStatus && !canGrantClearance)}
           >
             {setClearanceMutation.isPending && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

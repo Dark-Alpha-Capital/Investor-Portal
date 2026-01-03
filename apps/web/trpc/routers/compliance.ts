@@ -104,9 +104,10 @@ export const complianceRouter = createTRPCRouter({
         .limit(limit)
         .offset(offset);
 
-      // Get clearance status for each investor
+      // Get clearance status and permission count for each investor
       const investorsWithClearance = await Promise.all(
         investors.map(async (investor) => {
+          // Get clearance status
           const [clearance] = await ctx.db
             .select({
               status: investorClearance.status,
@@ -120,9 +121,21 @@ export const complianceRouter = createTRPCRouter({
             .orderBy(desc(investorClearance.createdAt))
             .limit(1);
 
+          // Get permission count (active, non-revoked permissions)
+          const [permissionCount] = await ctx.db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(vehiclePermission)
+            .where(
+              and(
+                eq(vehiclePermission.userId, investor.id),
+                isNull(vehiclePermission.revokedAt)
+              )
+            );
+
           return {
             ...investor,
             clearance: clearance || null,
+            dealAccessCount: permissionCount?.count ?? 0,
           };
         })
       );
@@ -399,6 +412,36 @@ export const complianceRouter = createTRPCRouter({
         });
       }
 
+      // Get investor to check onboarding status
+      const [investor] = await ctx.db
+        .select({
+          id: user.id,
+          isOnboardingCompleted: user.isOnboardingCompleted,
+        })
+        .from(user)
+        .where(eq(user.id, input.userId))
+        .limit(1);
+
+      if (!investor) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Investor not found",
+        });
+      }
+
+      // Prevent granting clearance if onboarding/KYC is not complete
+      if (
+        (input.status === "cleared" || input.status === "cleared_with_conditions") &&
+        !investor.isOnboardingCompleted
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Cannot grant clearance: Investor has not completed onboarding/KYC. " +
+            "The investor must complete their onboarding before clearance can be granted.",
+        });
+      }
+
       // Get previous clearance status
       const [previousClearance] = await ctx.db
         .select({ status: investorClearance.status })
@@ -443,13 +486,13 @@ export const complianceRouter = createTRPCRouter({
 
       // Auto-grant vehicle permissions if cleared
       if (input.status === "cleared" || input.status === "cleared_with_conditions") {
-        // Get all live deals (open for investment)
+        // Get all non-draft deals (any deal that's visible to investors)
         const activeDeals = await ctx.db
-          .select({ id: deal.id })
+          .select({ id: deal.id, status: deal.status })
           .from(deal)
-          .where(eq(deal.status, "live"));
+          .where(ne(deal.status, "draft"));
 
-        // Grant basic permissions to all active deals
+        // Grant permissions to all active deals
         for (const activeDeal of activeDeals) {
           // Check if permission already exists
           const [existingPermission] = await ctx.db
@@ -465,15 +508,20 @@ export const complianceRouter = createTRPCRouter({
             .limit(1);
 
           if (!existingPermission) {
+            // Determine permissions based on clearance status and deal status
+            const isFullyClearedAndDealLive =
+              input.status === "cleared" &&
+              (activeDeal.status === "live" || activeDeal.status === "closing");
+
             const permissionId = nanoid();
             await ctx.db.insert(vehiclePermission).values({
               id: permissionId,
               userId: input.userId,
               dealId: activeDeal.id,
               canViewTeaser: true,
-              canViewDocuments: input.status === "cleared", // Full access only for cleared, not cleared_with_conditions
+              canViewDocuments: input.status === "cleared", // Full access only for cleared
               canExpressInterest: true,
-              canInvest: input.status === "cleared",
+              canInvest: isFullyClearedAndDealLive, // Can only invest in live/closing deals if fully cleared
               grantedBy: session.user.id,
             });
 
@@ -485,7 +533,7 @@ export const complianceRouter = createTRPCRouter({
                 canViewTeaser: true,
                 canViewDocuments: input.status === "cleared",
                 canExpressInterest: true,
-                canInvest: input.status === "cleared",
+                canInvest: isFullyClearedAndDealLive,
               },
               notes: `Auto-granted on clearance: ${input.status}`,
             });
@@ -856,6 +904,149 @@ export const complianceRouter = createTRPCRouter({
     // Return deals array directly for easier consumption
     return deals;
   }),
+
+  /**
+   * Grant deal access to all cleared investors
+   * Use this when publishing a new deal to auto-grant access
+   */
+  grantDealToAllClearedInvestors: baseProcedure
+    .input(
+      z.object({
+        dealId: z.string(),
+        permissions: z
+          .object({
+            canViewTeaser: z.boolean().default(true),
+            canViewDocuments: z.boolean().default(true),
+            canExpressInterest: z.boolean().default(true),
+            canInvest: z.boolean().default(true),
+          })
+          .optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const session = await getSession();
+      if (!session?.user || session.user.role !== "admin") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Admin access required",
+        });
+      }
+
+      // Verify deal exists
+      const [dealRecord] = await ctx.db
+        .select({ id: deal.id, name: deal.name, status: deal.status })
+        .from(deal)
+        .where(eq(deal.id, input.dealId))
+        .limit(1);
+
+      if (!dealRecord) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Deal not found",
+        });
+      }
+
+      // Get all cleared investors (cleared or cleared_with_conditions)
+      // First, get the latest clearance for each user
+      const clearedInvestors = await ctx.db
+        .selectDistinctOn([investorClearance.userId], {
+          userId: investorClearance.userId,
+          status: investorClearance.status,
+        })
+        .from(investorClearance)
+        .orderBy(investorClearance.userId, desc(investorClearance.createdAt));
+
+      // Filter to only cleared investors
+      const investorsToGrant = clearedInvestors.filter(
+        (inv) =>
+          inv.status === "cleared" || inv.status === "cleared_with_conditions"
+      );
+
+      let grantedCount = 0;
+      let skippedCount = 0;
+
+      // Default permissions based on deal status
+      const defaultPermissions = {
+        canViewTeaser: true,
+        canViewDocuments: true,
+        canExpressInterest: true,
+        canInvest:
+          dealRecord.status === "live" || dealRecord.status === "closing",
+      };
+
+      const permissionsToGrant = input.permissions || defaultPermissions;
+
+      for (const investor of investorsToGrant) {
+        // Check if permission already exists
+        const [existingPermission] = await ctx.db
+          .select({ id: vehiclePermission.id })
+          .from(vehiclePermission)
+          .where(
+            and(
+              eq(vehiclePermission.userId, investor.userId),
+              eq(vehiclePermission.dealId, input.dealId),
+              isNull(vehiclePermission.revokedAt)
+            )
+          )
+          .limit(1);
+
+        if (existingPermission) {
+          skippedCount++;
+          continue;
+        }
+
+        // Adjust permissions based on clearance status
+        const adjustedPermissions = {
+          canViewTeaser: permissionsToGrant.canViewTeaser,
+          canViewDocuments:
+            investor.status === "cleared"
+              ? permissionsToGrant.canViewDocuments
+              : false,
+          canExpressInterest: permissionsToGrant.canExpressInterest,
+          canInvest:
+            investor.status === "cleared"
+              ? permissionsToGrant.canInvest
+              : false,
+        };
+
+        const permissionId = nanoid();
+        await ctx.db.insert(vehiclePermission).values({
+          id: permissionId,
+          userId: investor.userId,
+          dealId: input.dealId,
+          ...adjustedPermissions,
+          grantedBy: session.user.id,
+          notes: `Bulk grant for deal: ${dealRecord.name}`,
+        });
+
+        grantedCount++;
+      }
+
+      // Log bulk grant action
+      await ctx.db.insert(auditLog).values({
+        id: nanoid(),
+        userId: session.user.id,
+        action: "permission_granted",
+        targetType: "deal",
+        targetId: input.dealId,
+        newValue: {
+          bulkGrant: true,
+          grantedCount,
+          skippedCount,
+          permissions: permissionsToGrant,
+        },
+        metadata: {
+          dealName: dealRecord.name,
+        },
+      });
+
+      return {
+        success: true,
+        message: `Granted access to ${grantedCount} investors (${skippedCount} already had access)`,
+        grantedCount,
+        skippedCount,
+      };
+    }),
 
   /**
    * Review a single document - update its status

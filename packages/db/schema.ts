@@ -254,7 +254,9 @@ export const onboarding = pgTable(
     specificThemes: text("specific_themes"),
 
     // Step 5: Legal & E-Sign
-    legalDocumentsAcknowledged: boolean("legal_documents_acknowledged").default(false),
+    legalDocumentsAcknowledged: boolean("legal_documents_acknowledged").default(
+      false
+    ),
     electronicSignatureName: text("electronic_signature_name"), // Full legal name used for e-signature
     electronicSignatureDate: text("electronic_signature_date"), // Date of e-signature
 
@@ -993,7 +995,9 @@ export const vehiclePermission = pgTable(
     // Permission level
     canViewTeaser: boolean("can_view_teaser").default(true).notNull(),
     canViewDocuments: boolean("can_view_documents").default(false).notNull(),
-    canExpressInterest: boolean("can_express_interest").default(false).notNull(),
+    canExpressInterest: boolean("can_express_interest")
+      .default(false)
+      .notNull(),
     canInvest: boolean("can_invest").default(false).notNull(),
 
     // Grant metadata
@@ -1271,9 +1275,10 @@ export const bankingVerification = pgTable(
     // Callback scheduling
     callbackScheduledAt: timestamp("callback_scheduled_at"),
     callbackPhoneNumber: text("callback_phone_number"), // Pre-verified number to call
-    callbackAttempts: jsonb("callback_attempts").$type<
-      { attemptedAt: string; result: string; notes: string }[]
-    >(),
+    callbackAttempts:
+      jsonb("callback_attempts").$type<
+        { attemptedAt: string; result: string; notes: string }[]
+      >(),
 
     // Verification completion
     verifiedBy: text("verified_by").references(() => user.id, {
@@ -1426,6 +1431,7 @@ export const userRoleAssignmentRelations = relations(
     user: one(user, {
       fields: [userRoleAssignment.userId],
       references: [user.id],
+      relationName: "roleAssignments",
     }),
     grantedByUser: one(user, {
       fields: [userRoleAssignment.grantedBy],

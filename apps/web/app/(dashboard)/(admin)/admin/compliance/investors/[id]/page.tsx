@@ -15,6 +15,7 @@ import { DocumentReview } from "./components/document-review";
 import { OnboardingEditHistory } from "./components/onboarding-edit-history";
 import { VehiclePermissions } from "./components/vehicle-permissions";
 import { AuditHistory } from "./components/audit-history";
+import { AccessStatusSummary } from "./components/access-status-summary";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -147,6 +148,13 @@ async function InvestorComplianceContent({
         </div>
       </div>
 
+      {/* Access Status Summary - Prominent display at top */}
+      <AccessStatusSummary
+        clearance={investor.clearance}
+        permissions={permissions}
+        isOnboardingCompleted={investor.isOnboardingCompleted ?? false}
+      />
+
       {/* Tabs */}
       <Tabs defaultValue="documents" className="space-y-6">
         <TabsList className="flex flex-wrap">
@@ -201,6 +209,7 @@ async function InvestorComplianceContent({
             }
             currentConditions={investor.clearance?.conditionsJson || null}
             currentNotes={investor.clearance?.notes || null}
+            isOnboardingCompleted={investor.isOnboardingCompleted ?? false}
           />
         </TabsContent>
 
