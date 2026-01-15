@@ -21,9 +21,20 @@ import {
   kycAttestation,
   onboardingDocument,
 } from "@repo/db/schema";
-import { eq, desc, and, isNull, ne, or, sql, ilike } from "drizzle-orm";
+import {
+  eq,
+  desc,
+  and,
+  isNull,
+  ne,
+  or,
+  sql,
+  ilike,
+  inArray,
+} from "drizzle-orm";
 import { getSession } from "@/lib/get-session";
 import { nanoid } from "nanoid";
+import { revalidateTag } from "next/cache";
 import {
   logClearanceChange,
   logPermissionGrant,
@@ -172,14 +183,6 @@ export const complianceRouter = createTRPCRouter({
   getInvestorDetails: baseProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const session = await getSession();
-      if (!session?.user || session.user.role !== "admin") {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Admin access required",
-        });
-      }
-
       // Get user details
       const [investor] = await ctx.db
         .select({
@@ -211,11 +214,12 @@ export const complianceRouter = createTRPCRouter({
         .limit(1);
 
       // Get additional onboarding-related data if onboarding exists
-      let beneficialOwners: typeof beneficialOwner.$inferSelect[] = [];
-      let authorizedSignatories: typeof authorizedSignatory.$inferSelect[] = [];
-      let attestations: typeof kycAttestation.$inferSelect[] = [];
-      let documents: typeof onboardingDocument.$inferSelect[] = [];
-      let editHistory: typeof onboardingEditHistory.$inferSelect[] = [];
+      let beneficialOwners: (typeof beneficialOwner.$inferSelect)[] = [];
+      let authorizedSignatories: (typeof authorizedSignatory.$inferSelect)[] =
+        [];
+      let attestations: (typeof kycAttestation.$inferSelect)[] = [];
+      let documents: (typeof onboardingDocument.$inferSelect)[] = [];
+      let editHistory: (typeof onboardingEditHistory.$inferSelect)[] = [];
 
       if (onboardingData) {
         beneficialOwners = await ctx.db
@@ -431,7 +435,8 @@ export const complianceRouter = createTRPCRouter({
 
       // Prevent granting clearance if onboarding/KYC is not complete
       if (
-        (input.status === "cleared" || input.status === "cleared_with_conditions") &&
+        (input.status === "cleared" ||
+          input.status === "cleared_with_conditions") &&
         !investor.isOnboardingCompleted
       ) {
         throw new TRPCError({
@@ -466,7 +471,8 @@ export const complianceRouter = createTRPCRouter({
             : null,
         clearedBy: session.user.id,
         clearedAt:
-          input.status === "cleared" || input.status === "cleared_with_conditions"
+          input.status === "cleared" ||
+          input.status === "cleared_with_conditions"
             ? new Date()
             : null,
         notes: input.notes || null,
@@ -485,7 +491,10 @@ export const complianceRouter = createTRPCRouter({
       });
 
       // Auto-grant vehicle permissions if cleared
-      if (input.status === "cleared" || input.status === "cleared_with_conditions") {
+      if (
+        input.status === "cleared" ||
+        input.status === "cleared_with_conditions"
+      ) {
         // Get all non-draft deals (any deal that's visible to investors)
         const activeDeals = await ctx.db
           .select({ id: deal.id, status: deal.status })
@@ -1063,6 +1072,7 @@ export const complianceRouter = createTRPCRouter({
           "needs_revision",
         ]),
         reviewNotes: z.string().optional(),
+        investorId: z.string(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -1124,6 +1134,10 @@ export const complianceRouter = createTRPCRouter({
         },
       });
 
+      // Revalidate Next.js cache tag for this investor
+      // Cache tag format must match: `investor-compliance-${investorId}` used in the page component
+      revalidateTag(`investor-compliance-${input.investorId}`, "max");
+
       return {
         success: true,
         message: `Document status updated to ${input.status}`,
@@ -1144,6 +1158,7 @@ export const complianceRouter = createTRPCRouter({
           "incorrect_doc",
           "needs_revision",
         ]),
+        investorId: z.string(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -1168,6 +1183,10 @@ export const complianceRouter = createTRPCRouter({
           })
           .where(eq(onboardingDocument.id, docId));
       }
+
+      // Revalidate Next.js cache tag for this investor
+      // Cache tag format must match: `investor-compliance-${investorId}` used in the page component
+      revalidateTag(`investor-compliance-${input.investorId}`, "max");
 
       return {
         success: true,

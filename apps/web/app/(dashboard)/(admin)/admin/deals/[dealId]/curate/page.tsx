@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { DealCurationData } from "../components/deal-curation-data";
+import { DealCurationData } from "../../../../../../../components/deal-curation-data";
 import BackButton from "@/components/back-button";
 
 type PageProps = {

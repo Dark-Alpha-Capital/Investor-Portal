@@ -41,11 +41,6 @@ export function DashboardNavLinks() {
       url: "/deals",
       icon: Briefcase,
     },
-    {
-      title: "Support",
-      url: "/support",
-      icon: LifeBuoy,
-    },
   ];
 
   // Admin-only items
@@ -59,11 +54,6 @@ export function DashboardNavLinks() {
       title: "Compliance",
       url: "/admin/compliance",
       icon: UserCheck,
-    },
-    {
-      title: "Tickets",
-      url: "/admin/tickets",
-      icon: Ticket,
     },
     {
       title: "Admin Deals",
@@ -115,4 +105,3 @@ export function DashboardNavLinks() {
     </SidebarGroup>
   );
 }
-

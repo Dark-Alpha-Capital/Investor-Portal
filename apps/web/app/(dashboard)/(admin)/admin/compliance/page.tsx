@@ -1,7 +1,12 @@
+import "server-only";
 import { Suspense } from "react";
 import { ShieldCheck, Lock, Building2, Info } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ComplianceDashboardContent } from "./components/compliance-dashboard-content";
+import { ComplianceTableSkeleton } from "@/components/skeleton/compliance-table-skeleton";
+import { caller } from "@/trpc/server";
+import { ComplianceTableClient } from "../../../../../components/compliance-table-client";
+import { authSession } from "@/app/(auth)/auth";
+import { redirect } from "next/navigation";
 
 type SearchParams = Promise<{
   page?: string;
@@ -71,17 +76,71 @@ export default function CompliancePage({
       </Alert>
 
       {/* Dynamic content - streamed at request time */}
-      <Suspense
-        fallback={
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-pulse text-muted-foreground">
-              Loading compliance data...
-            </div>
-          </div>
-        }
-      >
+      <Suspense fallback={<ComplianceTableSkeleton />}>
         <ComplianceDashboardContent searchParams={searchParams} />
       </Suspense>
     </div>
+  );
+}
+
+async function ComplianceDashboardContent({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const [params, userSession] = await Promise.all([
+    searchParams,
+    authSession(),
+  ]);
+  if (!userSession) {
+    redirect("/login");
+  }
+
+  if (userSession.user.role !== "admin") {
+    redirect("/dashboard");
+  }
+
+  const page = parseInt(params.page || "1", 10);
+  const search = params.search || undefined;
+  const clearanceStatus =
+    params.clearanceStatus && params.clearanceStatus !== "all"
+      ? params.clearanceStatus
+      : undefined;
+
+  // Return the data fetching component directly - Suspense is handled by the page component
+  return (
+    <FetchComplianceWrapper
+      page={page}
+      limit={12}
+      search={search}
+      clearanceStatus={clearanceStatus}
+    />
+  );
+}
+
+async function FetchComplianceWrapper({
+  page,
+  limit,
+  search,
+  clearanceStatus,
+}: {
+  page: number;
+  limit: number;
+  search?: string;
+  clearanceStatus?: string;
+}) {
+  // Fetch investors data
+  const data = await caller.compliance.getPendingInvestors({
+    page,
+    limit,
+    search,
+    clearanceStatus,
+  });
+
+  return (
+    <ComplianceTableClient
+      initialData={data}
+      initialClearanceStatus={clearanceStatus || "all"}
+    />
   );
 }

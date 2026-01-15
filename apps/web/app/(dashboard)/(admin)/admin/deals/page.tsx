@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { DealsContent } from "./components/deals-content";
+import { DealsContent } from "../../../../../components/deals-content";
 import { DealsTableSkeleton } from "@/components/skeleton/deals-table-skeleton";
 
 type SearchParams = Promise<{

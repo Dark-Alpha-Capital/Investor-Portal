@@ -1,21 +1,22 @@
-import "server-only";
 import { Suspense } from "react";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { authSession } from "@/app/(auth)/auth";
+import { cacheLife, cacheTag } from "next/cache";
 import { caller } from "@/trpc/server";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClearanceForm } from "./components/clearance-form";
-import { InvestorKycDetails } from "./components/investor-kyc-details";
-import { DocumentReview } from "./components/document-review";
-import { OnboardingEditHistory } from "./components/onboarding-edit-history";
-import { VehiclePermissions } from "./components/vehicle-permissions";
-import { AuditHistory } from "./components/audit-history";
-import { AccessStatusSummary } from "./components/access-status-summary";
+import { AccessStatusSummary } from "@/components/investor-compliance-access-status-summary";
+import { DocumentReview } from "@/components/investor-compliance-document-review";
+import { InvestorKycDetails } from "@/components/investor-compliance-investor-kyc-details";
+import { OnboardingEditHistory } from "@/components/investor-compliance-onboarding-edit-history";
+import { VehiclePermissions } from "@/components/investor-compliance-vehicle-permissions";
+import { AuditHistory } from "@/components/investor-compliance-audit-history";
+import { ClearanceForm } from "@/components/investor-compliance-clearance-form";
+import { authSession } from "@/app/(auth)/auth";
+import { redirect } from "next/navigation";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -29,21 +30,21 @@ function LoadingFallback() {
   );
 }
 
+/**
+ * Investor Compliance Detail Page using Next.js Cache Components pattern.
+ *
+ * Structure:
+ * - Static shell: Back button (prerendered)
+ * - Dynamic content: InvestorComplianceContent wrapped in Suspense (streamed at request time)
+ *
+ * The InvestorComplianceContent component:
+ * - Handles runtime data (params, session)
+ * - Returns a wrapper component that handles data fetching with caching
+ */
 export default async function InvestorCompliancePage({ params }: PageProps) {
-  const session = await authSession();
-
-  if (!session) {
-    redirect("/login");
-  }
-
-  if (session.user.role !== "admin") {
-    redirect("/dashboard");
-  }
-
-  const { id } = await params;
-
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
+      {/* Static shell - prerendered */}
       <div className="mb-6">
         <Link href="/admin/compliance">
           <Button variant="ghost" size="sm" className="gap-2">
@@ -53,18 +54,41 @@ export default async function InvestorCompliancePage({ params }: PageProps) {
         </Link>
       </div>
 
+      {/* Dynamic content - streamed at request time */}
       <Suspense fallback={<LoadingFallback />}>
-        <InvestorComplianceContent investorId={id} />
+        <InvestorComplianceContent params={params} />
       </Suspense>
     </div>
   );
 }
 
 async function InvestorComplianceContent({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const [paramsData, userSession] = await Promise.all([params, authSession()]);
+  if (!userSession) {
+    redirect("/login");
+  }
+
+  if (userSession.user.role !== "admin") {
+    redirect("/dashboard");
+  }
+
+  // Return the data fetching component directly - Suspense is handled by the page component
+  return <FetchInvestorDetailsWrapper investorId={paramsData.id} />;
+}
+
+async function FetchInvestorDetailsWrapper({
   investorId,
 }: {
   investorId: string;
 }) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(`investor-compliance-${investorId}`);
+
   const data = await caller.compliance.getInvestorDetails({
     userId: investorId,
   });

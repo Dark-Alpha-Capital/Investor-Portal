@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { EditDealContent } from "../components/edit-deal-content";
+import { EditDealContent } from "@/components/deal-edit-deal-content";
 import BackButton from "@/components/back-button";
 
 type PageProps = {
