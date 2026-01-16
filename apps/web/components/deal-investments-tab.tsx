@@ -1,6 +1,6 @@
 "use client";
 
-import { InvestmentManagement } from "./investment-management";
+import { InvestmentManagement } from "./deal-investment-management";
 import { useRouter } from "next/navigation";
 
 type Investment = {
@@ -62,4 +62,3 @@ export function InvestmentsTab({
     />
   );
 }
-

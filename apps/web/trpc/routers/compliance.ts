@@ -35,6 +35,7 @@ import {
 import { getSession } from "@/lib/get-session";
 import { nanoid } from "nanoid";
 import { revalidateTag } from "next/cache";
+import { after } from "next/server";
 import {
   logClearanceChange,
   logPermissionGrant,
@@ -63,14 +64,6 @@ export const complianceRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      const session = await getSession();
-      if (!session?.user || session.user.role !== "admin") {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Admin access required",
-        });
-      }
-
       const { page, limit, search, clearanceStatus } = input;
       const offset = (page - 1) * limit;
 
@@ -480,14 +473,16 @@ export const complianceRouter = createTRPCRouter({
         expiresAt: input.expiresAt || null,
       });
 
-      // Log the audit event
-      await logClearanceChange({
-        performedBy: session.user.id,
-        targetUserId: input.userId,
-        previousStatus: previousClearance?.status || null,
-        newStatus: input.status,
-        conditions: input.conditions || null,
-        notes: input.notes || null,
+      // Log the audit event after response is sent
+      after(async () => {
+        await logClearanceChange({
+          performedBy: session.user.id,
+          targetUserId: input.userId,
+          previousStatus: previousClearance?.status || null,
+          newStatus: input.status,
+          conditions: input.conditions || null,
+          notes: input.notes || null,
+        });
       });
 
       // Auto-grant vehicle permissions if cleared
@@ -534,17 +529,20 @@ export const complianceRouter = createTRPCRouter({
               grantedBy: session.user.id,
             });
 
-            await logPermissionGrant({
-              performedBy: session.user.id,
-              targetUserId: input.userId,
-              dealId: activeDeal.id,
-              permissions: {
-                canViewTeaser: true,
-                canViewDocuments: input.status === "cleared",
-                canExpressInterest: true,
-                canInvest: isFullyClearedAndDealLive,
-              },
-              notes: `Auto-granted on clearance: ${input.status}`,
+            // Log permission grant after response is sent
+            after(async () => {
+              await logPermissionGrant({
+                performedBy: session.user.id,
+                targetUserId: input.userId,
+                dealId: activeDeal.id,
+                permissions: {
+                  canViewTeaser: true,
+                  canViewDocuments: input.status === "cleared",
+                  canExpressInterest: true,
+                  canInvest: isFullyClearedAndDealLive,
+                },
+                notes: `Auto-granted on clearance: ${input.status}`,
+              });
             });
           }
         }
@@ -619,17 +617,20 @@ export const complianceRouter = createTRPCRouter({
         notes: input.notes || null,
       });
 
-      await logPermissionGrant({
-        performedBy: session.user.id,
-        targetUserId: input.userId,
-        dealId: input.dealId,
-        permissions: {
-          canViewTeaser: permissions.canViewTeaser,
-          canViewDocuments: permissions.canViewDocuments,
-          canExpressInterest: permissions.canExpressInterest,
-          canInvest: permissions.canInvest,
-        },
-        notes: input.notes || null,
+      // Log permission grant after response is sent
+      after(async () => {
+        await logPermissionGrant({
+          performedBy: session.user.id,
+          targetUserId: input.userId,
+          dealId: input.dealId,
+          permissions: {
+            canViewTeaser: permissions.canViewTeaser,
+            canViewDocuments: permissions.canViewDocuments,
+            canExpressInterest: permissions.canExpressInterest,
+            canInvest: permissions.canInvest,
+          },
+          notes: input.notes || null,
+        });
       });
 
       return {
@@ -688,11 +689,14 @@ export const complianceRouter = createTRPCRouter({
         })
         .where(eq(vehiclePermission.id, existingPermission.id));
 
-      await logPermissionRevoke({
-        performedBy: session.user.id,
-        targetUserId: input.userId,
-        dealId: input.dealId,
-        reason: input.reason || null,
+      // Log permission revoke after response is sent
+      after(async () => {
+        await logPermissionRevoke({
+          performedBy: session.user.id,
+          targetUserId: input.userId,
+          dealId: input.dealId,
+          reason: input.reason || null,
+        });
       });
 
       return {
@@ -1031,22 +1035,24 @@ export const complianceRouter = createTRPCRouter({
         grantedCount++;
       }
 
-      // Log bulk grant action
-      await ctx.db.insert(auditLog).values({
-        id: nanoid(),
-        userId: session.user.id,
-        action: "permission_granted",
-        targetType: "deal",
-        targetId: input.dealId,
-        newValue: {
-          bulkGrant: true,
-          grantedCount,
-          skippedCount,
-          permissions: permissionsToGrant,
-        },
-        metadata: {
-          dealName: dealRecord.name,
-        },
+      // Log bulk grant action after response is sent
+      after(async () => {
+        await ctx.db.insert(auditLog).values({
+          id: nanoid(),
+          userId: session.user.id,
+          action: "permission_granted",
+          targetType: "deal",
+          targetId: input.dealId,
+          newValue: {
+            bulkGrant: true,
+            grantedCount,
+            skippedCount,
+            permissions: permissionsToGrant,
+          },
+          metadata: {
+            dealName: dealRecord.name,
+          },
+        });
       });
 
       return {
@@ -1119,19 +1125,21 @@ export const complianceRouter = createTRPCRouter({
         .where(eq(onboarding.id, existingDoc.onboardingId))
         .limit(1);
 
-      // Log the audit event
-      await ctx.db.insert(auditLog).values({
-        id: nanoid(),
-        userId: session.user.id,
-        action: "document_reviewed",
-        targetType: "document",
-        targetId: input.documentId,
-        previousValue: { status: existingDoc.status },
-        newValue: { status: input.status, notes: input.reviewNotes },
-        metadata: {
-          onboardingId: existingDoc.onboardingId,
-          investorId: onboardingData?.userId,
-        },
+      // Log the audit event after response is sent
+      after(async () => {
+        await ctx.db.insert(auditLog).values({
+          id: nanoid(),
+          userId: session.user.id,
+          action: "document_reviewed",
+          targetType: "document",
+          targetId: input.documentId,
+          previousValue: { status: existingDoc.status },
+          newValue: { status: input.status, notes: input.reviewNotes },
+          metadata: {
+            onboardingId: existingDoc.onboardingId,
+            investorId: onboardingData?.userId,
+          },
+        });
       });
 
       // Revalidate Next.js cache tag for this investor

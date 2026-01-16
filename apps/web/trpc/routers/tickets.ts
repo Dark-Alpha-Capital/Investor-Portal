@@ -17,6 +17,7 @@ import {
 import { eq, desc, and, or, sql, ilike, isNull, ne } from "drizzle-orm";
 import { getSession } from "@/lib/get-session";
 import { nanoid } from "nanoid";
+import { after } from "next/server";
 import {
   logTicketCreated,
   logTicketAssigned,
@@ -331,12 +332,14 @@ export const ticketsRouter = createTRPCRouter({
         })
         .where(eq(serviceTicket.id, input.ticketId));
 
-      // Log audit
-      await logTicketAssigned({
-        performedBy: session.user.id,
-        ticketId: input.ticketId,
-        assignedTo: input.assignedTo,
-        previousAssignee: ticket.assignedTo,
+      // Log audit after response is sent
+      after(async () => {
+        await logTicketAssigned({
+          performedBy: session.user.id,
+          ticketId: input.ticketId,
+          assignedTo: input.assignedTo,
+          previousAssignee: ticket.assignedTo,
+        });
       });
 
       return {
@@ -384,12 +387,14 @@ export const ticketsRouter = createTRPCRouter({
         .set({ status: input.status })
         .where(eq(serviceTicket.id, input.ticketId));
 
-      // Log audit
-      await logTicketStatusChange({
-        performedBy: session.user.id,
-        ticketId: input.ticketId,
-        previousStatus: ticket.status,
-        newStatus: input.status,
+      // Log audit after response is sent
+      after(async () => {
+        await logTicketStatusChange({
+          performedBy: session.user.id,
+          ticketId: input.ticketId,
+          previousStatus: ticket.status,
+          newStatus: input.status,
+        });
       });
 
       return {
@@ -442,11 +447,13 @@ export const ticketsRouter = createTRPCRouter({
         })
         .where(eq(serviceTicket.id, input.ticketId));
 
-      // Log audit
-      await logTicketResolved({
-        performedBy: session.user.id,
-        ticketId: input.ticketId,
-        resolution: input.resolution,
+      // Log audit after response is sent
+      after(async () => {
+        await logTicketResolved({
+          performedBy: session.user.id,
+          ticketId: input.ticketId,
+          resolution: input.resolution,
+        });
       });
 
       return {
@@ -493,10 +500,12 @@ export const ticketsRouter = createTRPCRouter({
         })
         .where(eq(serviceTicket.id, input.ticketId));
 
-      // Log audit
-      await logTicketClosed({
-        performedBy: session.user.id,
-        ticketId: input.ticketId,
+      // Log audit after response is sent
+      after(async () => {
+        await logTicketClosed({
+          performedBy: session.user.id,
+          ticketId: input.ticketId,
+        });
       });
 
       return {
@@ -549,12 +558,14 @@ export const ticketsRouter = createTRPCRouter({
         isInternal: input.isInternal,
       });
 
-      // Log audit
-      await logTicketComment({
-        performedBy: session.user.id,
-        ticketId: input.ticketId,
-        commentId,
-        isInternal: input.isInternal,
+      // Log audit after response is sent
+      after(async () => {
+        await logTicketComment({
+          performedBy: session.user.id,
+          ticketId: input.ticketId,
+          commentId,
+          isInternal: input.isInternal,
+        });
       });
 
       return {
@@ -612,14 +623,16 @@ export const ticketsRouter = createTRPCRouter({
         status: "open",
       });
 
-      // Log audit
-      await logTicketCreated({
-        performedBy: session.user.id,
-        ticketId,
-        investorId: input.investorId,
-        category: input.category,
-        subject: input.subject,
-        isCreatedByAdmin: true,
+      // Log audit after response is sent
+      after(async () => {
+        await logTicketCreated({
+          performedBy: session.user.id,
+          ticketId,
+          investorId: input.investorId,
+          category: input.category,
+          subject: input.subject,
+          isCreatedByAdmin: true,
+        });
       });
 
       return {
@@ -941,14 +954,16 @@ export const ticketsRouter = createTRPCRouter({
         priority: "medium", // Default priority for investor-created tickets
       });
 
-      // Log audit
-      await logTicketCreated({
-        performedBy: session.user.id,
-        ticketId,
-        investorId: session.user.id,
-        category: input.category,
-        subject: input.subject,
-        isCreatedByAdmin: false,
+      // Log audit after response is sent
+      after(async () => {
+        await logTicketCreated({
+          performedBy: session.user.id,
+          ticketId,
+          investorId: session.user.id,
+          category: input.category,
+          subject: input.subject,
+          isCreatedByAdmin: false,
+        });
       });
 
       return {
@@ -1022,12 +1037,14 @@ export const ticketsRouter = createTRPCRouter({
           .where(eq(serviceTicket.id, input.ticketId));
       }
 
-      // Log audit
-      await logTicketComment({
-        performedBy: session.user.id,
-        ticketId: input.ticketId,
-        commentId,
-        isInternal: false,
+      // Log audit after response is sent
+      after(async () => {
+        await logTicketComment({
+          performedBy: session.user.id,
+          ticketId: input.ticketId,
+          commentId,
+          isInternal: false,
+        });
       });
 
       return {

@@ -318,15 +318,6 @@ export const dealsRouter = createTRPCRouter({
   getById: baseProcedure
     .input(z.object({ dealId: z.string() }))
     .query(async ({ input, ctx }) => {
-      // Check if user is admin
-      const session = await getSession();
-      if (!session?.user || session.user.role !== "admin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only administrators can access deals",
-        });
-      }
-
       const [dealRecord] = await ctx.db
         .select()
         .from(deal)

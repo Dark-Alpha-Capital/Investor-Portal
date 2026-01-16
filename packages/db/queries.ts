@@ -7,8 +7,137 @@ import {
   dealInvite,
   dealInterest,
   investment,
+  investorClearance,
+  vehiclePermission,
 } from "./schema";
-import { and, eq, or, isNull, ne } from "drizzle-orm";
+import { and, eq, or, isNull, ne, desc, sql, ilike } from "drizzle-orm";
+
+/**
+ * Get paginated deals for admin with filtering
+ * @param page Page number (1-indexed)
+ * @param limit Number of results per page
+ * @param search Optional search term for name, description, or sector
+ * @param status Optional status filter
+ * @param visibility Optional visibility filter
+ * @returns Paginated list of deals with formatted dates and pagination info
+ */
+export const getAdminDeals = async ({
+  page,
+  limit,
+  search,
+  status,
+  visibility,
+}: {
+  page: number;
+  limit: number;
+  search?: string;
+  status?: string;
+  visibility?: string;
+}) => {
+  try {
+    const offset = (page - 1) * limit;
+
+    // Build conditions
+    const conditions: ReturnType<typeof eq>[] = [];
+
+    // Add search filter
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      conditions.push(
+        or(
+          ilike(deal.name, searchTerm),
+          ilike(deal.description, searchTerm),
+          ilike(deal.sector, searchTerm)
+        )!
+      );
+    }
+
+    // Add status filter
+    if (status && status !== "all") {
+      conditions.push(
+        eq(
+          deal.status,
+          status as
+            | "draft"
+            | "coming_soon"
+            | "live"
+            | "closing"
+            | "funded"
+            | "exited"
+            | "cancelled"
+        )
+      );
+    }
+
+    // Add visibility filter
+    if (visibility && visibility !== "all") {
+      conditions.push(
+        eq(
+          deal.visibility,
+          visibility as "public" | "accredited" | "invite_only"
+        )
+      );
+    }
+
+    const whereCondition =
+      conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Get total count
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(deal)
+      .where(whereCondition);
+
+    const totalCount = countResult?.count ?? 0;
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Get paginated deals
+    const deals = await db
+      .select()
+      .from(deal)
+      .where(whereCondition)
+      .orderBy(desc(deal.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      success: true,
+      deals: deals.map((d) => ({
+        ...d,
+        createdAt: d.createdAt.toISOString(),
+        updatedAt: d.updatedAt?.toISOString() ?? null,
+        launchDate: d.launchDate?.toISOString() ?? null,
+        closeDate: d.closeDate?.toISOString() ?? null,
+        targetRaise: d.targetRaise?.toString() ?? null,
+        minInvestment: d.minInvestment?.toString() ?? null,
+        targetIrr: d.targetIrr?.toString() ?? null,
+        targetMoic: d.targetMoic?.toString() ?? null,
+      })),
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching admin deals:", error);
+    return {
+      success: false,
+      deals: [],
+      pagination: {
+        page,
+        limit,
+        totalCount: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPrevPage: false,
+      },
+    };
+  }
+};
 
 /**
  *
@@ -193,6 +322,41 @@ export const getAllInvestors = async () => {
 };
 
 /**
+ * Get all investors for deal curation with ISO string dates
+ * @returns Array of investors with dates as ISO strings
+ */
+export const getInvestorsForCuration = async () => {
+  try {
+    const investors = await getAllInvestors();
+    return investors.map((investor) => ({
+      ...investor,
+      createdAt: investor.createdAt.toISOString(),
+    }));
+  } catch (error) {
+    console.error("Error fetching investors for curation:", error);
+    return [];
+  }
+};
+
+/**
+ * Get deal invites for curation with ISO string dates
+ * @param dealId The deal ID
+ * @returns Array of deal invites with user data and ISO string dates
+ */
+export const getDealInvitesForCuration = async (dealId: string) => {
+  try {
+    const invites = await getDealInvitesWithUsersByDealId(dealId);
+    return invites.map((invite) => ({
+      ...invite,
+      createdAt: invite.createdAt.toISOString(),
+    }));
+  } catch (error) {
+    console.error("Error fetching deal invites for curation:", error);
+    return [];
+  }
+};
+
+/**
  * Get a deal by its ID
  * @param dealId The deal ID
  * @returns The deal record or null if not found
@@ -208,6 +372,49 @@ export const getDealById = async (dealId: string) => {
   } catch (error) {
     console.error("Error fetching deal by ID:", error);
     return null;
+  }
+};
+
+/**
+ * Get a deal by its ID with formatted fields for editing
+ * Transforms numeric fields to strings and dates to ISO strings
+ * @param dealId The deal ID
+ * @returns Object with success flag and formatted deal data
+ */
+export const getDealByIdForEdit = async (dealId: string) => {
+  try {
+    const dealRecord = await getDealById(dealId);
+
+    if (!dealRecord) {
+      return {
+        success: false as const,
+        deal: null,
+      };
+    }
+
+    // Transform numeric fields to strings and dates to ISO strings
+    const transformedDeal = {
+      ...dealRecord,
+      targetRaise: dealRecord.targetRaise?.toString() ?? null,
+      minInvestment: dealRecord.minInvestment?.toString() ?? null,
+      targetIrr: dealRecord.targetIrr?.toString() ?? null,
+      targetMoic: dealRecord.targetMoic?.toString() ?? null,
+      launchDate: dealRecord.launchDate?.toISOString() ?? null,
+      closeDate: dealRecord.closeDate?.toISOString() ?? null,
+      createdAt: dealRecord.createdAt.toISOString(),
+      updatedAt: dealRecord.updatedAt?.toISOString() ?? null,
+    };
+
+    return {
+      success: true as const,
+      deal: transformedDeal,
+    };
+  } catch (error) {
+    console.error("Error fetching deal by ID for edit:", error);
+    return {
+      success: false as const,
+      deal: null,
+    };
   }
 };
 
@@ -312,5 +519,230 @@ export const getDealInvestmentsWithUsersByDealId = async (dealId: string) => {
   } catch (error) {
     console.error("Error fetching deal investments with users:", error);
     return [];
+  }
+};
+
+/**
+ * Get investors pending compliance review
+ * @param page Page number (1-indexed)
+ * @param limit Number of results per page
+ * @param search Optional search term for name or email
+ * @param clearanceStatus Optional clearance status filter
+ * @returns Paginated list of investors with clearance status and permission counts
+ */
+export const getPendingInvestors = async ({
+  page,
+  limit,
+  search,
+  clearanceStatus,
+}: {
+  page: number;
+  limit: number;
+  search?: string;
+  clearanceStatus?: string;
+}) => {
+  try {
+    const offset = (page - 1) * limit;
+
+    // Get users who have completed onboarding but may need clearance review
+    const conditions = [
+      or(ne(user.role, "admin"), isNull(user.role)),
+      eq(user.isOnboardingCompleted, true),
+    ];
+
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      conditions.push(
+        or(ilike(user.name, searchTerm), ilike(user.email, searchTerm))!
+      );
+    }
+
+    const whereCondition = and(...conditions);
+
+    // Get total count
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(user)
+      .where(whereCondition);
+
+    const totalCount = countResult?.count ?? 0;
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Get users with their latest clearance status
+    const investors = await db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        createdAt: user.createdAt,
+        kycStatus: user.kycStatus,
+        isOnboardingCompleted: user.isOnboardingCompleted,
+      })
+      .from(user)
+      .where(whereCondition)
+      .orderBy(desc(user.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    // Get clearance status and permission count for each investor
+    const investorsWithClearance = await Promise.all(
+      investors.map(async (investor) => {
+        // Get clearance status
+        const [clearance] = await db
+          .select({
+            status: investorClearance.status,
+            conditions: investorClearance.conditions,
+            conditionsJson: investorClearance.conditionsJson,
+            clearedAt: investorClearance.clearedAt,
+            clearedBy: investorClearance.clearedBy,
+          })
+          .from(investorClearance)
+          .where(eq(investorClearance.userId, investor.id))
+          .orderBy(desc(investorClearance.createdAt))
+          .limit(1);
+
+        // Get permission count (active, non-revoked permissions)
+        const [permissionCount] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(vehiclePermission)
+          .where(
+            and(
+              eq(vehiclePermission.userId, investor.id),
+              isNull(vehiclePermission.revokedAt)
+            )
+          );
+
+        return {
+          ...investor,
+          clearance: clearance || null,
+          dealAccessCount: permissionCount?.count ?? 0,
+        };
+      })
+    );
+
+    // Filter by clearance status if provided
+    let filteredInvestors = investorsWithClearance;
+    if (clearanceStatus && clearanceStatus !== "all") {
+      if (clearanceStatus === "no_clearance") {
+        filteredInvestors = investorsWithClearance.filter(
+          (inv) => !inv.clearance
+        );
+      } else {
+        filteredInvestors = investorsWithClearance.filter(
+          (inv) => inv.clearance?.status === clearanceStatus
+        );
+      }
+    }
+
+    return {
+      success: true,
+      investors: filteredInvestors,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching pending investors:", error);
+    return {
+      success: false,
+      investors: [],
+      pagination: {
+        page,
+        limit,
+        totalCount: 0,
+        totalPages: 0,
+      },
+    };
+  }
+};
+
+/**
+ * Get complete deal detail with invites, interests, and investments
+ * This function fetches all deal-related data from the database and transforms it
+ * Note: Files are handled separately via Nextcloud/WebDAV
+ * @param dealId The deal ID
+ * @returns Deal detail data with invites, interests, and investments, or null if deal not found
+ */
+export const getDealDetail = async (dealId: string) => {
+  try {
+    // Fetch all data in parallel
+    const [dealRecord, invites, interests, investments] = await Promise.all([
+      getDealById(dealId),
+      getDealInvitesWithUsersByDealId(dealId),
+      getDealInterestsWithUsersByDealId(dealId),
+      getDealInvestmentsWithUsersByDealId(dealId),
+    ]);
+
+    // Check if deal exists
+    if (!dealRecord) {
+      return {
+        success: false as const,
+        deal: null,
+        invites: [],
+        interests: [],
+        investments: [],
+      };
+    }
+
+    // Transform deal data
+    const transformedDeal = {
+      ...dealRecord,
+      targetRaise: dealRecord.targetRaise?.toString() ?? null,
+      minInvestment: dealRecord.minInvestment?.toString() ?? null,
+      targetIrr: dealRecord.targetIrr?.toString() ?? null,
+      targetMoic: dealRecord.targetMoic?.toString() ?? null,
+      launchDate: dealRecord.launchDate?.toISOString() ?? null,
+      closeDate: dealRecord.closeDate?.toISOString() ?? null,
+      createdAt: dealRecord.createdAt.toISOString(),
+      updatedAt: dealRecord.updatedAt?.toISOString() ?? null,
+    };
+
+    // Transform invites
+    const transformedInvites = invites.map((invite) => ({
+      ...invite,
+      createdAt: invite.createdAt.toISOString(),
+    }));
+
+    // Transform interests
+    const transformedInterests = interests.map((interest) => ({
+      ...interest,
+      proposedAmount: interest.proposedAmount?.toString() ?? null,
+      createdAt: interest.createdAt.toISOString(),
+      updatedAt: interest.updatedAt?.toISOString() ?? null,
+    }));
+
+    // Transform investments
+    const transformedInvestments = investments.map((inv) => ({
+      ...inv,
+      committedAmount: inv.committedAmount.toString(),
+      fundedAmount: inv.fundedAmount?.toString() ?? null,
+      currentValue: inv.currentValue?.toString() ?? null,
+      distributions: inv.distributions?.toString() ?? null,
+      ownershipPercentage: inv.ownershipPercentage?.toString() ?? null,
+      committedDate: inv.committedDate.toISOString(),
+      createdAt: inv.createdAt.toISOString(),
+      updatedAt: inv.updatedAt?.toISOString() ?? null,
+    }));
+
+    return {
+      success: true as const,
+      deal: transformedDeal,
+      invites: transformedInvites,
+      interests: transformedInterests,
+      investments: transformedInvestments,
+    };
+  } catch (error) {
+    console.error("Error fetching deal detail:", error);
+    return {
+      success: false as const,
+      deal: null,
+      invites: [],
+      interests: [],
+      investments: [],
+    };
   }
 };

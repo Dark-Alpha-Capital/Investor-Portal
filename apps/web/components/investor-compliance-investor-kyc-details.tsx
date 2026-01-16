@@ -1,27 +1,9 @@
 "use client";
 
-import { useMemo, memo } from "react";
+import React from "react";
+import { useMemo, Fragment } from "react";
 import { format } from "date-fns";
-import {
-  User,
-  Building,
-  Phone,
-  FileText,
-  CheckCircle2,
-  AlertCircle,
-  Users,
-  PenTool,
-  Shield,
-  DollarSign,
-  Briefcase,
-  Clock,
-  Handshake,
-  MessageSquare,
-  Target,
-  TrendingUp,
-  MapPin,
-  FileCheck,
-} from "lucide-react";
+import { FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 // Use flexible types that accept the actual database structure
@@ -208,82 +190,39 @@ const getKycStatusBadge = (status: string | null | undefined) => {
   return <Badge variant={config.variant}>{config.label}</Badge>;
 };
 
-const Section = memo(function Section({
+const DataTable = ({
   title,
-  icon: Icon,
-  children,
+  data,
 }: {
   title: string;
-  icon: React.ElementType;
-  children: React.ReactNode;
-}) {
+  data: Array<{ label: string; value: React.ReactNode }>;
+}) => {
+  const filteredData = data.filter(
+    (item) =>
+      item.value !== null && item.value !== undefined && item.value !== ""
+  );
+  if (filteredData.length === 0) return null;
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        {title}
+    <div className="border rounded-md overflow-hidden">
+      <div className="bg-muted/50 px-3 py-2 border-b">
+        <h4 className="text-sm font-semibold">{title}</h4>
       </div>
-      <div className="pl-6 space-y-3">{children}</div>
+      <table className="w-full text-sm">
+        <tbody>
+          {filteredData.map((item, idx) => (
+            <tr key={idx} className="border-b last:border-0">
+              <td className="px-3 py-2 text-muted-foreground w-1/3 align-top">
+                {item.label}
+              </td>
+              <td className="px-3 py-2 font-medium">{item.value || "N/A"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
-});
-
-const Field = memo(function Field({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) {
-  return (
-    <div className="grid grid-cols-3 gap-4 text-sm py-1.5">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="col-span-2 font-medium text-foreground">
-        {value || "N/A"}
-      </span>
-    </div>
-  );
-});
-
-const TextAreaField = memo(function TextAreaField({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | null | undefined;
-}) {
-  if (!value) return null;
-  return (
-    <div className="space-y-2 py-1.5">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <p className="text-sm text-foreground bg-muted/50 p-3 rounded-md whitespace-pre-wrap border">
-        {value}
-      </p>
-    </div>
-  );
-});
-
-const ArrayField = memo(function ArrayField({
-  label,
-  values,
-}: {
-  label: string;
-  values: string[] | null | undefined;
-}) {
-  if (!values || values.length === 0) return null;
-  return (
-    <div className="space-y-2 py-1.5">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <div className="flex flex-wrap gap-2">
-        {values.map((value, idx) => (
-          <Badge key={idx} variant="outline">
-            {value}
-          </Badge>
-        ))}
-      </div>
-    </div>
-  );
-});
+};
 
 export function InvestorKycDetails({
   onboarding,
@@ -307,436 +246,561 @@ export function InvestorKycDetails({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b">
+      <div className="flex items-center justify-between pb-2 border-b">
         <div>
-          <h2 className="text-xl font-semibold">KYC Information</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {isEntity ? "Entity" : "Individual"} Investor • Submitted{" "}
+          <h2 className="text-lg font-semibold">KYC Information</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {isEntity ? "Entity" : "Individual"} • Submitted{" "}
             {formatDate(onboarding.submittedAt)}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {getKycStatusBadge(onboarding.status)}
+        {getKycStatusBadge(onboarding.status)}
+      </div>
+
+      {/* Investor Details */}
+      <DataTable
+        title="Investor Details"
+        data={[
+          { label: "Organization Name", value: onboarding.organizationName },
+          {
+            label: "Capital Provider Type",
+            value: onboarding.capitalProviderType,
+          },
+          { label: "Investor Type", value: onboarding.investorType },
+          { label: "Geographic Focus", value: onboarding.geographicFocus },
+          {
+            label: "Primary Contact Name",
+            value: onboarding.primaryContactName,
+          },
+          {
+            label: "Primary Contact Title",
+            value: onboarding.primaryContactTitle,
+          },
+          {
+            label: "Primary Contact Email",
+            value: onboarding.primaryContactEmail,
+          },
+          {
+            label: "Primary Contact Phone",
+            value: onboarding.primaryContactPhone,
+          },
+        ]}
+      />
+
+      {/* Accreditation */}
+      <DataTable
+        title="Accreditation & Status"
+        data={[
+          {
+            label: "Accreditation Status",
+            value: onboarding.accreditationStatus,
+          },
+          {
+            label: "Accreditation Method",
+            value: onboarding.accreditationMethod,
+          },
+          ...(isEntity
+            ? [
+                { label: "Entity Tax ID", value: onboarding.entityTaxId },
+                {
+                  label: "Entity Signatory Name",
+                  value: onboarding.entitySignatoryName,
+                },
+                {
+                  label: "Entity Signatory Title",
+                  value: onboarding.entitySignatoryTitle,
+                },
+              ]
+            : []),
+        ]}
+      />
+
+      {/* Sponsor Fit */}
+      <DataTable
+        title="Independent Sponsor Fit"
+        data={[
+          {
+            label: "Open to Emerging Sponsor",
+            value: onboarding.openToEmergingSponsor,
+          },
+          {
+            label: "Prior Deal Attribution",
+            value: onboarding.priorDealAttribution,
+          },
+          {
+            label: "Minimum Requirements",
+            value: onboarding.minimumRequirements ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.minimumRequirements}
+              </div>
+            ) : null,
+          },
+          {
+            label: "Prior Deal Attribution Explanation",
+            value: onboarding.priorDealAttributionExplanation ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.priorDealAttributionExplanation}
+              </div>
+            ) : null,
+          },
+        ]}
+      />
+
+      {/* NDAs & Confidentiality */}
+      <DataTable
+        title="NDAs & Confidentiality"
+        data={[
+          { label: "NDA Preference", value: onboarding.ndaPreference },
+          {
+            label: "NDA Limitations",
+            value: onboarding.ndaLimitations ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.ndaLimitations}
+              </div>
+            ) : null,
+          },
+        ]}
+      />
+
+      {/* Process & Timing */}
+      <DataTable
+        title="Process & Timing"
+        data={[
+          { label: "Timing to LOI", value: onboarding.timingToLOI },
+          {
+            label: "Timing to Commitment",
+            value: onboarding.timingToCommitment,
+          },
+          {
+            label: "Timing Drivers",
+            value: onboarding.timingDrivers ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.timingDrivers}
+              </div>
+            ) : null,
+          },
+        ]}
+      />
+
+      {/* Economics */}
+      {onboarding.economicsDescription && (
+        <div className="border rounded-md overflow-hidden">
+          <div className="bg-muted/50 px-3 py-2 border-b">
+            <h4 className="text-sm font-semibold">Economics</h4>
+          </div>
+          <div className="px-3 py-2 text-sm bg-muted/50">
+            <p className="whitespace-pre-wrap">
+              {onboarding.economicsDescription}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Section 1: Investor / Lender Details */}
-      <div className="space-y-6 py-4 border-b">
-        <h3 className="text-lg font-semibold">Investor / Lender Details</h3>
-        <Section title="Organization Information" icon={Building}>
-          <Field
-            label="Organization Name"
-            value={onboarding.organizationName}
-          />
-          <Field
-            label="Capital Provider Type"
-            value={onboarding.capitalProviderType}
-          />
-          <Field label="Investor Type" value={onboarding.investorType} />
-          <Field label="Geographic Focus" value={onboarding.geographicFocus} />
-        </Section>
+      {/* Governance */}
+      <DataTable
+        title="Governance & Control"
+        data={[
+          { label: "Preferred Role", value: onboarding.preferredRole },
+          {
+            label: "Governance Expectations",
+            value: onboarding.governanceExpectations ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.governanceExpectations}
+              </div>
+            ) : null,
+          },
+        ]}
+      />
 
-        <div className="border-t my-4" />
+      {/* Support Letters */}
+      <DataTable
+        title="Support Letters"
+        data={[
+          {
+            label: "Provide Support Letter",
+            value: onboarding.provideSupportLetter,
+          },
+          {
+            label: "Join Broker Conversations",
+            value: onboarding.joinBrokerConversations,
+          },
+          {
+            label: "Support Letter Stages",
+            value:
+              onboarding.supportLetterStages &&
+              onboarding.supportLetterStages.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {onboarding.supportLetterStages.map((stage, idx) => (
+                    <Badge key={idx} variant="outline" className="text-xs">
+                      {stage}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null,
+          },
+        ]}
+      />
 
-        <Section title="Primary Contact" icon={User}>
-          <Field label="Name" value={onboarding.primaryContactName} />
-          <Field label="Title" value={onboarding.primaryContactTitle} />
-          <Field label="Email" value={onboarding.primaryContactEmail} />
-          <Field label="Phone" value={onboarding.primaryContactPhone} />
-        </Section>
-      </div>
+      {/* Communication Preferences */}
+      <DataTable
+        title="Communication Preferences"
+        data={[
+          { label: "Receive Updates", value: onboarding.receiveUpdates },
+          { label: "Update Frequency", value: onboarding.updateFrequency },
+          {
+            label: "Update Format",
+            value:
+              onboarding.updateFormat && onboarding.updateFormat.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {onboarding.updateFormat.map((format, idx) => (
+                    <Badge key={idx} variant="outline" className="text-xs">
+                      {format}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null,
+          },
+          {
+            label: "Industry Preferences",
+            value: onboarding.industryPreferences ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.industryPreferences}
+              </div>
+            ) : null,
+          },
+        ]}
+      />
 
-      {/* Accreditation & Status */}
-      <div className="space-y-4 py-4 border-b">
-        <h3 className="text-lg font-semibold">Accreditation & Status</h3>
-        <Section title="Accreditation Details" icon={Shield}>
-          <Field
-            label="Accreditation Status"
-            value={onboarding.accreditationStatus}
-          />
-          <Field
-            label="Accreditation Method"
-            value={onboarding.accreditationMethod}
-          />
-          {isEntity && (
-            <>
-              <Field label="Entity Tax ID" value={onboarding.entityTaxId} />
-              <Field
-                label="Entity Signatory Name"
-                value={onboarding.entitySignatoryName}
-              />
-              <Field
-                label="Entity Signatory Title"
-                value={onboarding.entitySignatoryTitle}
-              />
-            </>
-          )}
-        </Section>
-      </div>
+      {/* Investment Mandate - Size & Structure */}
+      <DataTable
+        title="Investment Mandate - Size & Structure"
+        data={[
+          {
+            label: "Equity Check Size",
+            value: onboarding.equityCheckSize ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.equityCheckSize}
+              </div>
+            ) : null,
+          },
+          {
+            label: "Enterprise Value Range",
+            value: onboarding.enterpriseValueRange ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.enterpriseValueRange}
+              </div>
+            ) : null,
+          },
+          {
+            label: "EBITDA Range",
+            value: onboarding.ebitdaRange ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.ebitdaRange}
+              </div>
+            ) : null,
+          },
+          {
+            label: "Preferred Ownership",
+            value: onboarding.preferredOwnership,
+          },
+          {
+            label: "Typical Hold Period",
+            value: onboarding.typicalHoldPeriod ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.typicalHoldPeriod}
+              </div>
+            ) : null,
+          },
+          {
+            label: "Transaction Types",
+            value:
+              onboarding.transactionTypes &&
+              onboarding.transactionTypes.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {onboarding.transactionTypes.map((type, idx) => (
+                    <Badge key={idx} variant="outline" className="text-xs">
+                      {type}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null,
+          },
+          {
+            label: "Leverage Tolerance",
+            value: onboarding.leverageTolerance ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.leverageTolerance}
+              </div>
+            ) : null,
+          },
+        ]}
+      />
 
-      {/* Section 2: Independent Sponsor Fit */}
-      <div className="space-y-4 py-4 border-b">
-        <h3 className="text-lg font-semibold">Independent Sponsor Fit</h3>
-        <Section title="Sponsor Preferences" icon={Handshake}>
-          <Field
-            label="Open to Emerging Sponsor"
-            value={onboarding.openToEmergingSponsor}
-          />
-          <TextAreaField
-            label="Minimum Requirements"
-            value={onboarding.minimumRequirements}
-          />
-          <Field
-            label="Prior Deal Attribution"
-            value={onboarding.priorDealAttribution}
-          />
-          <TextAreaField
-            label="Prior Deal Attribution Explanation"
-            value={onboarding.priorDealAttributionExplanation}
-          />
-        </Section>
-      </div>
+      {/* Investment Mandate - Company Profile */}
+      <DataTable
+        title="Investment Mandate - Company Profile"
+        data={[
+          {
+            label: "Revenue Characteristics",
+            value: onboarding.revenueCharacteristics ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.revenueCharacteristics}
+              </div>
+            ) : null,
+          },
+          {
+            label: "Customer Concentration",
+            value: onboarding.customerConcentration ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.customerConcentration}
+              </div>
+            ) : null,
+          },
+          {
+            label: "Margins and Cash Flow",
+            value: onboarding.marginsAndCashFlow ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.marginsAndCashFlow}
+              </div>
+            ) : null,
+          },
+          { label: "Asset Profile", value: onboarding.assetProfile },
+          {
+            label: "Management Involvement",
+            value: onboarding.managementInvolvement ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.managementInvolvement}
+              </div>
+            ) : null,
+          },
+        ]}
+      />
 
-      {/* Section 3: NDAs & Confidentiality */}
-      <div className="space-y-4 py-4 border-b">
-        <h3 className="text-lg font-semibold">NDAs & Confidentiality</h3>
-        <Section title="NDA Preferences" icon={FileText}>
-          <Field label="NDA Preference" value={onboarding.ndaPreference} />
-          <TextAreaField
-            label="NDA Limitations"
-            value={onboarding.ndaLimitations}
-          />
-        </Section>
-      </div>
-
-      {/* Section 4: Process & Timing */}
-      <div className="space-y-4 py-4 border-b">
-        <h3 className="text-lg font-semibold">Process & Timing</h3>
-        <Section title="Timing Expectations" icon={Clock}>
-          <Field label="Timing to LOI" value={onboarding.timingToLOI} />
-          <Field
-            label="Timing to Commitment"
-            value={onboarding.timingToCommitment}
-          />
-          <TextAreaField
-            label="Timing Drivers"
-            value={onboarding.timingDrivers}
-          />
-        </Section>
-      </div>
-
-      {/* Section 5: Economics */}
-      <div className="space-y-4 py-4 border-b">
-        <h3 className="text-lg font-semibold">Economics</h3>
-        <Section title="Economics Description" icon={DollarSign}>
-          <TextAreaField
-            label="Economics Description"
-            value={onboarding.economicsDescription}
-          />
-        </Section>
-      </div>
-
-      {/* Section 6: Governance & Control */}
-      <div className="space-y-4 py-4 border-b">
-        <h3 className="text-lg font-semibold">Governance & Control</h3>
-        <Section title="Governance Preferences" icon={Shield}>
-          <Field label="Preferred Role" value={onboarding.preferredRole} />
-          <TextAreaField
-            label="Governance Expectations"
-            value={onboarding.governanceExpectations}
-          />
-        </Section>
-      </div>
-
-      {/* Section 7: Support Letters */}
-      <div className="space-y-4 py-4 border-b">
-        <h3 className="text-lg font-semibold">Support Letters</h3>
-        <Section title="Support Letter Preferences" icon={FileCheck}>
-          <Field
-            label="Provide Support Letter"
-            value={onboarding.provideSupportLetter}
-          />
-          <Field
-            label="Join Broker Conversations"
-            value={onboarding.joinBrokerConversations}
-          />
-          <ArrayField
-            label="Support Letter Stages"
-            values={onboarding.supportLetterStages || null}
-          />
-        </Section>
-      </div>
-
-      {/* Section 8: Communication Preferences */}
-      <div className="space-y-4 py-4 border-b">
-        <h3 className="text-lg font-semibold">Communication Preferences</h3>
-        <Section title="Update Preferences" icon={MessageSquare}>
-          <Field label="Receive Updates" value={onboarding.receiveUpdates} />
-          <Field label="Update Frequency" value={onboarding.updateFrequency} />
-          <ArrayField
-            label="Update Format"
-            values={onboarding.updateFormat || null}
-          />
-          <TextAreaField
-            label="Industry Preferences"
-            value={onboarding.industryPreferences}
-          />
-        </Section>
-      </div>
-
-      {/* Section 9: Investment Mandate - Size & Structure */}
-      <div className="space-y-6 py-4 border-b">
-        <h3 className="text-lg font-semibold">
-          Investment Mandate - Size & Structure
-        </h3>
-        <Section title="Investment Size" icon={DollarSign}>
-          <TextAreaField
-            label="Equity Check Size"
-            value={onboarding.equityCheckSize}
-          />
-          <TextAreaField
-            label="Enterprise Value Range"
-            value={onboarding.enterpriseValueRange}
-          />
-          <TextAreaField label="EBITDA Range" value={onboarding.ebitdaRange} />
-        </Section>
-
-        <div className="border-t my-4" />
-
-        <Section title="Investment Structure" icon={Briefcase}>
-          <Field
-            label="Preferred Ownership"
-            value={onboarding.preferredOwnership}
-          />
-          <TextAreaField
-            label="Typical Hold Period"
-            value={onboarding.typicalHoldPeriod}
-          />
-          <ArrayField
-            label="Transaction Types"
-            values={onboarding.transactionTypes || null}
-          />
-          <TextAreaField
-            label="Leverage Tolerance"
-            value={onboarding.leverageTolerance}
-          />
-        </Section>
-      </div>
-
-      {/* Section 10: Investment Mandate - Company Profile */}
-      <div className="space-y-6 py-4 border-b">
-        <h3 className="text-lg font-semibold">
-          Investment Mandate - Company Profile
-        </h3>
-        <Section title="Financial Characteristics" icon={TrendingUp}>
-          <TextAreaField
-            label="Revenue Characteristics"
-            value={onboarding.revenueCharacteristics}
-          />
-          <TextAreaField
-            label="Customer Concentration"
-            value={onboarding.customerConcentration}
-          />
-          <TextAreaField
-            label="Margins and Cash Flow"
-            value={onboarding.marginsAndCashFlow}
-          />
-        </Section>
-
-        <div className="border-t my-4" />
-
-        <Section title="Business Profile" icon={Target}>
-          <Field label="Asset Profile" value={onboarding.assetProfile} />
-          <TextAreaField
-            label="Management Involvement"
-            value={onboarding.managementInvolvement}
-          />
-        </Section>
-      </div>
-
-      {/* Section 11: Sectors & Themes */}
-      <div className="space-y-4 py-4 border-b">
-        <h3 className="text-lg font-semibold">Sectors & Themes</h3>
-        <Section title="Sector Preferences" icon={MapPin}>
-          <TextAreaField
-            label="Sectors of Interest"
-            value={onboarding.sectorsOfInterest}
-          />
-          <TextAreaField
-            label="Sectors to Avoid"
-            value={onboarding.sectorsToAvoid}
-          />
-          <TextAreaField
-            label="Deal Size Thresholds"
-            value={onboarding.dealSizeThresholds}
-          />
-          <TextAreaField
-            label="Specific Themes"
-            value={onboarding.specificThemes}
-          />
-        </Section>
-      </div>
+      {/* Sectors & Themes */}
+      <DataTable
+        title="Sectors & Themes"
+        data={[
+          {
+            label: "Sectors of Interest",
+            value: onboarding.sectorsOfInterest ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.sectorsOfInterest}
+              </div>
+            ) : null,
+          },
+          {
+            label: "Sectors to Avoid",
+            value: onboarding.sectorsToAvoid ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.sectorsToAvoid}
+              </div>
+            ) : null,
+          },
+          {
+            label: "Deal Size Thresholds",
+            value: onboarding.dealSizeThresholds ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.dealSizeThresholds}
+              </div>
+            ) : null,
+          },
+          {
+            label: "Specific Themes",
+            value: onboarding.specificThemes ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.specificThemes}
+              </div>
+            ) : null,
+          },
+        ]}
+      />
 
       {/* Compliance Declarations */}
-      <div className="space-y-6 py-4 border-b">
-        <h3 className="text-lg font-semibold">Compliance Declarations</h3>
-        <Section title="PEP Status" icon={Shield}>
-          <Field
-            label="Is PEP"
-            value={
+      <DataTable
+        title="Compliance Declarations"
+        data={[
+          {
+            label: "PEP Status",
+            value:
               onboarding.pepStatus === null ? (
                 "Not declared"
               ) : onboarding.pepStatus ? (
-                <Badge variant="destructive">Yes - PEP</Badge>
-              ) : (
-                <Badge variant="outline">No</Badge>
-              )
-            }
-          />
-          {onboarding.pepStatus && onboarding.pepDetails && (
-            <TextAreaField label="PEP Details" value={onboarding.pepDetails} />
-          )}
-        </Section>
-
-        <div className="border-t my-4" />
-
-        <Section title="Source of Wealth" icon={DollarSign}>
-          <TextAreaField
-            label="Source of Wealth Narrative"
-            value={onboarding.sourceOfWealthNarrative}
-          />
-        </Section>
-
-        <div className="border-t my-4" />
-
-        <Section title="Declarations" icon={CheckCircle2}>
-          <Field
-            label="Sanctions Declaration"
-            value={
-              onboarding.sanctionsDeclaration ? (
-                <Badge variant="default" className="gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> Confirmed
+                <Badge variant="destructive" className="text-xs">
+                  Yes - PEP
                 </Badge>
               ) : (
-                <Badge variant="outline">Not confirmed</Badge>
-              )
-            }
-          />
-          <Field
-            label="Data Consent"
-            value={
-              onboarding.dataConsent ? (
-                <Badge variant="default" className="gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> Provided
+                <Badge variant="outline" className="text-xs">
+                  No
                 </Badge>
-              ) : (
-                <Badge variant="outline">Not provided</Badge>
-              )
-            }
-          />
-          <Field
-            label="Accuracy Attestation"
-            value={
-              onboarding.accuracyAttestation ? (
-                <Badge variant="default" className="gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> Attested
-                </Badge>
-              ) : (
-                <Badge variant="outline">Not attested</Badge>
-              )
-            }
-          />
-        </Section>
-      </div>
+              ),
+          },
+          {
+            label: "PEP Details",
+            value:
+              onboarding.pepStatus && onboarding.pepDetails ? (
+                <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                  {onboarding.pepDetails}
+                </div>
+              ) : null,
+          },
+          {
+            label: "Source of Wealth Narrative",
+            value: onboarding.sourceOfWealthNarrative ? (
+              <div className="text-xs bg-muted/50 p-2 rounded whitespace-pre-wrap max-w-md">
+                {onboarding.sourceOfWealthNarrative}
+              </div>
+            ) : null,
+          },
+          {
+            label: "Sanctions Declaration",
+            value: onboarding.sanctionsDeclaration ? (
+              <Badge variant="default" className="text-xs gap-1">
+                <CheckCircle2 className="h-3 w-3" /> Confirmed
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs">
+                Not confirmed
+              </Badge>
+            ),
+          },
+          {
+            label: "Data Consent",
+            value: onboarding.dataConsent ? (
+              <Badge variant="default" className="text-xs gap-1">
+                <CheckCircle2 className="h-3 w-3" /> Provided
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs">
+                Not provided
+              </Badge>
+            ),
+          },
+          {
+            label: "Accuracy Attestation",
+            value: onboarding.accuracyAttestation ? (
+              <Badge variant="default" className="text-xs gap-1">
+                <CheckCircle2 className="h-3 w-3" /> Attested
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs">
+                Not attested
+              </Badge>
+            ),
+          },
+        ]}
+      />
 
       {/* Legal & E-Signature */}
-      <div className="space-y-4 py-4 border-b">
-        <h3 className="text-lg font-semibold">Legal & E-Signature</h3>
-        <Section title="Legal Documents" icon={FileCheck}>
-          <Field
-            label="Legal Documents Acknowledged"
-            value={
-              onboarding.legalDocumentsAcknowledged ? (
-                <Badge variant="default" className="gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> Acknowledged
-                </Badge>
-              ) : (
-                <Badge variant="outline">Not acknowledged</Badge>
-              )
-            }
-          />
-          <Field
-            label="Electronic Signature Name"
-            value={onboarding.electronicSignatureName}
-          />
-          <Field
-            label="Electronic Signature Date"
-            value={onboarding.electronicSignatureDate}
-          />
-        </Section>
-      </div>
+      <DataTable
+        title="Legal & E-Signature"
+        data={[
+          {
+            label: "Legal Documents Acknowledged",
+            value: onboarding.legalDocumentsAcknowledged ? (
+              <Badge variant="default" className="text-xs gap-1">
+                <CheckCircle2 className="h-3 w-3" /> Acknowledged
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs">
+                Not acknowledged
+              </Badge>
+            ),
+          },
+          {
+            label: "Electronic Signature Name",
+            value: onboarding.electronicSignatureName,
+          },
+          {
+            label: "Electronic Signature Date",
+            value: onboarding.electronicSignatureDate,
+          },
+        ]}
+      />
 
       {/* Beneficial Owners (Entity only) */}
       {isEntity &&
         onboarding.beneficialOwners &&
         onboarding.beneficialOwners.length > 0 && (
-          <div className="space-y-4 py-4 border-b">
-            <div>
-              <h3 className="text-lg font-semibold">Beneficial Owners</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {onboarding.beneficialOwners.length} beneficial owner(s)
-                registered
-              </p>
+          <div className="space-y-2">
+            <div className="bg-muted/50 px-3 py-2 border rounded-t-md">
+              <h4 className="text-sm font-semibold">
+                Beneficial Owners ({onboarding.beneficialOwners.length})
+              </h4>
             </div>
-            <div className="space-y-6">
-              {onboarding.beneficialOwners.map((owner, index) => (
-                <div
-                  key={owner.id}
-                  className="border rounded-md p-4 bg-muted/30"
-                >
-                  <Section
-                    title={`Owner ${index + 1}: ${owner.fullName}`}
-                    icon={Users}
-                  >
-                    <Field label="Date of Birth" value={owner.dateOfBirth} />
-                    <Field label="Nationality" value={owner.nationality} />
-                    <Field
-                      label="Ownership %"
-                      value={
-                        owner.ownershipPercentage
+            {onboarding.beneficialOwners.map((owner, index) => (
+              <div key={owner.id} className="border rounded-md overflow-hidden">
+                <div className="bg-muted/30 px-3 py-1.5 border-b">
+                  <h5 className="text-xs font-medium">
+                    Owner {index + 1}: {owner.fullName}
+                  </h5>
+                </div>
+                <table className="w-full text-sm">
+                  <tbody>
+                    <tr className="border-b">
+                      <td className="px-3 py-1.5 text-muted-foreground w-1/3">
+                        Date of Birth
+                      </td>
+                      <td className="px-3 py-1.5 font-medium">
+                        {owner.dateOfBirth || "N/A"}
+                      </td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="px-3 py-1.5 text-muted-foreground">
+                        Nationality
+                      </td>
+                      <td className="px-3 py-1.5 font-medium">
+                        {owner.nationality || "N/A"}
+                      </td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="px-3 py-1.5 text-muted-foreground">
+                        Ownership %
+                      </td>
+                      <td className="px-3 py-1.5 font-medium">
+                        {owner.ownershipPercentage
                           ? `${owner.ownershipPercentage}%`
-                          : null
-                      }
-                    />
-                    <Field
-                      label="Address"
-                      value={owner.address || owner.residentialAddress}
-                    />
-                    <Field
-                      label="ID Document Type"
-                      value={owner.idDocumentType}
-                    />
+                          : "N/A"}
+                      </td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="px-3 py-1.5 text-muted-foreground">
+                        Address
+                      </td>
+                      <td className="px-3 py-1.5 font-medium">
+                        {owner.address || owner.residentialAddress || "N/A"}
+                      </td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="px-3 py-1.5 text-muted-foreground">
+                        ID Document Type
+                      </td>
+                      <td className="px-3 py-1.5 font-medium">
+                        {owner.idDocumentType || "N/A"}
+                      </td>
+                    </tr>
                     {owner.idDocumentUrl && (
-                      <Field
-                        label="ID Document"
-                        value={
+                      <tr>
+                        <td className="px-3 py-1.5 text-muted-foreground">
+                          ID Document
+                        </td>
+                        <td className="px-3 py-1.5">
                           <a
                             href={owner.idDocumentUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
+                            className="text-blue-600 hover:underline text-xs"
                           >
                             View Document
                           </a>
-                        }
-                      />
+                        </td>
+                      </tr>
                     )}
-                  </Section>
-                </div>
-              ))}
-            </div>
+                  </tbody>
+                </table>
+              </div>
+            ))}
           </div>
         )}
 
@@ -744,158 +808,192 @@ export function InvestorKycDetails({
       {isEntity &&
         onboarding.authorizedSignatories &&
         onboarding.authorizedSignatories.length > 0 && (
-          <div className="space-y-4 py-4 border-b">
-            <div>
-              <h3 className="text-lg font-semibold">Authorized Signatories</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {onboarding.authorizedSignatories.length} authorized
-                signatory(ies) registered
-              </p>
+          <div className="space-y-2">
+            <div className="bg-muted/50 px-3 py-2 border rounded-t-md">
+              <h4 className="text-sm font-semibold">
+                Authorized Signatories (
+                {onboarding.authorizedSignatories.length})
+              </h4>
             </div>
-            <div className="space-y-6">
-              {onboarding.authorizedSignatories.map((signatory, index) => (
-                <div
-                  key={signatory.id}
-                  className="border rounded-md p-4 bg-muted/30"
-                >
-                  <Section
-                    title={`Signatory ${index + 1}: ${signatory.fullName}`}
-                    icon={PenTool}
-                  >
-                    <Field label="Title" value={signatory.title} />
-                    <Field label="Email" value={signatory.email} />
-                    <Field label="Phone" value={signatory.phone} />
+            {onboarding.authorizedSignatories.map((signatory, index) => (
+              <div
+                key={signatory.id}
+                className="border rounded-md overflow-hidden"
+              >
+                <div className="bg-muted/30 px-3 py-1.5 border-b">
+                  <h5 className="text-xs font-medium">
+                    Signatory {index + 1}: {signatory.fullName}
+                  </h5>
+                </div>
+                <table className="w-full text-sm">
+                  <tbody>
+                    <tr className="border-b">
+                      <td className="px-3 py-1.5 text-muted-foreground w-1/3">
+                        Title
+                      </td>
+                      <td className="px-3 py-1.5 font-medium">
+                        {signatory.title || "N/A"}
+                      </td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="px-3 py-1.5 text-muted-foreground">
+                        Email
+                      </td>
+                      <td className="px-3 py-1.5 font-medium">
+                        {signatory.email || "N/A"}
+                      </td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="px-3 py-1.5 text-muted-foreground">
+                        Phone
+                      </td>
+                      <td className="px-3 py-1.5 font-medium">
+                        {signatory.phone || "N/A"}
+                      </td>
+                    </tr>
                     {signatory.authorizationDocUrl && (
-                      <Field
-                        label="Authorization Document"
-                        value={
+                      <tr>
+                        <td className="px-3 py-1.5 text-muted-foreground">
+                          Authorization Document
+                        </td>
+                        <td className="px-3 py-1.5">
                           <a
                             href={signatory.authorizationDocUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
+                            className="text-blue-600 hover:underline text-xs"
                           >
                             View Document
                           </a>
-                        }
-                      />
+                        </td>
+                      </tr>
                     )}
-                  </Section>
-                </div>
-              ))}
-            </div>
+                  </tbody>
+                </table>
+              </div>
+            ))}
           </div>
         )}
 
       {/* Attestations */}
       {onboarding.attestations && onboarding.attestations.length > 0 && (
-        <div className="space-y-4 py-4 border-b">
-          <h3 className="text-lg font-semibold">KYC Attestations</h3>
-          <div className="space-y-2">
-            {onboarding.attestations.map((attestation) => (
-              <div
-                key={attestation.id}
-                className="space-y-2 py-2 border-b last:border-0"
-              >
-                {attestation.accuracyAttested && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-medium">
-                        Accuracy Attestation
-                      </span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      {formatDate(attestation.accuracyAttestedAt ?? null)}
-                    </span>
-                  </div>
-                )}
-                {attestation.sanctionsDeclarationAttested && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-medium">
-                        Sanctions Declaration
-                      </span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      {formatDate(
-                        attestation.sanctionsDeclarationAttestedAt ?? null
-                      )}
-                    </span>
-                  </div>
-                )}
-                {attestation.dataConsentAttested && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-medium">
-                        Data Processing Consent
-                      </span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      {formatDate(attestation.dataConsentAttestedAt ?? null)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))}
+        <div className="border rounded-md overflow-hidden">
+          <div className="bg-muted/50 px-3 py-2 border-b">
+            <h4 className="text-sm font-semibold">KYC Attestations</h4>
           </div>
+          <table className="w-full text-sm">
+            <tbody>
+              {onboarding.attestations.map((attestation) => (
+                <Fragment key={attestation.id}>
+                  {attestation.accuracyAttested && (
+                    <tr className="border-b">
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <span className="font-medium">
+                            Accuracy Attestation
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground text-right">
+                        {formatDate(attestation.accuracyAttestedAt ?? null)}
+                      </td>
+                    </tr>
+                  )}
+                  {attestation.sanctionsDeclarationAttested && (
+                    <tr className="border-b">
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <span className="font-medium">
+                            Sanctions Declaration
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground text-right">
+                        {formatDate(
+                          attestation.sanctionsDeclarationAttestedAt ?? null
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  {attestation.dataConsentAttested && (
+                    <tr className="border-b last:border-0">
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <span className="font-medium">
+                            Data Processing Consent
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground text-right">
+                        {formatDate(attestation.dataConsentAttestedAt ?? null)}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
       {/* Documents */}
       {onboarding.documents && onboarding.documents.length > 0 && (
-        <div className="space-y-4 py-4">
-          <div>
-            <h3 className="text-lg font-semibold">Uploaded Documents</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              {onboarding.documents.length} document(s) uploaded
-            </p>
+        <div className="border rounded-md overflow-hidden">
+          <div className="bg-muted/50 px-3 py-2 border-b">
+            <h4 className="text-sm font-semibold">
+              Uploaded Documents ({onboarding.documents.length})
+            </h4>
           </div>
-          <div className="space-y-2">
-            {onboarding.documents.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex items-center justify-between py-2 border-b last:border-0"
-              >
-                <div className="flex items-center gap-3">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">
-                      {doc.documentType?.replace(/_/g, " ") || "Unknown"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {doc.fileName || "Unnamed file"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant={
-                      doc.status === "approved"
-                        ? "default"
-                        : doc.status === "rejected"
-                          ? "destructive"
-                          : "secondary"
-                    }
-                  >
-                    {doc.status || "pending"}
-                  </Badge>
-                  {doc.fileUrl && (
-                    <a
-                      href={doc.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:underline"
-                    >
-                      View
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+          <table className="w-full text-sm">
+            <tbody>
+              {onboarding.documents.map((doc, idx) => (
+                <tr key={doc.id} className="border-b last:border-0">
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-3 w-3 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium text-xs">
+                          {doc.documentType?.replace(/_/g, " ") || "Unknown"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {doc.fileName || "Unnamed file"}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Badge
+                        variant={
+                          doc.status === "approved"
+                            ? "default"
+                            : doc.status === "rejected"
+                              ? "destructive"
+                              : "secondary"
+                        }
+                        className="text-xs"
+                      >
+                        {doc.status || "pending"}
+                      </Badge>
+                      {doc.fileUrl && (
+                        <a
+                          href={doc.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-xs"
+                        >
+                          View
+                        </a>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

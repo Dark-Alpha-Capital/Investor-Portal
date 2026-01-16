@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useTransition } from "react";
+import React, { useEffect, useState, useCallback, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useTRPC } from "@/trpc/client";
@@ -56,8 +56,21 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { useClientSession } from "@/lib/get-client-session";
-import type { DealsData } from "../lib/get-deals-cached";
-import { revalidateDealsCache } from "../lib/actions";
+import { badgeVariants } from "@/components/ui/badge";
+import type { VariantProps } from "class-variance-authority";
+
+type DealsData = {
+  success: boolean;
+  deals: Deal[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+};
 
 type DealsTableProps = {
   initialData?: DealsData;
@@ -103,7 +116,9 @@ const VISIBILITIES = [
   { value: "invite_only", label: "Invite Only" },
 ];
 
-const statusColors: Record<string, string> = {
+type BadgeVariant = VariantProps<typeof badgeVariants>["variant"];
+
+const statusColors: Record<string, BadgeVariant> = {
   draft: "secondary",
   coming_soon: "default",
   live: "default",
@@ -113,7 +128,7 @@ const statusColors: Record<string, string> = {
   cancelled: "destructive",
 };
 
-const visibilityColors: Record<string, string> = {
+const visibilityColors: Record<string, BadgeVariant> = {
   public: "default",
   accredited: "default",
   invite_only: "secondary",
@@ -168,14 +183,9 @@ function DealsTableView({
         <TableRow className="hover:bg-transparent">
           <TableHead className="w-12">
             <Checkbox
-              checked={allSelected}
-              ref={(el) => {
-                if (el) {
-                  (
-                    el as HTMLButtonElement & { indeterminate: boolean }
-                  ).indeterminate = someSelected;
-                }
-              }}
+              checked={
+                allSelected ? true : someSelected ? "indeterminate" : false
+              }
               onCheckedChange={onToggleSelectAll}
               aria-label="Select all"
             />
@@ -212,12 +222,12 @@ function DealsTableView({
               </Link>
             </TableCell>
             <TableCell>
-              <Badge variant={statusColors[deal.status] as any}>
+              <Badge variant={statusColors[deal.status]}>
                 {deal.status.replace(/_/g, " ")}
               </Badge>
             </TableCell>
             <TableCell>
-              <Badge variant={visibilityColors[deal.visibility] as any}>
+              <Badge variant={visibilityColors[deal.visibility]}>
                 {deal.visibility.replace(/_/g, " ")}
               </Badge>
             </TableCell>
@@ -311,6 +321,8 @@ function DealsCardView({
               <img
                 src={deal.coverImageUrl}
                 alt={deal.name}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover transition-transform group-hover:scale-105"
               />
             </div>
@@ -342,10 +354,10 @@ function DealsCardView({
 
             {/* Status badges */}
             <div className="flex flex-wrap gap-2">
-              <Badge variant={statusColors[deal.status] as any}>
+              <Badge variant={statusColors[deal.status]}>
                 {deal.status.replace(/_/g, " ")}
               </Badge>
-              <Badge variant={visibilityColors[deal.visibility] as any}>
+              <Badge variant={visibilityColors[deal.visibility]}>
                 {deal.visibility.replace(/_/g, " ")}
               </Badge>
               {deal.sector && (
@@ -579,6 +591,10 @@ export function DealsTable({ initialData }: DealsTableProps) {
     [updateParams]
   );
 
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, search, status, visibility]);
+
   // Mutation for deleting deals
   const { mutate: deleteDeal, isPending: isDeleting } = useMutation(
     trpc.deals.delete.mutationOptions({
@@ -586,9 +602,6 @@ export function DealsTable({ initialData }: DealsTableProps) {
         toast.success("Deal deleted successfully");
         setDeleteDialogOpen(false);
         setDealToDelete(null);
-        // Revalidate the cache tag to invalidate cached data
-        await revalidateDealsCache();
-        // Refresh to get fresh data from server
         router.refresh();
       },
       onError: (error: any) => {

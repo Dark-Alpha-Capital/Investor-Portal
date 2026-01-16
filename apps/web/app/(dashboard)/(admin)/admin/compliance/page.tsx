@@ -3,10 +3,10 @@ import { Suspense } from "react";
 import { ShieldCheck, Lock, Building2, Info } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ComplianceTableSkeleton } from "@/components/skeleton/compliance-table-skeleton";
-import { caller } from "@/trpc/server";
 import { ComplianceTableClient } from "../../../../../components/compliance-table-client";
 import { authSession } from "@/app/(auth)/auth";
 import { redirect } from "next/navigation";
+import { getPendingInvestors } from "@repo/db/queries";
 
 type SearchParams = Promise<{
   page?: string;
@@ -130,7 +130,7 @@ async function FetchComplianceWrapper({
   clearanceStatus?: string;
 }) {
   // Fetch investors data
-  const data = await caller.compliance.getPendingInvestors({
+  const data = await getPendingInvestors({
     page,
     limit,
     search,
