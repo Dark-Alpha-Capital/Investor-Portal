@@ -3,12 +3,6 @@ import { render } from "@react-email/components";
 import {
   OnboardingInvestorConfirmation,
   OnboardingAdminNotification,
-  TicketCreatedAdmin,
-  TicketCreatedInvestor,
-  TicketAssigned,
-  TicketStatusChanged,
-  TicketCommentAdded,
-  TicketResolved,
 } from "./emails";
 import type { EmailJobData } from "./types";
 import { EMAIL_CONFIG } from "./types";
@@ -97,97 +91,6 @@ export const renderEmailTemplate = async (
       return { subject, html };
     }
 
-    // Ticket email templates
-    case "ticket-created-admin": {
-      const subject = `New Support Ticket: ${jobData.subject}`;
-      const html = await render(
-        TicketCreatedAdmin({
-          ticketId: jobData.ticketId,
-          subject: jobData.subject,
-          category: jobData.category,
-          priority: jobData.priority,
-          investorName: jobData.investorName,
-          investorEmail: jobData.investorEmail,
-          description: jobData.description,
-          createdAt: jobData.createdAt,
-        })
-      );
-      return { subject, html };
-    }
-
-    case "ticket-created-investor": {
-      const subject = `Support Ticket Received: ${jobData.subject}`;
-      const html = await render(
-        TicketCreatedInvestor({
-          ticketId: jobData.ticketId,
-          subject: jobData.subject,
-          category: jobData.category,
-          investorName: jobData.investorName,
-          createdAt: jobData.createdAt,
-        })
-      );
-      return { subject, html };
-    }
-
-    case "ticket-assigned": {
-      const subject = `Ticket Assigned: ${jobData.subject}`;
-      const html = await render(
-        TicketAssigned({
-          ticketId: jobData.ticketId,
-          subject: jobData.subject,
-          category: jobData.category,
-          priority: jobData.priority,
-          investorName: jobData.investorName,
-          investorEmail: jobData.investorEmail,
-          assigneeName: jobData.assigneeName,
-          description: jobData.description,
-        })
-      );
-      return { subject, html };
-    }
-
-    case "ticket-status-changed": {
-      const subject = `Ticket Status Updated: ${jobData.subject}`;
-      const html = await render(
-        TicketStatusChanged({
-          ticketId: jobData.ticketId,
-          subject: jobData.subject,
-          investorName: jobData.investorName,
-          previousStatus: jobData.previousStatus,
-          newStatus: jobData.newStatus,
-        })
-      );
-      return { subject, html };
-    }
-
-    case "ticket-comment-added": {
-      const subject = `New Comment on Ticket: ${jobData.subject}`;
-      const html = await render(
-        TicketCommentAdded({
-          ticketId: jobData.ticketId,
-          subject: jobData.subject,
-          recipientName: jobData.recipientName,
-          commenterName: jobData.commenterName,
-          commentContent: jobData.commentContent,
-          isAdminComment: jobData.isAdminComment,
-        })
-      );
-      return { subject, html };
-    }
-
-    case "ticket-resolved": {
-      const subject = `Ticket Resolved: ${jobData.subject}`;
-      const html = await render(
-        TicketResolved({
-          ticketId: jobData.ticketId,
-          subject: jobData.subject,
-          investorName: jobData.investorName,
-          resolution: jobData.resolution,
-          resolvedBy: jobData.resolvedBy,
-        })
-      );
-      return { subject, html };
-    }
 
     default:
       throw new Error(`Unknown email type: ${(jobData as EmailJobData).type}`);

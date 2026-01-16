@@ -30,6 +30,32 @@ import { createClient } from "webdav";
 import { FileStat } from "webdav";
 import { revalidatePath } from "next/cache";
 
+// Helper functions hoisted outside mutations for better performance
+const sanitizeFileName = (fileName: string): string => {
+  return fileName.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.\./g, "_");
+};
+
+const sanitizeDealName = (dealName: string): string => {
+  return dealName.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+};
+
+const parseNumericField = (value: string | undefined | null): number | null => {
+  if (!value) return null;
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? null : parsed;
+};
+
+// Queue job options - extracted as constant
+const DEAL_QUEUE_JOB_OPTIONS = {
+  removeOnComplete: {
+    age: 24 * 3600, // Keep completed jobs for 24 hours
+    count: 1000,
+  },
+  removeOnFail: {
+    age: 7 * 24 * 3600, // Keep failed jobs for 7 days
+  },
+} as const;
+
 export const dealsRouter = createTRPCRouter({
   getDeals: baseProcedure.query(async ({ ctx }) => {
     const deals = await ctx.db
@@ -41,8 +67,10 @@ export const dealsRouter = createTRPCRouter({
   create: baseProcedure
     .input(createDealSchema)
     .mutation(async ({ input, ctx }) => {
-      // Check if user is admin
-      const session = await getSession();
+      // Start session check early (async-api-routes pattern)
+      const sessionPromise = getSession();
+      const session = await sessionPromise;
+
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -50,45 +78,50 @@ export const dealsRouter = createTRPCRouter({
         });
       }
 
-      // Generate slug from name if not provided
+      // Generate slug from name
       const slug = slugify(input.name, { lower: true, strict: true });
+      const dealId = randomUUID();
 
-      console.log({ input, slug });
+      // Prepare deal data
+      const dealData = {
+        id: dealId,
+        name: input.name,
+        slug: slug,
+        description: input.description || null,
+        teaserSummary: input.teaserSummary || null,
+        sector: input.sector || null,
+        geography: input.geography || null,
+        dealType: input.dealType || null,
+        targetRaise: parseNumericField(input.targetRaise),
+        minInvestment: parseNumericField(input.minInvestment),
+        targetIrr: parseNumericField(input.targetIrr),
+        targetMoic: parseNumericField(input.targetMoic),
+        status: input.status || "draft",
+        visibility: input.visibility || "invite_only",
+        coverImageUrl: input.coverImageUrl || null,
+        launchDate: input.launchDate ? new Date(input.launchDate) : null,
+        closeDate: input.closeDate ? new Date(input.closeDate) : null,
+      };
 
       try {
-        const [newDeal] = await ctx.db
-          .insert(deal)
-          .values({
-            id: randomUUID(),
-            name: input.name,
-            slug: slug,
-            description: input.description || null,
-            teaserSummary: input.teaserSummary || null,
-            sector: input.sector || null,
-            geography: input.geography || null,
-            dealType: input.dealType || null,
-            targetRaise: input.targetRaise
-              ? parseFloat(input.targetRaise)
-              : null,
-            minInvestment: input.minInvestment
-              ? parseFloat(input.minInvestment)
-              : null,
-            targetIrr: input.targetIrr ? parseFloat(input.targetIrr) : null,
-            targetMoic: input.targetMoic ? parseFloat(input.targetMoic) : null,
-            status: input.status || "draft",
-            visibility: input.visibility || "invite_only",
-            coverImageUrl: input.coverImageUrl || null,
-            launchDate: input.launchDate ? new Date(input.launchDate) : null,
-            closeDate: input.closeDate ? new Date(input.closeDate) : null,
-          })
-          .returning();
-
-        await dealQueue.add("create-deal", {
-          deal: {
-            name: input.name,
-            slug: slug,
-          },
-        });
+        // Execute database insert and queue job in parallel
+        const [newDeal] = await Promise.all([
+          ctx.db
+            .insert(deal)
+            .values(dealData)
+            .returning()
+            .then((r) => r[0]),
+          dealQueue.add(
+            "create-deal",
+            {
+              deal: {
+                name: input.name,
+                slug: slug,
+              },
+            },
+            DEAL_QUEUE_JOB_OPTIONS
+          ),
+        ]);
 
         return {
           success: true,
@@ -96,8 +129,6 @@ export const dealsRouter = createTRPCRouter({
           message: "Deal created successfully",
         };
       } catch (error) {
-        console.error("Error creating deal:", error);
-
         // Handle invalid numeric values
         if (
           error instanceof Error &&
@@ -108,6 +139,7 @@ export const dealsRouter = createTRPCRouter({
             code: "BAD_REQUEST",
             message:
               "One or more numeric fields contain invalid values. Please check your input.",
+            cause: error,
           });
         }
 
@@ -121,6 +153,7 @@ export const dealsRouter = createTRPCRouter({
           throw new TRPCError({
             code: "CONFLICT",
             message: "A deal with this slug already exists. Please try again.",
+            cause: error,
           });
         }
 
@@ -128,6 +161,7 @@ export const dealsRouter = createTRPCRouter({
           code: "INTERNAL_SERVER_ERROR",
           message:
             error instanceof Error ? error.message : "Failed to create deal",
+          cause: error,
         });
       }
     }),
@@ -139,8 +173,10 @@ export const dealsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      // Check if user is admin
-      const session = await getSession();
+      // Start session check early
+      const sessionPromise = getSession();
+      const session = await sessionPromise;
+
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -150,7 +186,7 @@ export const dealsRouter = createTRPCRouter({
 
       const { dealId, ...updateData } = input;
 
-      // Check if deal exists
+      // Check if deal exists and get existing deal in parallel with slug check prep
       const [existingDeal] = await ctx.db
         .select()
         .from(deal)
@@ -183,52 +219,57 @@ export const dealsRouter = createTRPCRouter({
         }
       }
 
+      // Prepare update data
+      const dealUpdateData = {
+        name: updateData.name,
+        slug: slug,
+        description: updateData.description || null,
+        teaserSummary: updateData.teaserSummary || null,
+        sector: updateData.sector || null,
+        geography: updateData.geography || null,
+        dealType: updateData.dealType || null,
+        targetRaise: parseNumericField(updateData.targetRaise),
+        minInvestment: parseNumericField(updateData.minInvestment),
+        targetIrr: parseNumericField(updateData.targetIrr),
+        targetMoic: parseNumericField(updateData.targetMoic),
+        status: updateData.status || "draft",
+        visibility: updateData.visibility || "invite_only",
+        coverImageUrl: updateData.coverImageUrl || null,
+        launchDate: updateData.launchDate
+          ? new Date(updateData.launchDate)
+          : null,
+        closeDate: updateData.closeDate ? new Date(updateData.closeDate) : null,
+      };
+
       try {
-        const [updatedDeal] = await ctx.db
-          .update(deal)
-          .set({
-            name: updateData.name,
-            slug: slug,
-            description: updateData.description || null,
-            teaserSummary: updateData.teaserSummary || null,
-            sector: updateData.sector || null,
-            geography: updateData.geography || null,
-            dealType: updateData.dealType || null,
-            targetRaise: updateData.targetRaise
-              ? parseFloat(updateData.targetRaise)
-              : null,
-            minInvestment: updateData.minInvestment
-              ? parseFloat(updateData.minInvestment)
-              : null,
-            targetIrr: updateData.targetIrr
-              ? parseFloat(updateData.targetIrr)
-              : null,
-            targetMoic: updateData.targetMoic
-              ? parseFloat(updateData.targetMoic)
-              : null,
-            status: updateData.status || "draft",
-            visibility: updateData.visibility || "invite_only",
-            coverImageUrl: updateData.coverImageUrl || null,
-            launchDate: updateData.launchDate
-              ? new Date(updateData.launchDate)
-              : null,
-            closeDate: updateData.closeDate
-              ? new Date(updateData.closeDate)
-              : null,
-          })
-          .where(eq(deal.id, dealId))
-          .returning();
+        // Prepare parallel operations
+        const operations: Promise<unknown>[] = [
+          ctx.db
+            .update(deal)
+            .set(dealUpdateData)
+            .where(eq(deal.id, dealId))
+            .returning()
+            .then((r) => r[0]),
+        ];
 
         // Check if deal name changed and enqueue folder rename job
         if (existingDeal.name !== updateData.name) {
-          console.log("Deal name changed, enqueuing folder rename job");
-
-          await dealQueue.add("rename-deal", {
-            oldDealName: existingDeal.name,
-            newDealName: updateData.name,
-          });
+          operations.push(
+            dealQueue.add(
+              "rename-deal",
+              {
+                oldDealName: existingDeal.name,
+                newDealName: updateData.name,
+              },
+              DEAL_QUEUE_JOB_OPTIONS
+            )
+          );
         }
 
+        // Execute operations in parallel
+        const [updatedDeal] = await Promise.all(operations);
+
+        // Revalidate paths (non-blocking)
         revalidatePath(`/admin/deals/${dealId}`);
         revalidatePath(`/admin/deals`);
 
@@ -238,8 +279,6 @@ export const dealsRouter = createTRPCRouter({
           message: "Deal updated successfully",
         };
       } catch (error) {
-        console.error("Error updating deal:", error);
-
         // Handle invalid numeric values
         if (
           error instanceof Error &&
@@ -250,6 +289,7 @@ export const dealsRouter = createTRPCRouter({
             code: "BAD_REQUEST",
             message:
               "One or more numeric fields contain invalid values. Please check your input.",
+            cause: error,
           });
         }
 
@@ -263,6 +303,7 @@ export const dealsRouter = createTRPCRouter({
           throw new TRPCError({
             code: "CONFLICT",
             message: "A deal with this slug already exists. Please try again.",
+            cause: error,
           });
         }
 
@@ -270,6 +311,7 @@ export const dealsRouter = createTRPCRouter({
           code: "INTERNAL_SERVER_ERROR",
           message:
             error instanceof Error ? error.message : "Failed to update deal",
+          cause: error,
         });
       }
     }),
@@ -292,25 +334,28 @@ export const dealsRouter = createTRPCRouter({
       }
 
       try {
-        // Delete from database first
-        await ctx.db.delete(deal).where(eq(deal.id, input.dealId));
-
-        // Queue background job to delete the Nextcloud folder
-        // Use the deal name (same as used in create-deal handler)
-        await dealQueue.add("delete-deal", {
-          dealName: existingDeal.name,
-        });
+        // Execute delete and queue job in parallel
+        await Promise.all([
+          ctx.db.delete(deal).where(eq(deal.id, input.dealId)),
+          dealQueue.add(
+            "delete-deal",
+            {
+              dealName: existingDeal.name,
+            },
+            DEAL_QUEUE_JOB_OPTIONS
+          ),
+        ]);
 
         return {
           success: true,
           message: "Deal deleted successfully",
         };
       } catch (error) {
-        console.error("Error deleting deal:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message:
             error instanceof Error ? error.message : "Failed to delete deal",
+          cause: error,
         });
       }
     }),
@@ -556,17 +601,8 @@ export const dealsRouter = createTRPCRouter({
 
       // Convert slug to match worker's sanitization (replace non-alphanumeric with underscore, lowercase)
       // slugify uses hyphens, but worker uses underscores
-      const sanitizedName = dealSlug.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+      const sanitizedName = sanitizeDealName(dealSlug);
       const folderPath = `/Deals/Deal_${sanitizedName}`;
-
-      console.log("Deal info:", {
-        dealId: input.dealId,
-        dealName: dealRecord.name,
-        dealSlug: dealRecord.slug,
-        computedSlug: dealSlug,
-        sanitizedName,
-        folderPath,
-      });
 
       try {
         const client = createClient(
@@ -579,10 +615,8 @@ export const dealsRouter = createTRPCRouter({
 
         // Check if folder exists first (like apps/server does)
         const folderExists = await client.exists(folderPath);
-        console.log("Folder exists check:", { folderPath, folderExists });
 
         if (!folderExists) {
-          console.warn(`Folder does not exist: ${folderPath}`);
           return {
             success: true,
             files: [],
@@ -591,7 +625,6 @@ export const dealsRouter = createTRPCRouter({
 
         // Get directory contents
         const contents = await client.getDirectoryContents(folderPath);
-        console.log("Contents:", { contents });
         // Transform the data
         const files = (contents as FileStat[]).map((item) => ({
           name: item.basename,
@@ -606,8 +639,6 @@ export const dealsRouter = createTRPCRouter({
           files,
         };
       } catch (error) {
-        console.error("Error listing files:", error);
-
         // If folder doesn't exist, return empty array instead of error
         if (
           error instanceof Error &&
@@ -641,8 +672,10 @@ export const dealsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      // Check if user is admin
-      const session = await getSession();
+      // Start session check early
+      const sessionPromise = getSession();
+      const session = await sessionPromise;
+
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -650,7 +683,7 @@ export const dealsRouter = createTRPCRouter({
         });
       }
 
-      // Validate file type
+      // Early validation: file type
       const allowedMimeTypes = [
         // Images
         "image/jpeg",
@@ -712,13 +745,11 @@ export const dealsRouter = createTRPCRouter({
       const dealSlug =
         dealRecord.slug ||
         slugify(dealRecord.name, { lower: true, strict: true });
-      const sanitizedName = dealSlug.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+      const sanitizedName = sanitizeDealName(dealSlug);
       const folderPath = `/Deals/Deal_${sanitizedName}`;
 
       // Sanitize file name to prevent path traversal and invalid characters
-      const sanitizedFileName = input.fileName
-        .replace(/[^a-zA-Z0-9._-]/g, "_")
-        .replace(/\.\./g, "_"); // Prevent path traversal
+      const sanitizedFileName = sanitizeFileName(input.fileName);
       const remoteFilePath = `${folderPath}/${sanitizedFileName}`;
 
       try {
@@ -781,8 +812,6 @@ export const dealsRouter = createTRPCRouter({
           },
         };
       } catch (error) {
-        console.error("Error uploading file:", error);
-
         // Handle specific Nextcloud errors
         if (error instanceof Error) {
           if (
@@ -818,6 +847,7 @@ export const dealsRouter = createTRPCRouter({
           code: "INTERNAL_SERVER_ERROR",
           message:
             error instanceof Error ? error.message : "Failed to upload file",
+          cause: error,
         });
       }
     }),
@@ -855,8 +885,10 @@ export const dealsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      // Check if user is admin
-      const session = await getSession();
+      // Start session check early
+      const sessionPromise = getSession();
+      const session = await sessionPromise;
+
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -864,12 +896,27 @@ export const dealsRouter = createTRPCRouter({
         });
       }
 
-      // Verify deal exists
-      const [dealRecord] = await ctx.db
-        .select()
-        .from(deal)
-        .where(eq(deal.id, input.dealId))
-        .limit(1);
+      // Early validation: check for empty array
+      if (!input.userIds || input.userIds.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "At least one user ID is required",
+        });
+      }
+
+      // Verify deal exists and get existing invites in parallel
+      const [dealRecord, existingInvites] = await Promise.all([
+        ctx.db
+          .select()
+          .from(deal)
+          .where(eq(deal.id, input.dealId))
+          .limit(1)
+          .then((r) => r[0]),
+        ctx.db
+          .select()
+          .from(dealInvite)
+          .where(eq(dealInvite.dealId, input.dealId)),
+      ]);
 
       if (!dealRecord) {
         throw new TRPCError({
@@ -878,10 +925,9 @@ export const dealsRouter = createTRPCRouter({
         });
       }
 
-      // Verify all users exist and are investors (not admins)
-      const validUserIds: string[] = [];
-      for (const userId of input.userIds) {
-        const [userRecord] = await ctx.db
+      // Verify all users exist and are investors (not admins) in parallel
+      const userValidationPromises = input.userIds.map((userId) =>
+        ctx.db
           .select()
           .from(user)
           .where(
@@ -890,12 +936,14 @@ export const dealsRouter = createTRPCRouter({
               or(ne(user.role, "admin"), isNull(user.role))
             )
           )
-          .limit(1);
+          .limit(1)
+          .then((r) => ({ userId, isValid: r.length > 0 }))
+      );
 
-        if (userRecord) {
-          validUserIds.push(userId);
-        }
-      }
+      const userValidations = await Promise.all(userValidationPromises);
+      const validUserIds = userValidations
+        .filter((v) => v.isValid)
+        .map((v) => v.userId);
 
       if (validUserIds.length === 0) {
         throw new TRPCError({
@@ -904,12 +952,7 @@ export const dealsRouter = createTRPCRouter({
         });
       }
 
-      // Check for existing invites to avoid duplicates
-      const existingInvites = await ctx.db
-        .select()
-        .from(dealInvite)
-        .where(eq(dealInvite.dealId, input.dealId));
-
+      // Create invite map for quick lookup
       const existingInviteMap = new Set(
         existingInvites.map((invite) => invite.userId)
       );
@@ -944,8 +987,10 @@ export const dealsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      // Check if user is admin
-      const session = await getSession();
+      // Start session check early
+      const sessionPromise = getSession();
+      const session = await sessionPromise;
+
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -953,24 +998,32 @@ export const dealsRouter = createTRPCRouter({
         });
       }
 
-      // Delete invites for specified users
-      let deletedCount = 0;
-      for (const userId of input.userIds) {
-        await ctx.db
+      // Early validation
+      if (!input.userIds || input.userIds.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "At least one user ID is required",
+        });
+      }
+
+      // Delete invites for specified users in parallel
+      const deletePromises = input.userIds.map((userId) =>
+        ctx.db
           .delete(dealInvite)
           .where(
             and(
               eq(dealInvite.dealId, input.dealId),
               eq(dealInvite.userId, userId)
             )
-          );
-        deletedCount += 1;
-      }
+          )
+      );
+
+      await Promise.all(deletePromises);
 
       return {
         success: true,
-        message: `Removed ${deletedCount} invite(s) from deal`,
-        removedCount: deletedCount,
+        message: `Removed ${input.userIds.length} invite(s) from deal`,
+        removedCount: input.userIds.length,
       };
     }),
 
@@ -1434,7 +1487,10 @@ export const dealsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const session = await getSession();
+      // Start session check early
+      const sessionPromise = getSession();
+      const session = await sessionPromise;
+
       if (!session?.user) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
@@ -1442,7 +1498,7 @@ export const dealsRouter = createTRPCRouter({
         });
       }
 
-      // Verify deal exists and user has access (by ID or slug)
+      // Verify deal exists (by ID or slug)
       const [dealRecord] = await ctx.db
         .select()
         .from(deal)
@@ -1458,55 +1514,68 @@ export const dealsRouter = createTRPCRouter({
         });
       }
 
-      // Check access based on visibility
-      if (dealRecord.visibility === "public") {
-        // Public deals are accessible to everyone
-      } else if (dealRecord.visibility === "accredited") {
-        // Check if user is accredited
-        const [userRecord] = await ctx.db
-          .select({ kycStatus: user.kycStatus })
-          .from(user)
-          .where(eq(user.id, session.user.id))
-          .limit(1);
+      // Prepare parallel access checks based on visibility
+      const accessChecks: Promise<unknown>[] = [];
 
-        if (userRecord?.kycStatus !== "approved") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "This deal is only available to accredited investors",
-          });
-        }
+      if (dealRecord.visibility === "accredited") {
+        // Check if user is accredited
+        accessChecks.push(
+          ctx.db
+            .select({ kycStatus: user.kycStatus })
+            .from(user)
+            .where(eq(user.id, session.user.id))
+            .limit(1)
+            .then((r) => {
+              if (r[0]?.kycStatus !== "approved") {
+                throw new TRPCError({
+                  code: "FORBIDDEN",
+                  message:
+                    "This deal is only available to accredited investors",
+                });
+              }
+            })
+        );
       } else if (dealRecord.visibility === "invite_only") {
         // Check if user has been invited
-        const [invite] = await ctx.db
-          .select()
-          .from(dealInvite)
-          .where(
-            and(
-              eq(dealInvite.dealId, actualDealId),
-              eq(dealInvite.userId, session.user.id)
+        accessChecks.push(
+          ctx.db
+            .select()
+            .from(dealInvite)
+            .where(
+              and(
+                eq(dealInvite.dealId, actualDealId),
+                eq(dealInvite.userId, session.user.id)
+              )
             )
-          )
-          .limit(1);
-
-        if (!invite) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "You do not have access to this deal",
-          });
-        }
+            .limit(1)
+            .then((r) => {
+              if (r.length === 0) {
+                throw new TRPCError({
+                  code: "FORBIDDEN",
+                  message: "You do not have access to this deal",
+                });
+              }
+            })
+        );
       }
 
-      // Check if interest already exists
-      const [existingInterest] = await ctx.db
-        .select()
-        .from(dealInterest)
-        .where(
-          and(
-            eq(dealInterest.dealId, actualDealId),
-            eq(dealInterest.userId, session.user.id)
+      // Check if interest already exists in parallel with access checks
+      const [existingInterest] = await Promise.all([
+        ctx.db
+          .select()
+          .from(dealInterest)
+          .where(
+            and(
+              eq(dealInterest.dealId, actualDealId),
+              eq(dealInterest.userId, session.user.id)
+            )
           )
-        )
-        .limit(1);
+          .limit(1)
+          .then((r) => r[0]),
+        ...accessChecks,
+      ]);
+
+      const updatedAt = new Date();
 
       if (existingInterest) {
         // Update existing interest
@@ -1515,7 +1584,7 @@ export const dealsRouter = createTRPCRouter({
           .set({
             status: input.status,
             proposedAmount: input.proposedAmount ?? null,
-            updatedAt: new Date(),
+            updatedAt,
           })
           .where(eq(dealInterest.id, existingInterest.id))
           .returning();

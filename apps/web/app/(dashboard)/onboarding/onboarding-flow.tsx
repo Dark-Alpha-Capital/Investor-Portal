@@ -1,7 +1,14 @@
 "use client";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import {
+  useEffect,
+  useState,
+  useTransition,
+  useMemo,
+  useCallback,
+} from "react";
+import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
@@ -10,17 +17,59 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StepIndicator } from "./step-indicator";
-import { Step1AccountProfile } from "./steps/step-1-account-profile";
-import { Step2Accreditation } from "./steps/step-2-accreditation";
-import { Step3EntityCompliance } from "./steps/step-3-entity-compliance";
-import { Step4InvestmentProfile } from "./steps/step-4-investment-profile";
-import { StepAttestations } from "./steps/step-attestations";
-import { KycDocuments } from "./kyc-documents";
-import { OnboardingComplete } from "./onboarding-complete";
 import { JobProgressTracker } from "./components/job-progress-tracker";
 import { useTRPC } from "@/trpc/client";
 import { useJobTracking } from "@/contexts/job-tracking-context";
 import { toast } from "sonner";
+import {
+  useOnboardingDataStorage,
+  clearOnboardingStorage,
+} from "./hooks/use-onboarding-storage";
+import { convertFilesToBase64 } from "./utils/file-conversion";
+import {
+  getCachedLocalStorage,
+  setCachedLocalStorage,
+} from "./hooks/use-local-storage-cache";
+
+const STORAGE_KEY_STEP = "onboarding_current_step";
+
+// Dynamic imports for heavy step components (bundle optimization 2.4)
+const Step1AccountProfile = dynamic(
+  () =>
+    import("./steps/step-1-account-profile").then((m) => m.Step1AccountProfile),
+  { ssr: false }
+);
+const Step2Accreditation = dynamic(
+  () =>
+    import("./steps/step-2-accreditation").then((m) => m.Step2Accreditation),
+  { ssr: false }
+);
+const Step3EntityCompliance = dynamic(
+  () =>
+    import("./steps/step-3-entity-compliance").then(
+      (m) => m.Step3EntityCompliance
+    ),
+  { ssr: false }
+);
+const Step4InvestmentProfile = dynamic(
+  () =>
+    import("./steps/step-4-investment-profile").then(
+      (m) => m.Step4InvestmentProfile
+    ),
+  { ssr: false }
+);
+const StepAttestations = dynamic(
+  () => import("./steps/step-attestations").then((m) => m.StepAttestations),
+  { ssr: false }
+);
+const KycDocuments = dynamic(
+  () => import("./kyc-documents").then((m) => m.KycDocuments),
+  { ssr: false }
+);
+const OnboardingComplete = dynamic(
+  () => import("./onboarding-complete").then((m) => m.OnboardingComplete),
+  { ssr: false }
+);
 
 // Beneficial Owner type for repeating UBO entries
 export type BeneficialOwnerData = {
@@ -196,8 +245,6 @@ export type KycData = {
 // Individual: 1-Account, 2-Accreditation, 3-KYCDocs, 4-InvestmentProfile, 5-Attestations, 6-LegalSign
 const TOTAL_STEPS_ENTITY = 7;
 const TOTAL_STEPS_INDIVIDUAL = 6;
-const STORAGE_KEY_INVESTOR_DATA = "onboarding_investor_data";
-const STORAGE_KEY_STEP = "onboarding_current_step";
 
 const legalSchema = z.object({
   agree: z
@@ -296,16 +343,86 @@ export function OnboardingFlow({
   const searchParams = useSearchParams();
   const currentStep = Number.parseInt(searchParams.get("step") || "1");
 
-  const [investorData, setInvestorData] = useState<Partial<InvestorData>>({});
+  // Use cached localStorage hook with lazy initialization
+  const [investorData, setInvestorData] = useOnboardingDataStorage<
+    Partial<InvestorData>
+  >(
+    {},
+    editMode // Skip saving in edit mode
+  );
   const [kycData, setKycData] = useState<Partial<KycData>>({});
   const [isComplete, setIsComplete] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [hasRestoredStep, setHasRestoredStep] = useState(false);
 
-  // Compute total steps based on legal entity type
-  const isEntityInvestor = investorData.legalEntityType === "entity";
-  const totalSteps = isEntityInvestor
-    ? TOTAL_STEPS_ENTITY
-    : TOTAL_STEPS_INDIVIDUAL;
+  // Memoize computed values (re-render optimization 5.1)
+  const isEntityInvestor = useMemo(
+    () => investorData.legalEntityType === "entity",
+    [investorData.legalEntityType]
+  );
+  const totalSteps = useMemo(
+    () => (isEntityInvestor ? TOTAL_STEPS_ENTITY : TOTAL_STEPS_INDIVIDUAL),
+    [isEntityInvestor]
+  );
+
+  // Hoist static arrays outside component (rendering optimization 6.3, JS performance 7.1)
+  const REQUIRED_FIELDS = useMemo<(keyof InvestorData)[]>(
+    () => [
+      "organizationName",
+      "primaryContactName",
+      "primaryContactEmail",
+      "primaryContactPhone",
+      "capitalProviderType",
+      "investorType",
+      "openToEmergingSponsor",
+      "priorDealAttribution",
+      "ndaPreference",
+      "timingToLOI",
+      "timingToCommitment",
+      "economicsDescription",
+      "preferredRole",
+      "provideSupportLetter",
+      "joinBrokerConversations",
+      "supportLetterStages",
+      "receiveUpdates",
+      "equityCheckSize",
+      "preferredOwnership",
+      "transactionTypes",
+      "revenueCharacteristics",
+      "assetProfile",
+      "sectorsOfInterest",
+    ],
+    []
+  );
+
+  // Hoist static Sets for O(1) lookups (JS performance 7.11)
+  const STEP1_FIELDS = useMemo(
+    () =>
+      new Set([
+        "organizationName",
+        "primaryContactName",
+        "primaryContactEmail",
+        "primaryContactPhone",
+        "capitalProviderType",
+        "investorType",
+      ]),
+    []
+  );
+  const STEP2_FIELDS = useMemo(
+    () =>
+      new Set([
+        "openToEmergingSponsor",
+        "priorDealAttribution",
+        "ndaPreference",
+        "accreditationStatus",
+        "accreditationMethod",
+      ]),
+    []
+  );
+  const SKIP_FIELDS = useMemo(
+    () => new Set(["beneficialOwners", "authorizedSignatories"]),
+    []
+  );
 
   // Transition for navigation between steps
   const [isNavigating, startNavigation] = useTransition();
@@ -364,7 +481,13 @@ export function OnboardingFlow({
       })
     );
 
+  // Memoize clearLocalStorage callback (re-render optimization 5.5)
+  const clearLocalStorage = useCallback(() => {
+    clearOnboardingStorage();
+  }, []);
+
   // Watch job completion from context to mark onboarding as complete
+  // Narrow dependencies - only depend on submittedJobId (best practice 5.3)
   useEffect(() => {
     if (!submittedJobId) return;
 
@@ -387,141 +510,147 @@ export function OnboardingFlow({
     };
 
     checkJob();
-  }, [submittedJobId, getJob]);
+  }, [submittedJobId, getJob, clearLocalStorage]);
 
-  // Helper function to convert existing onboarding data to InvestorData format
-  const convertExistingToInvestorData = (
-    existing: ExistingOnboardingData
-  ): Partial<InvestorData> => {
-    return {
-      legalEntityType: existing.legalEntityType ?? undefined,
-      organizationName: existing.organizationName,
-      primaryContactName: existing.primaryContactName,
-      primaryContactTitle: existing.primaryContactTitle ?? "",
-      primaryContactEmail: existing.primaryContactEmail,
-      primaryContactPhone: existing.primaryContactPhone,
-      capitalProviderType: existing.capitalProviderType,
-      investorType: existing.investorType,
-      geographicFocus: existing.geographicFocus ?? "",
-      accreditationStatus: existing.accreditationStatus ?? undefined,
-      accreditationMethod: existing.accreditationMethod ?? undefined,
-      entityTaxId: existing.entityTaxId ?? undefined,
-      entitySignatoryName: existing.entitySignatoryName ?? undefined,
-      entitySignatoryTitle: existing.entitySignatoryTitle ?? undefined,
-      pepStatus: existing.pepStatus ?? undefined,
-      pepDetails: existing.pepDetails ?? "",
-      sourceOfWealthNarrative: existing.sourceOfWealthNarrative ?? "",
-      accuracyAttestation: existing.accuracyAttestation ?? undefined,
-      sanctionsDeclaration: existing.sanctionsDeclaration ?? undefined,
-      dataConsent: existing.dataConsent ?? undefined,
-      openToEmergingSponsor: existing.openToEmergingSponsor,
-      minimumRequirements: existing.minimumRequirements ?? "",
-      priorDealAttribution: existing.priorDealAttribution,
-      priorDealAttributionExplanation:
-        existing.priorDealAttributionExplanation ?? "",
-      ndaPreference: existing.ndaPreference,
-      ndaLimitations: existing.ndaLimitations ?? "",
-      timingToLOI: existing.timingToLOI,
-      timingToCommitment: existing.timingToCommitment,
-      timingDrivers: existing.timingDrivers ?? "",
-      economicsDescription: existing.economicsDescription,
-      preferredRole: existing.preferredRole,
-      governanceExpectations: existing.governanceExpectations ?? "",
-      provideSupportLetter: existing.provideSupportLetter,
-      joinBrokerConversations: existing.joinBrokerConversations,
-      supportLetterStages: existing.supportLetterStages ?? [],
-      receiveUpdates: existing.receiveUpdates,
-      updateFrequency: existing.updateFrequency ?? "",
-      updateFormat: existing.updateFormat ?? [],
-      industryPreferences: existing.industryPreferences ?? "",
-      equityCheckSize: existing.equityCheckSize,
-      enterpriseValueRange: existing.enterpriseValueRange ?? "",
-      ebitdaRange: existing.ebitdaRange ?? "",
-      preferredOwnership: existing.preferredOwnership,
-      typicalHoldPeriod: existing.typicalHoldPeriod ?? "",
-      transactionTypes: existing.transactionTypes ?? [],
-      leverageTolerance: existing.leverageTolerance ?? "",
-      revenueCharacteristics: existing.revenueCharacteristics,
-      customerConcentration: existing.customerConcentration ?? "",
-      marginsAndCashFlow: existing.marginsAndCashFlow ?? "",
-      assetProfile: existing.assetProfile,
-      managementInvolvement: existing.managementInvolvement ?? "",
-      sectorsOfInterest: existing.sectorsOfInterest,
-      sectorsToAvoid: existing.sectorsToAvoid ?? "",
-      dealSizeThresholds: existing.dealSizeThresholds ?? "",
-      specificThemes: existing.specificThemes ?? "",
-      legalDocumentsAcknowledged:
-        existing.legalDocumentsAcknowledged ?? undefined,
-      electronicSignatureName: existing.electronicSignatureName ?? undefined,
-      electronicSignatureDate: existing.electronicSignatureDate ?? undefined,
-    };
-  };
+  // Memoize conversion function (re-render optimization 5.2)
+  const convertExistingToInvestorData = useCallback(
+    (existing: ExistingOnboardingData): Partial<InvestorData> => {
+      return {
+        legalEntityType: existing.legalEntityType ?? undefined,
+        organizationName: existing.organizationName,
+        primaryContactName: existing.primaryContactName,
+        primaryContactTitle: existing.primaryContactTitle ?? "",
+        primaryContactEmail: existing.primaryContactEmail,
+        primaryContactPhone: existing.primaryContactPhone,
+        capitalProviderType: existing.capitalProviderType,
+        investorType: existing.investorType,
+        geographicFocus: existing.geographicFocus ?? "",
+        accreditationStatus: existing.accreditationStatus ?? undefined,
+        accreditationMethod: existing.accreditationMethod ?? undefined,
+        entityTaxId: existing.entityTaxId ?? undefined,
+        entitySignatoryName: existing.entitySignatoryName ?? undefined,
+        entitySignatoryTitle: existing.entitySignatoryTitle ?? undefined,
+        pepStatus: existing.pepStatus ?? undefined,
+        pepDetails: existing.pepDetails ?? "",
+        sourceOfWealthNarrative: existing.sourceOfWealthNarrative ?? "",
+        accuracyAttestation: existing.accuracyAttestation ?? undefined,
+        sanctionsDeclaration: existing.sanctionsDeclaration ?? undefined,
+        dataConsent: existing.dataConsent ?? undefined,
+        openToEmergingSponsor: existing.openToEmergingSponsor,
+        minimumRequirements: existing.minimumRequirements ?? "",
+        priorDealAttribution: existing.priorDealAttribution,
+        priorDealAttributionExplanation:
+          existing.priorDealAttributionExplanation ?? "",
+        ndaPreference: existing.ndaPreference,
+        ndaLimitations: existing.ndaLimitations ?? "",
+        timingToLOI: existing.timingToLOI,
+        timingToCommitment: existing.timingToCommitment,
+        timingDrivers: existing.timingDrivers ?? "",
+        economicsDescription: existing.economicsDescription,
+        preferredRole: existing.preferredRole,
+        governanceExpectations: existing.governanceExpectations ?? "",
+        provideSupportLetter: existing.provideSupportLetter,
+        joinBrokerConversations: existing.joinBrokerConversations,
+        supportLetterStages: existing.supportLetterStages ?? [],
+        receiveUpdates: existing.receiveUpdates,
+        updateFrequency: existing.updateFrequency ?? "",
+        updateFormat: existing.updateFormat ?? [],
+        industryPreferences: existing.industryPreferences ?? "",
+        equityCheckSize: existing.equityCheckSize,
+        enterpriseValueRange: existing.enterpriseValueRange ?? "",
+        ebitdaRange: existing.ebitdaRange ?? "",
+        preferredOwnership: existing.preferredOwnership,
+        typicalHoldPeriod: existing.typicalHoldPeriod ?? "",
+        transactionTypes: existing.transactionTypes ?? [],
+        leverageTolerance: existing.leverageTolerance ?? "",
+        revenueCharacteristics: existing.revenueCharacteristics,
+        customerConcentration: existing.customerConcentration ?? "",
+        marginsAndCashFlow: existing.marginsAndCashFlow ?? "",
+        assetProfile: existing.assetProfile,
+        managementInvolvement: existing.managementInvolvement ?? "",
+        sectorsOfInterest: existing.sectorsOfInterest,
+        sectorsToAvoid: existing.sectorsToAvoid ?? "",
+        dealSizeThresholds: existing.dealSizeThresholds ?? "",
+        specificThemes: existing.specificThemes ?? "",
+        legalDocumentsAcknowledged:
+          existing.legalDocumentsAcknowledged ?? undefined,
+        electronicSignatureName: existing.electronicSignatureName ?? undefined,
+        electronicSignatureDate: existing.electronicSignatureDate ?? undefined,
+      };
+    },
+    []
+  );
 
-  // Load data from localStorage on mount (or from existingOnboarding in edit mode)
+  // Load data from existingOnboarding in edit mode (narrow dependencies 5.3)
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        // In edit mode, load from existing onboarding data
-        if (editMode && existingOnboarding) {
-          const converted = convertExistingToInvestorData(existingOnboarding);
-          setInvestorData(converted);
-          setIsLoaded(true);
-          return;
-        }
-
-        // Normal mode: load from localStorage
-        const savedInvestorData = localStorage.getItem(
-          STORAGE_KEY_INVESTOR_DATA
-        );
-        const savedStep = localStorage.getItem(STORAGE_KEY_STEP);
-
-        if (savedInvestorData) {
-          const parsed = JSON.parse(savedInvestorData);
-          setInvestorData(parsed);
-        }
-
-        if (savedStep && Number.parseInt(savedStep) !== currentStep) {
-          const step = Number.parseInt(savedStep);
-          // Use max possible steps to avoid issues when switching entity type
-          const maxSteps = Math.max(TOTAL_STEPS_ENTITY, TOTAL_STEPS_INDIVIDUAL);
-          if (step >= 1 && step <= maxSteps) {
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("step", step.toString());
-            router.replace(`${pathname}?${params.toString()}`);
-          }
-        }
-      } catch (error) {
-        console.error("Error loading from localStorage:", error);
-      } finally {
-        setIsLoaded(true);
-      }
+    if (editMode && existingOnboarding) {
+      const converted = convertExistingToInvestorData(existingOnboarding);
+      setInvestorData(converted);
+      setIsLoaded(true);
+      setHasRestoredStep(true); // Skip step restoration in edit mode
+    } else if (!editMode) {
+      setIsLoaded(true);
     }
-  }, [editMode, existingOnboarding]); // Only run on mount or when edit mode changes
+  }, [
+    editMode,
+    existingOnboarding,
+    convertExistingToInvestorData,
+    setInvestorData,
+  ]);
 
-  // Save investor data to localStorage whenever it changes (skip in edit mode)
+  // Restore step from localStorage only on initial load (only in normal mode)
+  // This should only run once when the component first loads, not on every step change
   useEffect(() => {
     if (
-      !editMode &&
-      isLoaded &&
-      typeof window !== "undefined" &&
-      Object.keys(investorData).length > 0
-    ) {
-      try {
-        localStorage.setItem(
-          STORAGE_KEY_INVESTOR_DATA,
-          JSON.stringify(investorData)
-        );
-      } catch (error) {
-        console.error("Error saving to localStorage:", error);
+      editMode ||
+      typeof window === "undefined" ||
+      !isLoaded ||
+      hasRestoredStep
+    )
+      return;
+
+    try {
+      const savedStep = getCachedLocalStorage(STORAGE_KEY_STEP);
+      if (savedStep) {
+        const step = Number.parseInt(savedStep);
+        const maxSteps = Math.max(TOTAL_STEPS_ENTITY, TOTAL_STEPS_INDIVIDUAL);
+        // Only restore if URL doesn't have a step param or if saved step is different
+        // and we haven't restored yet
+        const urlStep = searchParams.get("step");
+        if (
+          !urlStep ||
+          (step >= 1 && step <= maxSteps && step !== currentStep)
+        ) {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("step", step.toString());
+          router.replace(`${pathname}?${params.toString()}`);
+          setHasRestoredStep(true);
+        } else {
+          setHasRestoredStep(true);
+        }
+      } else {
+        setHasRestoredStep(true);
       }
+    } catch (error) {
+      console.error("Error restoring step:", error);
+      setHasRestoredStep(true);
     }
-  }, [investorData, isLoaded, editMode]);
+  }, [
+    editMode,
+    isLoaded,
+    hasRestoredStep,
+    currentStep,
+    pathname,
+    router,
+    searchParams,
+  ]);
 
   // Save current step to localStorage (skip in edit mode)
+  // Note: investorData is handled by useOnboardingDataStorage hook
   useEffect(() => {
     if (!editMode && isLoaded && typeof window !== "undefined") {
       try {
-        localStorage.setItem(STORAGE_KEY_STEP, currentStep.toString());
+        setCachedLocalStorage(STORAGE_KEY_STEP, currentStep.toString());
       } catch (error) {
         console.error("Error saving step to localStorage:", error);
       }
@@ -537,14 +666,8 @@ export function OnboardingFlow({
     }
   }, [currentStep, router, pathname, searchParams, totalSteps]);
 
-  const clearLocalStorage = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(STORAGE_KEY_INVESTOR_DATA);
-      localStorage.removeItem(STORAGE_KEY_STEP);
-    }
-  };
-
-  const handleReset = () => {
+  // Memoize callbacks to prevent unnecessary re-renders (re-render optimization 5.5)
+  const handleReset = useCallback(() => {
     if (
       confirm(
         "Are you sure you want to reset the form? All your progress will be lost."
@@ -555,284 +678,255 @@ export function OnboardingFlow({
       clearLocalStorage();
       router.replace("/onboarding?step=1");
     }
-  };
+  }, [setInvestorData, clearLocalStorage, router]);
 
-  const navigateToStep = (step: number) => {
-    startNavigation(() => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("step", step.toString());
-      router.push(`${pathname}?${params.toString()}`);
-    });
-  };
-
-  const handleInvestorSubmit = (data: InvestorData) => {
-    if (readOnly) return;
-    startNavigation(() => {
-      // Merge with any existing data so each step adds to the full picture
-      setInvestorData((prev) => ({
-        ...prev,
-        ...data,
-      }));
-      const params = new URLSearchParams(searchParams.toString());
-      const nextStep = Math.min(currentStep + 1, totalSteps);
-      params.set("step", nextStep.toString());
-      router.push(`${pathname}?${params.toString()}`);
-    });
-  };
-
-  const handleKycSubmit = async (data: KycData) => {
-    if (readOnly) return;
-    // Save KYC data and move to next step (no network call yet)
-    startNavigation(() => {
-      setKycData(data);
-      const params = new URLSearchParams(searchParams.toString());
-      const nextStep = Math.min(currentStep + 1, totalSteps);
-      params.set("step", nextStep.toString());
-      router.push(`${pathname}?${params.toString()}`);
-    });
-  };
-
-  const handleFinalSubmit = async (
-    overrideInvestor?: Partial<InvestorData>
-  ) => {
-    if (readOnly) return;
-
-    try {
-      // Convert files to base64
-      const filesToProcess: Array<{
-        documentType: string;
-        name: string;
-        type: string;
-        size: number;
-        buffer: string; // base64 encoded
-      }> = [];
-
-      for (const [key, value] of Object.entries(kycData)) {
-        if (value instanceof File) {
-          const arrayBuffer = await value.arrayBuffer();
-
-          // Convert ArrayBuffer to base64 (browser-compatible)
-          const bytes = new Uint8Array(arrayBuffer);
-          const binary = bytes.reduce(
-            (acc, byte) => acc + String.fromCharCode(byte),
-            ""
-          );
-          const base64Buffer = btoa(binary);
-
-          filesToProcess.push({
-            documentType: key,
-            name: value.name,
-            type: value.type,
-            size: value.size,
-            buffer: base64Buffer,
-          });
+  const navigateToStep = useCallback(
+    (step: number) => {
+      // Update localStorage immediately when user clicks a step header
+      // This prevents the restore effect from interfering
+      if (!editMode && typeof window !== "undefined") {
+        try {
+          setCachedLocalStorage(STORAGE_KEY_STEP, step.toString());
+        } catch (error) {
+          console.error("Error saving step to localStorage:", error);
         }
       }
 
-      // Merge all investor data
-      const mergedData = {
-        ...investorData,
-        ...overrideInvestor,
-      };
-
-      // Validate that all required fields are present
-      const requiredFields: (keyof InvestorData)[] = [
-        "organizationName",
-        "primaryContactName",
-        "primaryContactEmail",
-        "primaryContactPhone",
-        "capitalProviderType",
-        "investorType",
-        "openToEmergingSponsor",
-        "priorDealAttribution",
-        "ndaPreference",
-        "timingToLOI",
-        "timingToCommitment",
-        "economicsDescription",
-        "preferredRole",
-        "provideSupportLetter",
-        "joinBrokerConversations",
-        "supportLetterStages",
-        "receiveUpdates",
-        "equityCheckSize",
-        "preferredOwnership",
-        "transactionTypes",
-        "revenueCharacteristics",
-        "assetProfile",
-        "sectorsOfInterest",
-      ];
-
-      const missingFields: string[] = [];
-      for (const field of requiredFields) {
-        const value = mergedData[field];
-        if (
-          value === undefined ||
-          value === null ||
-          (typeof value === "string" && value.trim() === "") ||
-          (Array.isArray(value) && value.length === 0)
-        ) {
-          missingFields.push(field);
-        }
-      }
-
-      if (missingFields.length > 0) {
-        alert(
-          `Please complete all required fields before submitting. Missing: ${missingFields.join(", ")}`
-        );
-        // Navigate to the first step with missing data
-        if (
-          missingFields.some((f) =>
-            [
-              "organizationName",
-              "primaryContactName",
-              "primaryContactEmail",
-              "primaryContactPhone",
-              "capitalProviderType",
-              "investorType",
-            ].includes(f)
-          )
-        ) {
-          const params = new URLSearchParams(searchParams.toString());
-          params.set("step", "1");
-          router.push(`${pathname}?${params.toString()}`);
-        } else if (
-          missingFields.some((f) =>
-            [
-              "openToEmergingSponsor",
-              "priorDealAttribution",
-              "ndaPreference",
-              "accreditationStatus",
-              "accreditationMethod",
-            ].includes(f)
-          )
-        ) {
-          const params = new URLSearchParams(searchParams.toString());
-          params.set("step", "2");
-          router.push(`${pathname}?${params.toString()}`);
-        } else {
-          const params = new URLSearchParams(searchParams.toString());
-          params.set("step", "4");
-          router.push(`${pathname}?${params.toString()}`);
-        }
-        return;
-      }
-
-      // Ensure all fields have default values for optional ones and required fields are present
-      const fullInvestorData: InvestorData = {
-        // ======= COMPLIANCE GOVERNANCE FIELDS =======
-        // KYC1: Legal Entity Type
-        legalEntityType: mergedData.legalEntityType,
-
-        // KYC2: Individual-specific compliance fields
-        pepStatus: mergedData.pepStatus,
-        pepDetails: mergedData.pepDetails ?? "",
-        sourceOfWealthNarrative: mergedData.sourceOfWealthNarrative ?? "",
-
-        // KYC7: Mandatory attestations
-        accuracyAttestation: mergedData.accuracyAttestation,
-        sanctionsDeclaration: mergedData.sanctionsDeclaration,
-        dataConsent: mergedData.dataConsent,
-
-        // Entity compliance (UBOs and Signatories)
-        beneficialOwners: mergedData.beneficialOwners,
-        authorizedSignatories: mergedData.authorizedSignatories,
-
-        // ======= ORIGINAL FIELDS =======
-        // Required fields - these should be validated above
-        organizationName: mergedData.organizationName ?? "",
-        primaryContactName: mergedData.primaryContactName ?? "",
-        primaryContactEmail: mergedData.primaryContactEmail ?? "",
-        primaryContactPhone: mergedData.primaryContactPhone ?? "",
-        capitalProviderType: mergedData.capitalProviderType ?? "",
-        investorType: mergedData.investorType ?? "",
-        openToEmergingSponsor: mergedData.openToEmergingSponsor ?? "",
-        priorDealAttribution: mergedData.priorDealAttribution ?? "",
-        ndaPreference: mergedData.ndaPreference ?? "",
-        timingToLOI: mergedData.timingToLOI ?? "",
-        timingToCommitment: mergedData.timingToCommitment ?? "",
-        economicsDescription: mergedData.economicsDescription ?? "",
-        preferredRole: mergedData.preferredRole ?? "",
-        provideSupportLetter: mergedData.provideSupportLetter ?? "",
-        joinBrokerConversations: mergedData.joinBrokerConversations ?? "",
-        supportLetterStages: mergedData.supportLetterStages ?? [],
-        receiveUpdates: mergedData.receiveUpdates ?? "",
-        equityCheckSize: mergedData.equityCheckSize ?? "",
-        preferredOwnership: mergedData.preferredOwnership ?? "",
-        transactionTypes: mergedData.transactionTypes ?? [],
-        revenueCharacteristics: mergedData.revenueCharacteristics ?? "",
-        assetProfile: mergedData.assetProfile ?? "",
-        sectorsOfInterest: mergedData.sectorsOfInterest ?? "",
-
-        // Optional fields with defaults
-        primaryContactTitle: mergedData.primaryContactTitle ?? "",
-        geographicFocus: mergedData.geographicFocus ?? "",
-        accreditationStatus: mergedData.accreditationStatus,
-        accreditationMethod: mergedData.accreditationMethod,
-        entityTaxId: mergedData.entityTaxId,
-        entitySignatoryName: mergedData.entitySignatoryName,
-        entitySignatoryTitle: mergedData.entitySignatoryTitle,
-        minimumRequirements: mergedData.minimumRequirements ?? "",
-        priorDealAttributionExplanation:
-          mergedData.priorDealAttributionExplanation ?? "",
-        ndaLimitations: mergedData.ndaLimitations ?? "",
-        timingDrivers: mergedData.timingDrivers ?? "",
-        governanceExpectations: mergedData.governanceExpectations ?? "",
-        updateFrequency: mergedData.updateFrequency ?? "",
-        updateFormat: mergedData.updateFormat ?? [],
-        industryPreferences: mergedData.industryPreferences ?? "",
-        enterpriseValueRange: mergedData.enterpriseValueRange ?? "",
-        ebitdaRange: mergedData.ebitdaRange ?? "",
-        typicalHoldPeriod: mergedData.typicalHoldPeriod ?? "",
-        leverageTolerance: mergedData.leverageTolerance ?? "",
-        customerConcentration: mergedData.customerConcentration ?? "",
-        marginsAndCashFlow: mergedData.marginsAndCashFlow ?? "",
-        managementInvolvement: mergedData.managementInvolvement ?? "",
-        sectorsToAvoid: mergedData.sectorsToAvoid ?? "",
-        dealSizeThresholds: mergedData.dealSizeThresholds ?? "",
-        specificThemes: mergedData.specificThemes ?? "",
-        legalDocumentsAcknowledged: mergedData.legalDocumentsAcknowledged,
-        electronicSignatureName: mergedData.electronicSignatureName,
-        electronicSignatureDate: mergedData.electronicSignatureDate,
-      };
-
-      console.log("fullInvestorData", fullInvestorData);
-
-      // In edit mode, call updateOnboarding instead of submit
-      if (editMode) {
-        // Convert InvestorData to update schema format (only send changed/filled fields)
-        const updateData: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(fullInvestorData)) {
-          // Skip arrays and complex objects that aren't in the update schema
-          if (key === "beneficialOwners" || key === "authorizedSignatories") {
-            continue;
-          }
-          if (value !== undefined && value !== null) {
-            updateData[key] = value;
-          }
-        }
-
-        updateOnboarding(
-          updateData as Parameters<typeof updateOnboarding>[0]
-        );
-        return;
-      }
-
-      // Submit via tRPC (new onboarding)
-      submitOnboarding({
-        investorData: fullInvestorData,
-        files: filesToProcess,
+      startNavigation(() => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("step", step.toString());
+        router.push(`${pathname}?${params.toString()}`);
       });
-    } catch (error) {
-      console.error("Submission error:", error);
-      alert(
-        error instanceof Error
-          ? `Failed to submit: ${error.message}`
-          : "Failed to submit onboarding data. Please try again."
-      );
-    }
-  };
+    },
+    [searchParams, pathname, router, editMode]
+  );
 
-  const handleBack = () => {
+  const handleInvestorSubmit = useCallback(
+    (data: InvestorData) => {
+      if (readOnly) return;
+      startNavigation(() => {
+        // Functional setState to prevent stale closures (best practice 5.5)
+        setInvestorData((prev) => ({
+          ...prev,
+          ...data,
+        }));
+        const params = new URLSearchParams(searchParams.toString());
+        const nextStep = Math.min(currentStep + 1, totalSteps);
+        params.set("step", nextStep.toString());
+        router.push(`${pathname}?${params.toString()}`);
+      });
+    },
+    [
+      readOnly,
+      currentStep,
+      totalSteps,
+      searchParams,
+      pathname,
+      router,
+      setInvestorData,
+    ]
+  );
+
+  const handleKycSubmit = useCallback(
+    async (data: KycData) => {
+      if (readOnly) return;
+      // Save KYC data and move to next step (no network call yet)
+      startNavigation(() => {
+        setKycData(data);
+        const params = new URLSearchParams(searchParams.toString());
+        const nextStep = Math.min(currentStep + 1, totalSteps);
+        params.set("step", nextStep.toString());
+        router.push(`${pathname}?${params.toString()}`);
+      });
+    },
+    [readOnly, currentStep, totalSteps, searchParams, pathname, router]
+  );
+
+  const handleFinalSubmit = useCallback(
+    async (overrideInvestor?: Partial<InvestorData>) => {
+      if (readOnly) return;
+
+      try {
+        // Convert files to base64 in parallel (best practice 1.4)
+        const filesToProcess = await convertFilesToBase64(kycData);
+
+        // Merge all investor data using functional setState pattern
+        const mergedData = {
+          ...investorData,
+          ...overrideInvestor,
+        };
+
+        // Validate that all required fields are present
+        // Use hoisted REQUIRED_FIELDS array (rendering optimization 6.3)
+        const missingFields: string[] = [];
+        // Cache array length check (JS performance 7.6)
+        const requiredFieldsLength = REQUIRED_FIELDS.length;
+        for (let i = 0; i < requiredFieldsLength; i++) {
+          const field = REQUIRED_FIELDS[i];
+          const value = mergedData[field];
+          if (
+            value === undefined ||
+            value === null ||
+            (typeof value === "string" && value.trim() === "") ||
+            (Array.isArray(value) && value.length === 0)
+          ) {
+            missingFields.push(field);
+          }
+        }
+
+        if (missingFields.length > 0) {
+          toast.error(
+            `Please complete all required fields before submitting. Missing: ${missingFields.join(", ")}`
+          );
+          // Navigate to the first step with missing data
+          // Use hoisted Sets for O(1) lookups (best practice 7.11)
+          const params = new URLSearchParams(searchParams.toString());
+          // Early exit optimization (JS performance 7.7)
+          if (missingFields.some((f) => STEP1_FIELDS.has(f))) {
+            params.set("step", "1");
+          } else if (missingFields.some((f) => STEP2_FIELDS.has(f))) {
+            params.set("step", "2");
+          } else {
+            params.set("step", "4");
+          }
+          router.push(`${pathname}?${params.toString()}`);
+          return;
+        }
+
+        // Ensure all fields have default values for optional ones and required fields are present
+        const fullInvestorData: InvestorData = {
+          // ======= COMPLIANCE GOVERNANCE FIELDS =======
+          // KYC1: Legal Entity Type
+          legalEntityType: mergedData.legalEntityType,
+
+          // KYC2: Individual-specific compliance fields
+          pepStatus: mergedData.pepStatus,
+          pepDetails: mergedData.pepDetails ?? "",
+          sourceOfWealthNarrative: mergedData.sourceOfWealthNarrative ?? "",
+
+          // KYC7: Mandatory attestations
+          accuracyAttestation: mergedData.accuracyAttestation,
+          sanctionsDeclaration: mergedData.sanctionsDeclaration,
+          dataConsent: mergedData.dataConsent,
+
+          // Entity compliance (UBOs and Signatories)
+          beneficialOwners: mergedData.beneficialOwners,
+          authorizedSignatories: mergedData.authorizedSignatories,
+
+          // ======= ORIGINAL FIELDS =======
+          // Required fields - these should be validated above
+          organizationName: mergedData.organizationName ?? "",
+          primaryContactName: mergedData.primaryContactName ?? "",
+          primaryContactEmail: mergedData.primaryContactEmail ?? "",
+          primaryContactPhone: mergedData.primaryContactPhone ?? "",
+          capitalProviderType: mergedData.capitalProviderType ?? "",
+          investorType: mergedData.investorType ?? "",
+          openToEmergingSponsor: mergedData.openToEmergingSponsor ?? "",
+          priorDealAttribution: mergedData.priorDealAttribution ?? "",
+          ndaPreference: mergedData.ndaPreference ?? "",
+          timingToLOI: mergedData.timingToLOI ?? "",
+          timingToCommitment: mergedData.timingToCommitment ?? "",
+          economicsDescription: mergedData.economicsDescription ?? "",
+          preferredRole: mergedData.preferredRole ?? "",
+          provideSupportLetter: mergedData.provideSupportLetter ?? "",
+          joinBrokerConversations: mergedData.joinBrokerConversations ?? "",
+          supportLetterStages: mergedData.supportLetterStages ?? [],
+          receiveUpdates: mergedData.receiveUpdates ?? "",
+          equityCheckSize: mergedData.equityCheckSize ?? "",
+          preferredOwnership: mergedData.preferredOwnership ?? "",
+          transactionTypes: mergedData.transactionTypes ?? [],
+          revenueCharacteristics: mergedData.revenueCharacteristics ?? "",
+          assetProfile: mergedData.assetProfile ?? "",
+          sectorsOfInterest: mergedData.sectorsOfInterest ?? "",
+
+          // Optional fields with defaults
+          primaryContactTitle: mergedData.primaryContactTitle ?? "",
+          geographicFocus: mergedData.geographicFocus ?? "",
+          accreditationStatus: mergedData.accreditationStatus,
+          accreditationMethod: mergedData.accreditationMethod,
+          entityTaxId: mergedData.entityTaxId,
+          entitySignatoryName: mergedData.entitySignatoryName,
+          entitySignatoryTitle: mergedData.entitySignatoryTitle,
+          minimumRequirements: mergedData.minimumRequirements ?? "",
+          priorDealAttributionExplanation:
+            mergedData.priorDealAttributionExplanation ?? "",
+          ndaLimitations: mergedData.ndaLimitations ?? "",
+          timingDrivers: mergedData.timingDrivers ?? "",
+          governanceExpectations: mergedData.governanceExpectations ?? "",
+          updateFrequency: mergedData.updateFrequency ?? "",
+          updateFormat: mergedData.updateFormat ?? [],
+          industryPreferences: mergedData.industryPreferences ?? "",
+          enterpriseValueRange: mergedData.enterpriseValueRange ?? "",
+          ebitdaRange: mergedData.ebitdaRange ?? "",
+          typicalHoldPeriod: mergedData.typicalHoldPeriod ?? "",
+          leverageTolerance: mergedData.leverageTolerance ?? "",
+          customerConcentration: mergedData.customerConcentration ?? "",
+          marginsAndCashFlow: mergedData.marginsAndCashFlow ?? "",
+          managementInvolvement: mergedData.managementInvolvement ?? "",
+          sectorsToAvoid: mergedData.sectorsToAvoid ?? "",
+          dealSizeThresholds: mergedData.dealSizeThresholds ?? "",
+          specificThemes: mergedData.specificThemes ?? "",
+          legalDocumentsAcknowledged: mergedData.legalDocumentsAcknowledged,
+          electronicSignatureName: mergedData.electronicSignatureName,
+          electronicSignatureDate: mergedData.electronicSignatureDate,
+        };
+
+        console.log("fullInvestorData", fullInvestorData);
+
+        // In edit mode, call updateOnboarding instead of submit
+        if (editMode) {
+          // Convert InvestorData to update schema format (only send changed/filled fields)
+          // Use hoisted SKIP_FIELDS Set for O(1) lookups (best practice 7.11)
+          const updateData: Record<string, unknown> = {};
+          // Cache object entries iteration (JS performance 7.2)
+          const entries = Object.entries(fullInvestorData);
+          const entriesLength = entries.length;
+          for (let i = 0; i < entriesLength; i++) {
+            const [key, value] = entries[i];
+            if (SKIP_FIELDS.has(key)) continue;
+            if (value !== undefined && value !== null) {
+              updateData[key] = value;
+            }
+          }
+
+          updateOnboarding(
+            updateData as Parameters<typeof updateOnboarding>[0]
+          );
+          return;
+        }
+
+        // Submit via tRPC (new onboarding)
+        submitOnboarding({
+          investorData: fullInvestorData,
+          files: filesToProcess,
+        });
+      } catch (error) {
+        console.error("Submission error:", error);
+        toast.error(
+          error instanceof Error
+            ? `Failed to submit: ${error.message}`
+            : "Failed to submit onboarding data. Please try again."
+        );
+      }
+    },
+    [
+      readOnly,
+      kycData,
+      investorData,
+      editMode,
+      searchParams,
+      pathname,
+      router,
+      updateOnboarding,
+      submitOnboarding,
+      REQUIRED_FIELDS,
+      STEP1_FIELDS,
+      STEP2_FIELDS,
+      SKIP_FIELDS,
+    ]
+  );
+
+  const handleBack = useCallback(() => {
     if (currentStep > 1) {
       startNavigation(() => {
         const params = new URLSearchParams(searchParams.toString());
@@ -840,7 +934,7 @@ export function OnboardingFlow({
         router.push(`${pathname}?${params.toString()}`);
       });
     }
-  };
+  }, [currentStep, searchParams, pathname, router]);
 
   if (isComplete) {
     // In edit mode, show a different completion screen
@@ -863,7 +957,9 @@ export function OnboardingFlow({
                 />
               </svg>
             </div>
-            <h1 className="text-2xl font-semibold">Changes Saved Successfully</h1>
+            <h1 className="text-2xl font-semibold">
+              Changes Saved Successfully
+            </h1>
             <p className="text-muted-foreground">
               Your onboarding information has been updated.
             </p>
@@ -1132,7 +1228,9 @@ export function OnboardingFlow({
           {currentStep === 6 && !isEntityInvestor && editMode && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-2xl font-bold mb-2">Review & Save Changes</h2>
+                <h2 className="text-2xl font-bold mb-2">
+                  Review & Save Changes
+                </h2>
                 <p className="text-sm text-muted-foreground">
                   Review your changes and save them to update your onboarding
                   information.
@@ -1301,7 +1399,7 @@ export function OnboardingFlow({
                       electronicSignatureName: result.data.name,
                       electronicSignatureDate: result.data.date,
                     };
-                    handleFinalSubmit(override);
+                    void handleFinalSubmit(override);
                   }}
                 >
                   {isSubmittingOnboarding ? "Submitting..." : "Submit & Finish"}
@@ -1315,7 +1413,9 @@ export function OnboardingFlow({
           {currentStep === 7 && isEntityInvestor && editMode && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-2xl font-bold mb-2">Review & Save Changes</h2>
+                <h2 className="text-2xl font-bold mb-2">
+                  Review & Save Changes
+                </h2>
                 <p className="text-sm text-muted-foreground">
                   Review your changes and save them to update your onboarding
                   information.
@@ -1484,7 +1584,7 @@ export function OnboardingFlow({
                       electronicSignatureName: result.data.name,
                       electronicSignatureDate: result.data.date,
                     };
-                    handleFinalSubmit(override);
+                    void handleFinalSubmit(override);
                   }}
                 >
                   {isSubmittingOnboarding ? "Submitting..." : "Submit & Finish"}

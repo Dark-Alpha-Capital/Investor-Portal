@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { InvestorData } from "../onboarding-flow";
 import { AlertCircle, ArrowRight } from "lucide-react";
+
+// Hoist static arrays (rendering optimization 6.3, JS performance 7.1)
+const EMERGING_SPONSOR_OPTIONS = ["yes", "no", "case-by-case"] as const;
+const PRIOR_DEAL_OPTIONS = ["yes", "no", "somewhat"] as const;
+const NDA_OPTIONS = ["general", "deal-by-deal", "other"] as const;
 
 type Step2AccreditationProps = {
   initialData: Partial<InvestorData>;
@@ -75,73 +80,94 @@ export function Step2Accreditation({
   const [formData, setFormData] = useState<Partial<InvestorData>>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const updateField = (field: keyof InvestorData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }));
-    }
-  };
+  // Memoize updateField callback (re-render optimization 5.5)
+  const updateField = useCallback(
+    (field: keyof InvestorData, value: string) => {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+      setErrors((prev) => {
+        // Early exit if no error to clear (JS performance 7.7)
+        if (!prev[field]) return prev;
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    },
+    []
+  );
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const result = step2Schema.safeParse(formData);
+  // Memoize scroll to error function (re-render optimization 5.2)
+  const scrollToError = useCallback((firstErrorKey: string) => {
+    setTimeout(() => {
+      let targetElement: HTMLElement | null = document.querySelector(
+        `[data-field="${firstErrorKey}"]`
+      ) as HTMLElement;
 
-    if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
-      for (const issue of result.error.issues) {
-        const field = issue.path[0];
-        if (typeof field === "string" && !fieldErrors[field]) {
-          fieldErrors[field] = issue.message;
+      if (!targetElement) {
+        targetElement = document.getElementById(firstErrorKey) as HTMLElement;
+      }
+
+      if (!targetElement) {
+        targetElement = document.querySelector(
+          `[name="${firstErrorKey}"]`
+        ) as HTMLElement;
+      }
+
+      if (!targetElement) {
+        const errorMessage = document.querySelector(
+          `[data-error-for="${firstErrorKey}"]`
+        ) as HTMLElement;
+        if (errorMessage) {
+          const container = errorMessage.closest(
+            ".space-y-4, .space-y-2"
+          ) as HTMLElement;
+          targetElement = container || errorMessage;
         }
       }
-      setErrors(fieldErrors);
 
-      // Scroll to first error
-      const firstErrorKey = Object.keys(fieldErrors)[0];
-      if (firstErrorKey) {
-        setTimeout(() => {
-          let targetElement: HTMLElement | null = document.querySelector(
-            `[data-field="${firstErrorKey}"]`
-          ) as HTMLElement;
+      if (targetElement) {
+        targetElement.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 100);
+  }, []);
 
-          if (!targetElement) {
-            targetElement = document.getElementById(firstErrorKey) as HTMLElement;
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const result = step2Schema.safeParse(formData);
+
+      if (!result.success) {
+        const fieldErrors: Record<string, string> = {};
+        // Cache issues array length (JS performance 7.6)
+        const issues = result.error.issues;
+        const issuesLength = issues.length;
+        for (let i = 0; i < issuesLength; i++) {
+          const issue = issues[i];
+          const field = issue.path[0];
+          // Early exit if already has error (JS performance 7.7)
+          if (typeof field === "string" && !fieldErrors[field]) {
+            fieldErrors[field] = issue.message;
           }
+        }
+        setErrors(fieldErrors);
 
-          if (!targetElement) {
-            targetElement = document.querySelector(
-              `[name="${firstErrorKey}"]`
-            ) as HTMLElement;
-          }
+        // Scroll to first error
+        const firstErrorKey = Object.keys(fieldErrors)[0];
+        if (firstErrorKey) {
+          scrollToError(firstErrorKey);
+        }
 
-          if (!targetElement) {
-            const errorMessage = document.querySelector(
-              `[data-error-for="${firstErrorKey}"]`
-            ) as HTMLElement;
-            if (errorMessage) {
-              const container = errorMessage.closest(
-                ".space-y-4, .space-y-2"
-              ) as HTMLElement;
-              targetElement = container || errorMessage;
-            }
-          }
-
-          if (targetElement) {
-            targetElement.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-            });
-          } else {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }
-        }, 100);
+        return;
       }
 
-      return;
-    }
-
-    onSubmit(result.data as InvestorData);
-  };
+      onSubmit(result.data as InvestorData);
+    },
+    [formData, onSubmit, scrollToError]
+  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -177,33 +203,17 @@ export function Step2Accreditation({
                 : ""
             }
           >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="yes" id="sponsor-yes" />
-              <Label
-                htmlFor="sponsor-yes"
-                className="font-normal cursor-pointer"
-              >
-                Yes
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="no" id="sponsor-no" />
-              <Label
-                htmlFor="sponsor-no"
-                className="font-normal cursor-pointer"
-              >
-                No
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="case-by-case" id="sponsor-case" />
-              <Label
-                htmlFor="sponsor-case"
-                className="font-normal cursor-pointer"
-              >
-                Case-by-case
-              </Label>
-            </div>
+            {EMERGING_SPONSOR_OPTIONS.map((option) => (
+              <div key={option} className="flex items-center space-x-2">
+                <RadioGroupItem value={option} id={`sponsor-${option}`} />
+                <Label
+                  htmlFor={`sponsor-${option}`}
+                  className="font-normal cursor-pointer"
+                >
+                  {option === "case-by-case" ? "Case-by-case" : option.charAt(0).toUpperCase() + option.slice(1)}
+                </Label>
+              </div>
+            ))}
           </RadioGroup>
           {errors.openToEmergingSponsor && (
             <p className="text-destructive text-sm flex items-center gap-1">
@@ -242,33 +252,17 @@ export function Step2Accreditation({
                 : ""
             }
           >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="yes" id="attribution-yes" />
-              <Label
-                htmlFor="attribution-yes"
-                className="font-normal cursor-pointer"
-              >
-                Yes
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="no" id="attribution-no" />
-              <Label
-                htmlFor="attribution-no"
-                className="font-normal cursor-pointer"
-              >
-                No
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="somewhat" id="attribution-somewhat" />
-              <Label
-                htmlFor="attribution-somewhat"
-                className="font-normal cursor-pointer"
-              >
-                Somewhat
-              </Label>
-            </div>
+            {PRIOR_DEAL_OPTIONS.map((option) => (
+              <div key={option} className="flex items-center space-x-2">
+                <RadioGroupItem value={option} id={`attribution-${option}`} />
+                <Label
+                  htmlFor={`attribution-${option}`}
+                  className="font-normal cursor-pointer"
+                >
+                  {option.charAt(0).toUpperCase() + option.slice(1)}
+                </Label>
+              </div>
+            ))}
           </RadioGroup>
           {errors.priorDealAttribution && (
             <p className="text-destructive text-sm flex items-center gap-1">
@@ -314,27 +308,24 @@ export function Step2Accreditation({
                 : ""
             }
           >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="general" id="nda-general" />
-              <Label
-                htmlFor="nda-general"
-                className="font-normal cursor-pointer"
-              >
-                Yes, general NDA is fine
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="deal-by-deal" id="nda-deal" />
-              <Label htmlFor="nda-deal" className="font-normal cursor-pointer">
-                Prefer deal-by-deal NDAs
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="other" id="nda-other" />
-              <Label htmlFor="nda-other" className="font-normal cursor-pointer">
-                Other
-              </Label>
-            </div>
+            {NDA_OPTIONS.map((option) => {
+              const labels: Record<string, string> = {
+                general: "Yes, general NDA is fine",
+                "deal-by-deal": "Prefer deal-by-deal NDAs",
+                other: "Other",
+              };
+              return (
+                <div key={option} className="flex items-center space-x-2">
+                  <RadioGroupItem value={option} id={`nda-${option}`} />
+                  <Label
+                    htmlFor={`nda-${option}`}
+                    className="font-normal cursor-pointer"
+                  >
+                    {labels[option]}
+                  </Label>
+                </div>
+              );
+            })}
           </RadioGroup>
           {errors.ndaPreference && (
             <p className="text-destructive text-sm flex items-center gap-1">

@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,10 +30,10 @@ type Step3EntityComplianceProps = {
   onBack: () => void;
 };
 
-// Generate unique ID
+// Generate unique ID - hoist outside component (JS performance 7.1)
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
-// Default empty UBO
+// Default empty UBO - hoist outside component (rendering optimization 6.3)
 const createEmptyUbo = (): BeneficialOwnerData => ({
   id: generateId(),
   fullName: "",
@@ -53,7 +53,7 @@ const createEmptyUbo = (): BeneficialOwnerData => ({
   pepDetails: "",
 });
 
-// Default empty signatory
+// Default empty signatory - hoist outside component (rendering optimization 6.3)
 const createEmptySignatory = (): AuthorizedSignatoryData => ({
   id: generateId(),
   fullName: "",
@@ -63,6 +63,7 @@ const createEmptySignatory = (): AuthorizedSignatoryData => ({
   authorizationScope: "full",
 });
 
+// Hoist static arrays outside component (rendering optimization 6.3, JS performance 7.1)
 const COUNTRIES = [
   "United States",
   "United Kingdom",
@@ -75,26 +76,26 @@ const COUNTRIES = [
   "Australia",
   "Japan",
   "Other",
-];
+] as const;
 
 const CONTROL_TYPES = [
   { value: "direct", label: "Direct Ownership" },
   { value: "indirect", label: "Indirect Ownership" },
   { value: "voting_rights", label: "Voting Rights" },
   { value: "other", label: "Other Control" },
-];
+] as const;
 
 const ID_DOCUMENT_TYPES = [
   { value: "passport", label: "Passport" },
   { value: "drivers_license", label: "Driver's License" },
   { value: "national_id", label: "National ID Card" },
-];
+] as const;
 
 const AUTHORIZATION_SCOPES = [
   { value: "full", label: "Full Authorization" },
   { value: "limited", label: "Limited Authorization" },
   { value: "specific_transactions", label: "Specific Transactions Only" },
-];
+] as const;
 
 export function Step3EntityCompliance({
   initialData,
@@ -111,99 +112,113 @@ export function Step3EntityCompliance({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // UBO handlers
-  const handleAddUbo = () => {
+  // UBO handlers - memoize callbacks (re-render optimization 5.5)
+  const handleAddUbo = useCallback(() => {
     setBeneficialOwners((prev) => [...prev, createEmptyUbo()]);
-  };
+  }, []);
 
-  const handleRemoveUbo = (index: number) => {
+  const handleRemoveUbo = useCallback((index: number) => {
     setBeneficialOwners((prev) => prev.filter((_, i) => i !== index));
-  };
+  }, []);
 
-  const handleUpdateUbo = (index: number, ubo: BeneficialOwnerData) => {
-    setBeneficialOwners((prev) =>
-      prev.map((item, i) => (i === index ? ubo : item))
-    );
-  };
+  const handleUpdateUbo = useCallback(
+    (index: number, ubo: BeneficialOwnerData) => {
+      setBeneficialOwners((prev) =>
+        prev.map((item, i) => (i === index ? ubo : item))
+      );
+    },
+    []
+  );
 
-  // Signatory handlers
-  const handleAddSignatory = () => {
+  // Signatory handlers - memoize callbacks (re-render optimization 5.5)
+  const handleAddSignatory = useCallback(() => {
     setAuthorizedSignatories((prev) => [...prev, createEmptySignatory()]);
-  };
+  }, []);
 
-  const handleRemoveSignatory = (index: number) => {
+  const handleRemoveSignatory = useCallback((index: number) => {
     setAuthorizedSignatories((prev) => prev.filter((_, i) => i !== index));
-  };
+  }, []);
 
-  const handleUpdateSignatory = (
-    index: number,
-    signatory: AuthorizedSignatoryData
-  ) => {
-    setAuthorizedSignatories((prev) =>
-      prev.map((item, i) => (i === index ? signatory : item))
-    );
-  };
+  const handleUpdateSignatory = useCallback(
+    (index: number, signatory: AuthorizedSignatoryData) => {
+      setAuthorizedSignatories((prev) =>
+        prev.map((item, i) => (i === index ? signatory : item))
+      );
+    },
+    []
+  );
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newErrors: Record<string, string> = {};
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const newErrors: Record<string, string> = {};
 
-    // Validate at least one UBO with 25%+ ownership
-    const validUbos = beneficialOwners.filter(
-      (ubo) => ubo.fullName && ubo.ownershipPercentage >= 25
-    );
-    if (validUbos.length === 0) {
-      newErrors.ubos =
-        "At least one beneficial owner with 25%+ ownership is required";
-    }
-
-    // Validate UBO required fields
-    beneficialOwners.forEach((ubo, index) => {
-      if (!ubo.fullName) {
-        newErrors[`ubo_${index}_fullName`] = "Full name is required";
+      // Validate at least one UBO with 25%+ ownership
+      // Combine filter operations (JS performance 7.5)
+      const beneficialOwnersLength = beneficialOwners.length;
+      let hasValidUbo = false;
+      for (let i = 0; i < beneficialOwnersLength; i++) {
+        const ubo = beneficialOwners[i];
+        // Validate UBO required fields inline (combine iterations 7.5)
+        if (!ubo.fullName) {
+          newErrors[`ubo_${i}_fullName`] = "Full name is required";
+        }
+        if (!ubo.nationality) {
+          newErrors[`ubo_${i}_nationality`] = "Nationality is required";
+        }
+        if (ubo.ownershipPercentage < 25) {
+          newErrors[`ubo_${i}_ownership`] =
+            "Ownership must be 25% or greater";
+        }
+        // Check for valid UBO inline
+        if (ubo.fullName && ubo.ownershipPercentage >= 25) {
+          hasValidUbo = true;
+        }
       }
-      if (!ubo.nationality) {
-        newErrors[`ubo_${index}_nationality`] = "Nationality is required";
+      if (!hasValidUbo) {
+        newErrors.ubos =
+          "At least one beneficial owner with 25%+ ownership is required";
       }
-      if (ubo.ownershipPercentage < 25) {
-        newErrors[`ubo_${index}_ownership`] =
-          "Ownership must be 25% or greater";
+
+      // Validate at least one signatory
+      const authorizedSignatoriesLength = authorizedSignatories.length;
+      if (authorizedSignatoriesLength === 0) {
+        newErrors.signatories = "At least one authorized signatory is required";
       }
-    });
 
-    // Validate at least one signatory
-    if (authorizedSignatories.length === 0) {
-      newErrors.signatories = "At least one authorized signatory is required";
-    }
-
-    // Validate signatory required fields
-    authorizedSignatories.forEach((sig, index) => {
-      if (!sig.fullName) {
-        newErrors[`sig_${index}_fullName`] = "Full name is required";
+      // Validate signatory required fields
+      for (let i = 0; i < authorizedSignatoriesLength; i++) {
+        const sig = authorizedSignatories[i];
+        if (!sig.fullName) {
+          newErrors[`sig_${i}_fullName`] = "Full name is required";
+        }
+        if (!sig.title) {
+          newErrors[`sig_${i}_title`] = "Title is required";
+        }
       }
-      if (!sig.title) {
-        newErrors[`sig_${index}_title`] = "Title is required";
+
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        return;
       }
-    });
 
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
+      setErrors({});
+      onSubmit({
+        ...initialData,
+        beneficialOwners,
+        authorizedSignatories,
+      } as InvestorData);
+    },
+    [beneficialOwners, authorizedSignatories, initialData, onSubmit]
+  );
 
-    setErrors({});
-    onSubmit({
-      ...initialData,
-      beneficialOwners,
-      authorizedSignatories,
-    } as InvestorData);
-  };
-
-  const renderUboItem = (
-    ubo: BeneficialOwnerData,
-    index: number,
-    onUpdate: (item: BeneficialOwnerData) => void
-  ) => (
+  // Memoize render functions (re-render optimization 5.2)
+  const renderUboItem = useCallback(
+    (
+      ubo: BeneficialOwnerData,
+      index: number,
+      onUpdate: (item: BeneficialOwnerData) => void
+    ) => (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
@@ -251,11 +266,14 @@ export function Step3EntityCompliance({
               <SelectValue placeholder="Select country" />
             </SelectTrigger>
             <SelectContent>
-              {COUNTRIES.map((country) => (
-                <SelectItem key={country} value={country.toLowerCase()}>
-                  {country}
-                </SelectItem>
-              ))}
+              {COUNTRIES.map((country) => {
+                const countryLower = country.toLowerCase();
+                return (
+                  <SelectItem key={countryLower} value={countryLower}>
+                    {country}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
@@ -271,11 +289,14 @@ export function Step3EntityCompliance({
               <SelectValue placeholder="Select country" />
             </SelectTrigger>
             <SelectContent>
-              {COUNTRIES.map((country) => (
-                <SelectItem key={country} value={country.toLowerCase()}>
-                  {country}
-                </SelectItem>
-              ))}
+              {COUNTRIES.map((country) => {
+                const countryLower = country.toLowerCase();
+                return (
+                  <SelectItem key={countryLower} value={countryLower}>
+                    {country}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
@@ -384,9 +405,12 @@ export function Step3EntityCompliance({
         )}
       </div>
     </div>
+  ),
+    [errors]
   );
 
-  const renderSignatoryItem = (
+  const renderSignatoryItem = useCallback(
+    (
     signatory: AuthorizedSignatoryData,
     index: number,
     onUpdate: (item: AuthorizedSignatoryData) => void
@@ -465,6 +489,8 @@ export function Step3EntityCompliance({
         </Select>
       </div>
     </div>
+  ),
+    [errors]
   );
 
   return (

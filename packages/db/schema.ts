@@ -120,7 +120,6 @@ export const userRelations = relations(user, ({ many }) => ({
   clearances: many(investorClearance), // Clearance status
   vehiclePermissions: many(vehiclePermission), // Deal-level access
   bankingVerifications: many(bankingVerification), // Banking changes
-  serviceTickets: many(serviceTicket), // Support tickets
   capitalNoticeRecipients: many(capitalNoticeRecipient), // Capital notices
 }));
 
@@ -502,32 +501,6 @@ export const banking_request_type_enum = pgEnum("banking_request_type", [
   "remove", // Remove account
 ]);
 
-// 14. Service ticket status
-export const ticket_status_enum = pgEnum("ticket_status", [
-  "open", // New ticket
-  "in_progress", // Being worked on
-  "pending_user", // Awaiting user response
-  "resolved", // Issue resolved
-  "closed", // Ticket closed
-]);
-
-// 15. Service ticket priority
-export const ticket_priority_enum = pgEnum("ticket_priority", [
-  "low",
-  "medium",
-  "high",
-  "urgent",
-]);
-
-// 16. Ticket category
-export const ticket_category_enum = pgEnum("ticket_category", [
-  "credentials", // Login/password issues
-  "documents", // Document access/questions
-  "profile", // Profile updates
-  "banking", // Banking information
-  "investment", // Investment questions
-  "other", // General inquiries
-]);
 
 // 17. Audit action types
 export const audit_action_enum = pgEnum("audit_action", [
@@ -551,12 +524,6 @@ export const audit_action_enum = pgEnum("audit_action", [
   "login_success",
   "login_failed",
   "session_expired",
-  "ticket_created",
-  "ticket_assigned",
-  "ticket_status_changed",
-  "ticket_commented",
-  "ticket_resolved",
-  "ticket_closed",
 ]);
 
 // --- A. THE DEAL TABLE (Prospective & Active) ---
@@ -1306,81 +1273,6 @@ export const bankingVerification = pgTable(
   ]
 );
 
-// --- SERVICE TICKET (Support Requests) ---
-export const serviceTicket = pgTable(
-  "service_ticket",
-  {
-    id: text("id").primaryKey(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-
-    category: ticket_category_enum("category").notNull(),
-    subject: text("subject").notNull(),
-    description: text("description").notNull(),
-
-    status: ticket_status_enum("status").default("open").notNull(),
-    priority: ticket_priority_enum("priority").default("medium").notNull(),
-
-    // Assignment
-    assignedTo: text("assigned_to").references(() => user.id, {
-      onDelete: "set null",
-    }),
-    assignedAt: timestamp("assigned_at"),
-
-    // Resolution
-    resolvedBy: text("resolved_by").references(() => user.id, {
-      onDelete: "set null",
-    }),
-    resolvedAt: timestamp("resolved_at"),
-    resolution: text("resolution"),
-
-    // Closure
-    closedAt: timestamp("closed_at"),
-    closedBy: text("closed_by").references(() => user.id, {
-      onDelete: "set null",
-    }),
-
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-  (table) => [
-    index("service_ticket_userId_idx").on(table.userId),
-    index("service_ticket_status_idx").on(table.status),
-    index("service_ticket_assignedTo_idx").on(table.assignedTo),
-    index("service_ticket_category_idx").on(table.category),
-  ]
-);
-
-// --- SERVICE TICKET COMMENT ---
-export const serviceTicketComment = pgTable(
-  "service_ticket_comment",
-  {
-    id: text("id").primaryKey(),
-    ticketId: text("ticket_id")
-      .notNull()
-      .references(() => serviceTicket.id, { onDelete: "cascade" }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-
-    content: text("content").notNull(),
-    isInternal: boolean("is_internal").default(false).notNull(), // Internal notes not shown to investor
-
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-  (table) => [
-    index("service_ticket_comment_ticketId_idx").on(table.ticketId),
-    index("service_ticket_comment_userId_idx").on(table.userId),
-  ]
-);
 
 // --- EVIDENCE EXPORT (Retention Tracking) ---
 export const evidenceExport = pgTable(
@@ -1591,35 +1483,6 @@ export const bankingVerificationRelations = relations(
   })
 );
 
-export const serviceTicketRelations = relations(
-  serviceTicket,
-  ({ one, many }) => ({
-    user: one(user, {
-      fields: [serviceTicket.userId],
-      references: [user.id],
-    }),
-    assignedToUser: one(user, {
-      fields: [serviceTicket.assignedTo],
-      references: [user.id],
-      relationName: "assignedToUser",
-    }),
-    comments: many(serviceTicketComment),
-  })
-);
-
-export const serviceTicketCommentRelations = relations(
-  serviceTicketComment,
-  ({ one }) => ({
-    ticket: one(serviceTicket, {
-      fields: [serviceTicketComment.ticketId],
-      references: [serviceTicket.id],
-    }),
-    user: one(user, {
-      fields: [serviceTicketComment.userId],
-      references: [user.id],
-    }),
-  })
-);
 
 export const evidenceExportRelations = relations(evidenceExport, ({ one }) => ({
   exportedByUser: one(user, {

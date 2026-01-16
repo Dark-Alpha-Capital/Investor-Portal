@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,23 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { InvestorData } from "../onboarding-flow";
 import { AlertCircle, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Hoist static arrays outside component (rendering optimization 6.3, JS performance 7.1)
+const CAPITAL_PROVIDER_TYPES = [
+  "Family Office",
+  "PE Fund",
+  "Credit Fund",
+  "Bank",
+  "SBIC",
+  "Other",
+] as const;
+
+const INVESTOR_TYPES = [
+  "Individual investor including HNWI's",
+  "Corporate Entities(LLC's, Corporations)",
+  "Trusts and foundations",
+  "Partnerships or LP's",
+] as const;
 
 type Step1AccountProfileProps = {
   initialData: Partial<InvestorData>;
@@ -55,85 +72,103 @@ export function Step1AccountProfile({
   const [formData, setFormData] = useState<Partial<InvestorData>>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const updateField = (
-    field: keyof InvestorData,
-    value: string | "individual" | "entity"
-  ) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }));
-    }
-  };
+  // Memoize updateField callback (re-render optimization 5.5)
+  const updateField = useCallback(
+    (field: keyof InvestorData, value: string | "individual" | "entity") => {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+      setErrors((prev) => {
+        // Early exit if no error to clear (JS performance 7.7)
+        if (!prev[field]) return prev;
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    },
+    []
+  );
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const result = step1Schema.safeParse(formData);
+  // Memoize scroll to error function (re-render optimization 5.2)
+  const scrollToError = useCallback((firstErrorKey: string) => {
+    setTimeout(() => {
+      // Try to find the element with data-field attribute first (most reliable)
+      let targetElement: HTMLElement | null = document.querySelector(
+        `[data-field="${firstErrorKey}"]`
+      ) as HTMLElement;
 
-    if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
-      for (const issue of result.error.issues) {
-        const field = issue.path[0];
-        if (typeof field === "string" && !fieldErrors[field]) {
-          fieldErrors[field] = issue.message;
+      // Fallback to ID
+      if (!targetElement) {
+        targetElement = document.getElementById(firstErrorKey) as HTMLElement;
+      }
+
+      // Fallback to name attribute
+      if (!targetElement) {
+        targetElement = document.querySelector(
+          `[name="${firstErrorKey}"]`
+        ) as HTMLElement;
+      }
+
+      // Fallback to error message element
+      if (!targetElement) {
+        const errorMessage = document.querySelector(
+          `[data-error-for="${firstErrorKey}"]`
+        ) as HTMLElement;
+        if (errorMessage) {
+          const container = errorMessage.closest(
+            ".space-y-4, .space-y-2"
+          ) as HTMLElement;
+          targetElement = container || errorMessage;
         }
       }
-      setErrors(fieldErrors);
 
-      // Scroll to the first error element
-      const firstErrorKey = Object.keys(fieldErrors)[0];
-      if (firstErrorKey) {
-        setTimeout(() => {
-          // Try to find the element with data-field attribute first (most reliable)
-          let targetElement: HTMLElement | null = document.querySelector(
-            `[data-field="${firstErrorKey}"]`
-          ) as HTMLElement;
+      if (targetElement) {
+        targetElement.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+        // Try to focus the element if it's focusable
+        if (targetElement.focus) {
+          targetElement.focus();
+        }
+      } else {
+        // If no element found, scroll to top of form where errors might be
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 100);
+  }, []);
 
-          // Fallback to ID
-          if (!targetElement) {
-            targetElement = document.getElementById(firstErrorKey) as HTMLElement;
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const result = step1Schema.safeParse(formData);
+
+      if (!result.success) {
+        const fieldErrors: Record<string, string> = {};
+        // Cache issues array length (JS performance 7.6)
+        const issues = result.error.issues;
+        const issuesLength = issues.length;
+        for (let i = 0; i < issuesLength; i++) {
+          const issue = issues[i];
+          const field = issue.path[0];
+          // Early exit if already has error (JS performance 7.7)
+          if (typeof field === "string" && !fieldErrors[field]) {
+            fieldErrors[field] = issue.message;
           }
+        }
+        setErrors(fieldErrors);
 
-          // Fallback to name attribute
-          if (!targetElement) {
-            targetElement = document.querySelector(
-              `[name="${firstErrorKey}"]`
-            ) as HTMLElement;
-          }
+        // Scroll to the first error element
+        const firstErrorKey = Object.keys(fieldErrors)[0];
+        if (firstErrorKey) {
+          scrollToError(firstErrorKey);
+        }
 
-          // Fallback to error message element
-          if (!targetElement) {
-            const errorMessage = document.querySelector(
-              `[data-error-for="${firstErrorKey}"]`
-            ) as HTMLElement;
-            if (errorMessage) {
-              const container = errorMessage.closest(
-                ".space-y-4, .space-y-2"
-              ) as HTMLElement;
-              targetElement = container || errorMessage;
-            }
-          }
-
-          if (targetElement) {
-            targetElement.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-            });
-            // Try to focus the element if it's focusable
-            if (targetElement.focus) {
-              targetElement.focus();
-            }
-          } else {
-            // If no element found, scroll to top of form where errors might be
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }
-        }, 100);
+        return;
       }
 
-      return;
-    }
-
-    onSubmit(result.data as InvestorData);
-  };
+      onSubmit(result.data as InvestorData);
+    },
+    [formData, onSubmit, scrollToError]
+  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -350,14 +385,7 @@ export function Step1AccountProfile({
                 : ""
             }
           >
-            {[
-              "Family Office",
-              "PE Fund",
-              "Credit Fund",
-              "Bank",
-              "SBIC",
-              "Other",
-            ].map((type) => (
+            {CAPITAL_PROVIDER_TYPES.map((type) => (
               <div key={type} className="flex items-center space-x-2">
                 <RadioGroupItem
                   value={type.toLowerCase().replace(" ", "-")}
@@ -390,12 +418,7 @@ export function Step1AccountProfile({
                 : ""
             }
           >
-            {[
-              "Individual investor including HNWI's",
-              "Corporate Entities(LLC's, Corporations)",
-              "Trusts and foundations",
-              "Partnerships or LP's",
-            ].map((type) => (
+            {INVESTOR_TYPES.map((type) => (
               <div key={type} className="flex items-center space-x-2">
                 <RadioGroupItem
                   value={type

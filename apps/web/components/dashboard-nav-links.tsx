@@ -6,8 +6,6 @@ import {
   User,
   Briefcase,
   UserCheck,
-  LifeBuoy,
-  Ticket,
 } from "lucide-react";
 
 import {

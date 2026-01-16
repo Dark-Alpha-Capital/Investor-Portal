@@ -50,6 +50,13 @@ const clearanceStatusSchema = z.enum([
   "rejected",
 ]);
 
+// Helper function to check if clearance status is cleared
+const isClearedStatus = (
+  status: string
+): status is "cleared" | "cleared_with_conditions" => {
+  return status === "cleared" || status === "cleared_with_conditions";
+};
+
 export const complianceRouter = createTRPCRouter({
   /**
    * Get investors pending compliance review
@@ -401,7 +408,10 @@ export const complianceRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const session = await getSession();
+      // Start session check early
+      const sessionPromise = getSession();
+      const session = await sessionPromise;
+
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
           code: "UNAUTHORIZED",
@@ -409,15 +419,25 @@ export const complianceRouter = createTRPCRouter({
         });
       }
 
-      // Get investor to check onboarding status
-      const [investor] = await ctx.db
-        .select({
-          id: user.id,
-          isOnboardingCompleted: user.isOnboardingCompleted,
-        })
-        .from(user)
-        .where(eq(user.id, input.userId))
-        .limit(1);
+      // Get investor and previous clearance in parallel
+      const [investor, previousClearance] = await Promise.all([
+        ctx.db
+          .select({
+            id: user.id,
+            isOnboardingCompleted: user.isOnboardingCompleted,
+          })
+          .from(user)
+          .where(eq(user.id, input.userId))
+          .limit(1)
+          .then((r) => r[0]),
+        ctx.db
+          .select({ status: investorClearance.status })
+          .from(investorClearance)
+          .where(eq(investorClearance.userId, input.userId))
+          .orderBy(desc(investorClearance.createdAt))
+          .limit(1)
+          .then((r) => r[0]),
+      ]);
 
       if (!investor) {
         throw new TRPCError({
@@ -427,11 +447,7 @@ export const complianceRouter = createTRPCRouter({
       }
 
       // Prevent granting clearance if onboarding/KYC is not complete
-      if (
-        (input.status === "cleared" ||
-          input.status === "cleared_with_conditions") &&
-        !investor.isOnboardingCompleted
-      ) {
+      if (isClearedStatus(input.status) && !investor.isOnboardingCompleted) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message:
@@ -440,17 +456,11 @@ export const complianceRouter = createTRPCRouter({
         });
       }
 
-      // Get previous clearance status
-      const [previousClearance] = await ctx.db
-        .select({ status: investorClearance.status })
-        .from(investorClearance)
-        .where(eq(investorClearance.userId, input.userId))
-        .orderBy(desc(investorClearance.createdAt))
-        .limit(1);
-
-      // Create new clearance record
+      const clearedAt = isClearedStatus(input.status) ? new Date() : null;
       const clearanceId = nanoid();
-      await ctx.db.insert(investorClearance).values({
+
+      // Prepare clearance data
+      const clearanceData = {
         id: clearanceId,
         userId: input.userId,
         status: input.status,
@@ -463,15 +473,14 @@ export const complianceRouter = createTRPCRouter({
             ? input.conditions
             : null,
         clearedBy: session.user.id,
-        clearedAt:
-          input.status === "cleared" ||
-          input.status === "cleared_with_conditions"
-            ? new Date()
-            : null,
+        clearedAt,
         notes: input.notes || null,
         investorVisibleNotes: input.investorVisibleNotes || null,
         expiresAt: input.expiresAt || null,
-      });
+      };
+
+      // Create clearance record
+      await ctx.db.insert(investorClearance).values(clearanceData);
 
       // Log the audit event after response is sent
       after(async () => {
@@ -486,65 +495,73 @@ export const complianceRouter = createTRPCRouter({
       });
 
       // Auto-grant vehicle permissions if cleared
-      if (
-        input.status === "cleared" ||
-        input.status === "cleared_with_conditions"
-      ) {
-        // Get all non-draft deals (any deal that's visible to investors)
-        const activeDeals = await ctx.db
-          .select({ id: deal.id, status: deal.status })
-          .from(deal)
-          .where(ne(deal.status, "draft"));
-
-        // Grant permissions to all active deals
-        for (const activeDeal of activeDeals) {
-          // Check if permission already exists
-          const [existingPermission] = await ctx.db
-            .select({ id: vehiclePermission.id })
+      if (isClearedStatus(input.status)) {
+        // Get all non-draft deals and existing permissions in parallel
+        const [activeDeals, existingPermissions] = await Promise.all([
+          ctx.db
+            .select({ id: deal.id, status: deal.status })
+            .from(deal)
+            .where(ne(deal.status, "draft")),
+          ctx.db
+            .select({
+              dealId: vehiclePermission.dealId,
+            })
             .from(vehiclePermission)
             .where(
               and(
                 eq(vehiclePermission.userId, input.userId),
-                eq(vehiclePermission.dealId, activeDeal.id),
                 isNull(vehiclePermission.revokedAt)
               )
-            )
-            .limit(1);
+            ),
+        ]);
 
-          if (!existingPermission) {
-            // Determine permissions based on clearance status and deal status
+        const existingPermissionSet = new Set(
+          existingPermissions.map((p) => p.dealId)
+        );
+
+        // Prepare permission records for deals without existing permissions
+        const permissionRecords = activeDeals
+          .filter((activeDeal) => !existingPermissionSet.has(activeDeal.id))
+          .map((activeDeal) => {
             const isFullyClearedAndDealLive =
               input.status === "cleared" &&
               (activeDeal.status === "live" || activeDeal.status === "closing");
 
-            const permissionId = nanoid();
-            await ctx.db.insert(vehiclePermission).values({
-              id: permissionId,
+            return {
+              id: nanoid(),
               userId: input.userId,
               dealId: activeDeal.id,
               canViewTeaser: true,
-              canViewDocuments: input.status === "cleared", // Full access only for cleared
+              canViewDocuments: input.status === "cleared",
               canExpressInterest: true,
-              canInvest: isFullyClearedAndDealLive, // Can only invest in live/closing deals if fully cleared
+              canInvest: isFullyClearedAndDealLive,
               grantedBy: session.user.id,
-            });
+            };
+          });
 
-            // Log permission grant after response is sent
-            after(async () => {
-              await logPermissionGrant({
-                performedBy: session.user.id,
-                targetUserId: input.userId,
-                dealId: activeDeal.id,
-                permissions: {
-                  canViewTeaser: true,
-                  canViewDocuments: input.status === "cleared",
-                  canExpressInterest: true,
-                  canInvest: isFullyClearedAndDealLive,
-                },
-                notes: `Auto-granted on clearance: ${input.status}`,
-              });
-            });
-          }
+        // Insert all permissions at once
+        if (permissionRecords.length > 0) {
+          await ctx.db.insert(vehiclePermission).values(permissionRecords);
+
+          // Log permission grants after response is sent
+          after(async () => {
+            await Promise.all(
+              permissionRecords.map((perm) =>
+                logPermissionGrant({
+                  performedBy: session.user.id,
+                  targetUserId: input.userId,
+                  dealId: perm.dealId,
+                  permissions: {
+                    canViewTeaser: perm.canViewTeaser,
+                    canViewDocuments: perm.canViewDocuments,
+                    canExpressInterest: perm.canExpressInterest,
+                    canInvest: perm.canInvest,
+                  },
+                  notes: `Auto-granted on clearance: ${input.status}`,
+                })
+              )
+            );
+          });
         }
       }
 
@@ -573,7 +590,10 @@ export const complianceRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const session = await getSession();
+      // Start session check early
+      const sessionPromise = getSession();
+      const session = await sessionPromise;
+
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
           code: "UNAUTHORIZED",
@@ -605,7 +625,7 @@ export const complianceRouter = createTRPCRouter({
       }
 
       const permissionId = nanoid();
-      await ctx.db.insert(vehiclePermission).values({
+      const permissionData = {
         id: permissionId,
         userId: input.userId,
         dealId: input.dealId,
@@ -615,7 +635,9 @@ export const complianceRouter = createTRPCRouter({
         canInvest: permissions.canInvest,
         grantedBy: session.user.id,
         notes: input.notes || null,
-      });
+      };
+
+      await ctx.db.insert(vehiclePermission).values(permissionData);
 
       // Log permission grant after response is sent
       after(async () => {
@@ -937,7 +959,10 @@ export const complianceRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const session = await getSession();
+      // Start session check early
+      const sessionPromise = getSession();
+      const session = await sessionPromise;
+
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
           code: "UNAUTHORIZED",
@@ -959,24 +984,37 @@ export const complianceRouter = createTRPCRouter({
         });
       }
 
-      // Get all cleared investors (cleared or cleared_with_conditions)
-      // First, get the latest clearance for each user
-      const clearedInvestors = await ctx.db
-        .selectDistinctOn([investorClearance.userId], {
-          userId: investorClearance.userId,
-          status: investorClearance.status,
-        })
-        .from(investorClearance)
-        .orderBy(investorClearance.userId, desc(investorClearance.createdAt));
+      // Get cleared investors and existing permissions in parallel
+      const [clearedInvestorsRaw, existingPermissions] = await Promise.all([
+        ctx.db
+          .selectDistinctOn([investorClearance.userId], {
+            userId: investorClearance.userId,
+            status: investorClearance.status,
+          })
+          .from(investorClearance)
+          .orderBy(investorClearance.userId, desc(investorClearance.createdAt)),
+        ctx.db
+          .select({
+            userId: vehiclePermission.userId,
+          })
+          .from(vehiclePermission)
+          .where(
+            and(
+              eq(vehiclePermission.dealId, input.dealId),
+              isNull(vehiclePermission.revokedAt)
+            )
+          ),
+      ]);
 
       // Filter to only cleared investors
-      const investorsToGrant = clearedInvestors.filter(
-        (inv) =>
-          inv.status === "cleared" || inv.status === "cleared_with_conditions"
+      const investorsToGrant = clearedInvestorsRaw.filter((inv) =>
+        isClearedStatus(inv.status)
       );
 
-      let grantedCount = 0;
-      let skippedCount = 0;
+      // Create set of existing permission user IDs for quick lookup
+      const existingPermissionSet = new Set(
+        existingPermissions.map((p) => p.userId)
+      );
 
       // Default permissions based on deal status
       const defaultPermissions = {
@@ -989,27 +1027,13 @@ export const complianceRouter = createTRPCRouter({
 
       const permissionsToGrant = input.permissions || defaultPermissions;
 
-      for (const investor of investorsToGrant) {
-        // Check if permission already exists
-        const [existingPermission] = await ctx.db
-          .select({ id: vehiclePermission.id })
-          .from(vehiclePermission)
-          .where(
-            and(
-              eq(vehiclePermission.userId, investor.userId),
-              eq(vehiclePermission.dealId, input.dealId),
-              isNull(vehiclePermission.revokedAt)
-            )
-          )
-          .limit(1);
-
-        if (existingPermission) {
-          skippedCount++;
-          continue;
-        }
-
-        // Adjust permissions based on clearance status
-        const adjustedPermissions = {
+      // Prepare permission records for investors without existing permissions
+      const permissionRecords = investorsToGrant
+        .filter((investor) => !existingPermissionSet.has(investor.userId))
+        .map((investor) => ({
+          id: nanoid(),
+          userId: investor.userId,
+          dealId: input.dealId,
           canViewTeaser: permissionsToGrant.canViewTeaser,
           canViewDocuments:
             investor.status === "cleared"
@@ -1020,20 +1044,17 @@ export const complianceRouter = createTRPCRouter({
             investor.status === "cleared"
               ? permissionsToGrant.canInvest
               : false,
-        };
-
-        const permissionId = nanoid();
-        await ctx.db.insert(vehiclePermission).values({
-          id: permissionId,
-          userId: investor.userId,
-          dealId: input.dealId,
-          ...adjustedPermissions,
           grantedBy: session.user.id,
           notes: `Bulk grant for deal: ${dealRecord.name}`,
-        });
+        }));
 
-        grantedCount++;
+      // Insert all permissions at once
+      if (permissionRecords.length > 0) {
+        await ctx.db.insert(vehiclePermission).values(permissionRecords);
       }
+
+      const grantedCount = permissionRecords.length;
+      const skippedCount = investorsToGrant.length - grantedCount;
 
       // Log bulk grant action after response is sent
       after(async () => {

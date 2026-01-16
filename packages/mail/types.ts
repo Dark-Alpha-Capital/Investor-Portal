@@ -1,13 +1,7 @@
 // Email job types for BullMQ queue
 export type EmailJobType =
   | "onboarding-investor-confirmation"
-  | "onboarding-admin-notification"
-  | "ticket-created-admin"
-  | "ticket-created-investor"
-  | "ticket-assigned"
-  | "ticket-status-changed"
-  | "ticket-comment-added"
-  | "ticket-resolved";
+  | "onboarding-admin-notification";
 
 export interface BaseEmailJobData {
   type: EmailJobType;
@@ -33,77 +27,9 @@ export interface OnboardingAdminNotificationJobData extends BaseEmailJobData {
   submittedAt: string;
 }
 
-// Ticket email job data types
-export interface TicketCreatedAdminJobData extends BaseEmailJobData {
-  type: "ticket-created-admin";
-  ticketId: string;
-  subject: string;
-  category: string;
-  priority: string;
-  investorName: string;
-  investorEmail: string;
-  description: string;
-  createdAt: string;
-}
-
-export interface TicketCreatedInvestorJobData extends BaseEmailJobData {
-  type: "ticket-created-investor";
-  ticketId: string;
-  subject: string;
-  category: string;
-  investorName: string;
-  createdAt: string;
-}
-
-export interface TicketAssignedJobData extends BaseEmailJobData {
-  type: "ticket-assigned";
-  ticketId: string;
-  subject: string;
-  category: string;
-  priority: string;
-  investorName: string;
-  investorEmail: string;
-  assigneeName: string;
-  description: string;
-}
-
-export interface TicketStatusChangedJobData extends BaseEmailJobData {
-  type: "ticket-status-changed";
-  ticketId: string;
-  subject: string;
-  investorName: string;
-  previousStatus: string;
-  newStatus: string;
-}
-
-export interface TicketCommentAddedJobData extends BaseEmailJobData {
-  type: "ticket-comment-added";
-  ticketId: string;
-  subject: string;
-  recipientName: string;
-  commenterName: string;
-  commentContent: string;
-  isAdminComment: boolean;
-}
-
-export interface TicketResolvedJobData extends BaseEmailJobData {
-  type: "ticket-resolved";
-  ticketId: string;
-  subject: string;
-  investorName: string;
-  resolution: string;
-  resolvedBy: string;
-}
-
 export type EmailJobData =
   | OnboardingInvestorConfirmationJobData
-  | OnboardingAdminNotificationJobData
-  | TicketCreatedAdminJobData
-  | TicketCreatedInvestorJobData
-  | TicketAssignedJobData
-  | TicketStatusChangedJobData
-  | TicketCommentAddedJobData
-  | TicketResolvedJobData;
+  | OnboardingAdminNotificationJobData;
 
 // Email configuration
 export const EMAIL_CONFIG = {

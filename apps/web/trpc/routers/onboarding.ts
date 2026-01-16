@@ -190,12 +190,62 @@ const onboardingSubmitSchema = z.object({
   files: z.array(fileSchema),
 });
 
+// Helper functions hoisted outside mutation for better performance
+const toNullIfEmpty = (value: string | undefined | null): string | null => {
+  if (
+    value === undefined ||
+    value === null ||
+    (typeof value === "string" && value.trim() === "")
+  ) {
+    return null;
+  }
+  return value;
+};
+
+const trimRequired = (value: string | undefined | null): string => {
+  if (!value || typeof value !== "string") {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `Required field is missing or invalid: ${value}`,
+    });
+  }
+  return value.trim();
+};
+
+const sanitizeFileName = (fileName: string): string => {
+  return fileName.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.\./g, "_");
+};
+
+// Queue job options - extracted as constant to avoid recreation
+const QUEUE_JOB_OPTIONS = {
+  removeOnComplete: {
+    age: 24 * 3600, // Keep completed jobs for 24 hours
+    count: 1000, // Keep last 1000 completed jobs
+  },
+  removeOnFail: {
+    age: 7 * 24 * 3600, // Keep failed jobs for 7 days
+  },
+} as const;
+
 export const onboardingRouter = createTRPCRouter({
   submit: baseProcedure
     .input(onboardingSubmitSchema)
     .mutation(async ({ input, ctx }) => {
       const { investorData, files } = input;
-      const session = await getSession();
+
+      // Early validation: files are required
+      if (!files || files.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "KYC files are required for onboarding submission",
+        });
+      }
+
+      // Start session check early (async-api-routes pattern)
+      const sessionPromise = getSession();
+
+      // Await session before proceeding
+      const session = await sessionPromise;
       if (!session?.user) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
@@ -204,7 +254,7 @@ export const onboardingRouter = createTRPCRouter({
       }
       const userId = session.user.id;
 
-      // Verify user exists
+      // Verify user exists and generate onboarding ID in parallel
       const [userRecord] = await ctx.db
         .select({ id: user.id })
         .from(user)
@@ -212,35 +262,17 @@ export const onboardingRouter = createTRPCRouter({
         .limit(1);
 
       if (!userRecord) {
-        throw new Error("User not found");
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User not found",
+        });
       }
 
       // Generate onboarding ID
       const onboardingId = randomUUID();
+      const submittedAt = new Date();
 
       // Prepare onboarding data for database
-      // Helper to convert empty strings to null for optional fields
-      const toNullIfEmpty = (
-        value: string | undefined | null
-      ): string | null => {
-        if (
-          value === undefined ||
-          value === null ||
-          (typeof value === "string" && value.trim() === "")
-        ) {
-          return null;
-        }
-        return value;
-      };
-
-      // Helper to trim required string fields
-      const trimRequired = (value: string | undefined | null): string => {
-        if (!value || typeof value !== "string") {
-          throw new Error(`Required field is missing or invalid: ${value}`);
-        }
-        return value.trim();
-      };
-
       const onboardingData = {
         id: onboardingId,
         userId: userId,
@@ -308,16 +340,12 @@ export const onboardingRouter = createTRPCRouter({
         joinBrokerConversations: trimRequired(
           investorData.joinBrokerConversations
         ),
-        supportLetterStages: Array.isArray(investorData.supportLetterStages)
-          ? investorData.supportLetterStages
-          : [],
+        supportLetterStages: investorData.supportLetterStages ?? [],
 
         // Section 8: Communication Preferences
         receiveUpdates: trimRequired(investorData.receiveUpdates),
         updateFrequency: toNullIfEmpty(investorData.updateFrequency),
-        updateFormat: Array.isArray(investorData.updateFormat)
-          ? investorData.updateFormat
-          : null,
+        updateFormat: investorData.updateFormat ?? null,
         industryPreferences: toNullIfEmpty(investorData.industryPreferences),
 
         // Section 9: Investment Mandate - Size & Structure
@@ -326,9 +354,7 @@ export const onboardingRouter = createTRPCRouter({
         ebitdaRange: toNullIfEmpty(investorData.ebitdaRange),
         preferredOwnership: trimRequired(investorData.preferredOwnership),
         typicalHoldPeriod: toNullIfEmpty(investorData.typicalHoldPeriod),
-        transactionTypes: Array.isArray(investorData.transactionTypes)
-          ? investorData.transactionTypes
-          : [],
+        transactionTypes: investorData.transactionTypes ?? [],
         leverageTolerance: toNullIfEmpty(investorData.leverageTolerance),
 
         // Section 10: Investment Mandate - Company Profile
@@ -362,36 +388,13 @@ export const onboardingRouter = createTRPCRouter({
 
         // Status
         status: "submitted" as const,
-        submittedAt: new Date(),
+        submittedAt,
       };
 
-      console.log("onboardingData", JSON.stringify(onboardingData, null, 2));
-
-      // Validate required array fields
-      if (!Array.isArray(onboardingData.supportLetterStages)) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "supportLetterStages must be an array",
-        });
-      }
-      if (!Array.isArray(onboardingData.transactionTypes)) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "transactionTypes must be an array",
-        });
-      }
-
-      console.log("Saving onboarding data to database");
+      // Save onboarding data to database
       try {
-        // Save onboarding data to database
         await ctx.db.insert(onboarding).values(onboardingData);
       } catch (error) {
-        console.error("Error saving onboarding data to database:", error);
-        console.error("Error details:", {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          onboardingData: JSON.stringify(onboardingData, null, 2),
-        });
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message:
@@ -402,14 +405,24 @@ export const onboardingRouter = createTRPCRouter({
         });
       }
 
-      // Insert beneficial owners for entity investors
-      if (
-        investorData.legalEntityType === "entity" &&
+      // Prepare parallel database operations for entity-specific data
+      const isEntity = investorData.legalEntityType === "entity";
+      const hasBeneficialOwners =
+        isEntity &&
         investorData.beneficialOwners &&
-        investorData.beneficialOwners.length > 0
-      ) {
-        try {
-          const uboRecords = investorData.beneficialOwners.map((ubo) => ({
+        investorData.beneficialOwners.length > 0;
+      const hasAuthorizedSignatories =
+        isEntity &&
+        investorData.authorizedSignatories &&
+        investorData.authorizedSignatories.length > 0;
+      const hasKycAttestations =
+        investorData.accuracyAttestation ||
+        investorData.sanctionsDeclaration ||
+        investorData.dataConsent;
+
+      // Prepare data for parallel inserts
+      const uboRecords = hasBeneficialOwners
+        ? investorData.beneficialOwners!.map((ubo) => ({
             id: randomUUID(),
             onboardingId: onboardingId,
             fullName: ubo.fullName,
@@ -429,185 +442,121 @@ export const onboardingRouter = createTRPCRouter({
             idExpiryDate: ubo.idExpiryDate || null,
             isPep: ubo.isPep || false,
             pepDetails: ubo.pepDetails || null,
-          }));
+          }))
+        : null;
 
-          await ctx.db.insert(beneficialOwner).values(uboRecords);
-          console.log(
-            `Inserted ${uboRecords.length} beneficial owner(s) for onboarding ${onboardingId}`
-          );
-        } catch (error) {
-          console.error("Error saving beneficial owners:", error);
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to save beneficial owner data",
-            cause: error,
-          });
-        }
-      }
+      const signatoryRecords = hasAuthorizedSignatories
+        ? investorData.authorizedSignatories!.map((sig) => ({
+            id: randomUUID(),
+            onboardingId: onboardingId,
+            fullName: sig.fullName,
+            title: sig.title || null,
+            email: sig.email || null,
+            phone: sig.phone || null,
+            authorizationScope: sig.authorizationScope || null,
+            authorizationLimit: sig.authorizationLimit || null,
+            idDocumentType: sig.idDocumentType || null,
+            idDocumentNumber: sig.idDocumentNumber || null,
+            boardResolutionDate: sig.boardResolutionDate || null,
+          }))
+        : null;
 
-      // Insert authorized signatories for entity investors
-      if (
-        investorData.legalEntityType === "entity" &&
-        investorData.authorizedSignatories &&
-        investorData.authorizedSignatories.length > 0
-      ) {
-        try {
-          const signatoryRecords = investorData.authorizedSignatories.map(
-            (sig) => ({
-              id: randomUUID(),
-              onboardingId: onboardingId,
-              fullName: sig.fullName,
-              title: sig.title || null,
-              email: sig.email || null,
-              phone: sig.phone || null,
-              authorizationScope: sig.authorizationScope || null,
-              authorizationLimit: sig.authorizationLimit || null,
-              idDocumentType: sig.idDocumentType || null,
-              idDocumentNumber: sig.idDocumentNumber || null,
-              boardResolutionDate: sig.boardResolutionDate || null,
-            })
-          );
-
-          await ctx.db.insert(authorizedSignatory).values(signatoryRecords);
-          console.log(
-            `Inserted ${signatoryRecords.length} authorized signatory(ies) for onboarding ${onboardingId}`
-          );
-        } catch (error) {
-          console.error("Error saving authorized signatories:", error);
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to save authorized signatory data",
-            cause: error,
-          });
-        }
-      }
-
-      // Create KYC attestation record with timestamps
-      if (
-        investorData.accuracyAttestation ||
-        investorData.sanctionsDeclaration ||
-        investorData.dataConsent
-      ) {
-        try {
-          const now = new Date();
-          await ctx.db.insert(kycAttestation).values({
+      const kycAttestationRecord = hasKycAttestations
+        ? {
             id: randomUUID(),
             onboardingId: onboardingId,
             accuracyAttested: investorData.accuracyAttestation || false,
-            accuracyAttestedAt: investorData.accuracyAttestation ? now : null,
+            accuracyAttestedAt: investorData.accuracyAttestation
+              ? submittedAt
+              : null,
             sanctionsDeclarationAttested:
               investorData.sanctionsDeclaration || false,
             sanctionsDeclarationAttestedAt: investorData.sanctionsDeclaration
-              ? now
+              ? submittedAt
               : null,
             dataConsentAttested: investorData.dataConsent || false,
-            dataConsentAttestedAt: investorData.dataConsent ? now : null,
-            // IP and user agent can be captured from request headers if needed
+            dataConsentAttestedAt: investorData.dataConsent
+              ? submittedAt
+              : null,
             ipAddress: null,
             userAgent: null,
-          });
-          console.log(
-            `Created KYC attestation record for onboarding ${onboardingId}`
-          );
-        } catch (error) {
-          console.error("Error saving KYC attestation:", error);
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to save KYC attestation data",
-            cause: error,
-          });
-        }
-      }
+          }
+        : null;
 
-      // Update user onboarding status
-
-      try {
-        await ctx.db
+      // Execute parallel database operations
+      const dbOperations: Promise<unknown>[] = [
+        // Update user onboarding status
+        ctx.db
           .update(user)
           .set({
             isOnboardingCompleted: true,
           })
-          .where(eq(user.id, userId));
+          .where(eq(user.id, userId)),
+      ];
+
+      if (uboRecords) {
+        dbOperations.push(ctx.db.insert(beneficialOwner).values(uboRecords));
+      }
+
+      if (signatoryRecords) {
+        dbOperations.push(
+          ctx.db.insert(authorizedSignatory).values(signatoryRecords)
+        );
+      }
+
+      if (kycAttestationRecord) {
+        dbOperations.push(
+          ctx.db.insert(kycAttestation).values(kycAttestationRecord)
+        );
+      }
+
+      // Execute all database operations in parallel
+      try {
+        await Promise.all(dbOperations);
       } catch (error) {
-        console.error("Error updating user onboarding status:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message:
             error instanceof Error
               ? error.message
-              : "Failed to update user onboarding status",
+              : "Failed to save onboarding related data",
           cause: error,
         });
       }
 
-      // Queue file uploads if there are any files
-      let jobId: string | undefined;
-      if (files && files.length > 0) {
-        const job = await onboardingQueue.add(
-          "upload-onboarding-files",
-          {
-            onboardingId,
-            investorId: userId,
-            files: files.map((file) => ({
-              documentType: file.documentType,
-              fileName: file.name,
-              fileBuffer: file.buffer, // Already base64 encoded
-              mimeType: file.type,
-              size: file.size,
-            })),
-          },
-          {
-            removeOnComplete: {
-              age: 24 * 3600, // Keep completed jobs for 24 hours
-              count: 1000, // Keep last 1000 completed jobs
-            },
-            removeOnFail: {
-              age: 7 * 24 * 3600, // Keep failed jobs for 7 days
-            },
-          }
-        );
+      // Prepare file upload job data and document records
+      const fileJobData = {
+        onboardingId,
+        investorId: userId,
+        files: files.map((file) => ({
+          documentType: file.documentType,
+          fileName: file.name,
+          fileBuffer: file.buffer, // Already base64 encoded
+          mimeType: file.type,
+          size: file.size,
+        })),
+      };
 
-        jobId = job.id;
+      // Create document records in the database
+      // These records will be updated by the worker with the final file paths
+      const documentRecords = files.map((file) => {
+        const sanitizedFileName = sanitizeFileName(file.name);
+        const expectedFilePath = `/investors/${userId}/onboarding/kyc-files/${sanitizedFileName}`;
 
-        // Create document records in the database
-        // These records will be updated by the worker with the final file paths
-        const documentRecords = files.map((file) => {
-          // Sanitize file name (same logic as worker)
-          const sanitizedFileName = file.name
-            .replace(/[^a-zA-Z0-9._-]/g, "_")
-            .replace(/\.\./g, "_");
-          // Construct expected file path (matching worker's path construction)
-          const expectedFilePath = `/investors/${userId}/onboarding/kyc-files/${sanitizedFileName}`;
+        return {
+          id: randomUUID(),
+          onboardingId,
+          documentType: file.documentType,
+          fileName: file.name,
+          fileSize: String(file.size),
+          fileType: file.type,
+          filePath: expectedFilePath, // Will be the path in Nextcloud
+          fileUrl: null, // Can be set later if needed for direct access
+          status: "pending" as const,
+        };
+      });
 
-          return {
-            id: randomUUID(),
-            onboardingId,
-            documentType: file.documentType,
-            fileName: file.name,
-            fileSize: String(file.size),
-            fileType: file.type,
-            filePath: expectedFilePath, // Will be the path in Nextcloud
-            fileUrl: null, // Can be set later if needed for direct access
-            status: "pending" as const,
-          };
-        });
-
-        // Insert all document records
-        await ctx.db.insert(onboardingDocument).values(documentRecords);
-
-        console.log(
-          `[Onboarding] Created ${documentRecords.length} document records for onboarding ${onboardingId}`
-        );
-      } else {
-        jobId = undefined;
-        console.log("No files to upload");
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "No files to upload, there should be kyc files to upload",
-        });
-      }
-
-      // Queue notification emails via BullMQ
+      // Prepare email job data
       const investorEmailData: OnboardingInvestorConfirmationJobData = {
         type: "onboarding-investor-confirmation",
         to: investorData.primaryContactEmail,
@@ -626,32 +575,49 @@ export const onboardingRouter = createTRPCRouter({
         capitalProviderType: investorData.capitalProviderType,
         onboardingId,
         fileCount: files.length,
-        submittedAt: new Date().toISOString(),
+        submittedAt: submittedAt.toISOString(),
       };
 
-      //emails will be sent to the investor and the admin notifying each of them of the submission
-      await Promise.all([
-        emailQueue.add("onboarding-investor-confirmation", investorEmailData, {
-          removeOnComplete: { age: 24 * 3600, count: 1000 },
-          removeOnFail: { age: 7 * 24 * 3600 },
-        }),
-        emailQueue.add("onboarding-admin-notification", adminEmailData, {
-          removeOnComplete: { age: 24 * 3600, count: 1000 },
-          removeOnFail: { age: 7 * 24 * 3600 },
-        }),
-      ]);
+      // Execute file upload queue, document insert, and email queues in parallel
+      try {
+        const [fileJob] = await Promise.all([
+          onboardingQueue.add(
+            "upload-onboarding-files",
+            fileJobData,
+            QUEUE_JOB_OPTIONS
+          ),
+          ctx.db.insert(onboardingDocument).values(documentRecords),
+          emailQueue.add(
+            "onboarding-investor-confirmation",
+            investorEmailData,
+            QUEUE_JOB_OPTIONS
+          ),
+          emailQueue.add(
+            "onboarding-admin-notification",
+            adminEmailData,
+            QUEUE_JOB_OPTIONS
+          ),
+        ]);
 
-      console.log("Onboarding notification emails queued successfully");
-
-      return {
-        success: true,
-        message: "Onboarding data submitted successfully",
-        onboardingId,
-        jobId,
-        timestamp: new Date().toISOString(),
-        userId,
-        fileCount: files?.length || 0,
-      };
+        return {
+          success: true,
+          message: "Onboarding data submitted successfully",
+          onboardingId,
+          jobId: fileJob.id,
+          timestamp: submittedAt.toISOString(),
+          userId,
+          fileCount: files.length,
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to queue file uploads or send notifications",
+          cause: error,
+        });
+      }
     }),
 
   // Get job progress
@@ -902,19 +868,22 @@ export const onboardingRouter = createTRPCRouter({
       for (const [key, newValue] of Object.entries(input)) {
         if (newValue === undefined) continue;
 
-        const currentValue = currentOnboarding[key as keyof typeof currentOnboarding];
+        const currentValue =
+          currentOnboarding[key as keyof typeof currentOnboarding];
 
         // Stringify values for comparison
-        const currentStr = currentValue === null || currentValue === undefined
-          ? null
-          : typeof currentValue === "object"
-            ? JSON.stringify(currentValue)
-            : String(currentValue);
-        const newStr = newValue === null || newValue === undefined
-          ? null
-          : typeof newValue === "object"
-            ? JSON.stringify(newValue)
-            : String(newValue);
+        const currentStr =
+          currentValue === null || currentValue === undefined
+            ? null
+            : typeof currentValue === "object"
+              ? JSON.stringify(currentValue)
+              : String(currentValue);
+        const newStr =
+          newValue === null || newValue === undefined
+            ? null
+            : typeof newValue === "object"
+              ? JSON.stringify(newValue)
+              : String(newValue);
 
         // Only track if actually changed
         if (currentStr !== newStr) {

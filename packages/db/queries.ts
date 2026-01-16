@@ -3,6 +3,7 @@ import {
   user,
   onboarding,
   onboardingDocument,
+  onboardingEditHistory,
   deal,
   dealInvite,
   dealInterest,
@@ -744,5 +745,82 @@ export const getDealDetail = async (dealId: string) => {
       interests: [],
       investments: [],
     };
+  }
+};
+
+/**
+ * Get user onboarding status
+ * @param userId The user ID
+ * @returns Whether the user has completed onboarding
+ */
+export const getUserOnboardingStatus = async (userId: string) => {
+  try {
+    const [userData] = await db
+      .select({
+        isOnboardingCompleted: user.isOnboardingCompleted,
+      })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
+
+    return {
+      isOnboardingCompleted: userData?.isOnboardingCompleted ?? false,
+    };
+  } catch (error) {
+    console.error("Error fetching user onboarding status:", error);
+    return {
+      isOnboardingCompleted: false,
+    };
+  }
+};
+
+/**
+ * Get onboarding data with edit history for a user
+ * @param userId The user ID
+ * @returns Onboarding data and edit history, or null if not found
+ */
+export const getOnboardingWithEditHistory = async (userId: string) => {
+  try {
+    // Fetch onboarding data
+    const [onboardingData] = await db
+      .select({
+        id: onboarding.id,
+        submittedAt: onboarding.submittedAt,
+        lastEditedAt: onboarding.lastEditedAt,
+        editCount: onboarding.editCount,
+        isEditable: onboarding.isEditable,
+        organizationName: onboarding.organizationName,
+      })
+      .from(onboarding)
+      .where(eq(onboarding.userId, userId))
+      .orderBy(desc(onboarding.createdAt))
+      .limit(1);
+
+    if (!onboardingData) {
+      return null;
+    }
+
+    // Fetch edit history
+    const editHistory = await db
+      .select({
+        id: onboardingEditHistory.id,
+        fieldName: onboardingEditHistory.fieldName,
+        fieldLabel: onboardingEditHistory.fieldLabel,
+        previousValue: onboardingEditHistory.previousValue,
+        newValue: onboardingEditHistory.newValue,
+        editedAt: onboardingEditHistory.editedAt,
+      })
+      .from(onboardingEditHistory)
+      .where(eq(onboardingEditHistory.onboardingId, onboardingData.id))
+      .orderBy(desc(onboardingEditHistory.editedAt))
+      .limit(10);
+
+    return {
+      onboarding: onboardingData,
+      editHistory,
+    };
+  } catch (error) {
+    console.error("Error fetching onboarding with edit history:", error);
+    return null;
   }
 };

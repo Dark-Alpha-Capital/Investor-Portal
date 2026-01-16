@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -43,48 +43,65 @@ export function StepAttestations({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const isIndividual = legalEntityType === "individual";
+  // Memoize isIndividual computation (re-render optimization 5.1)
+  const isIndividual = useMemo(
+    () => legalEntityType === "individual",
+    [legalEntityType]
+  );
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newErrors: Record<string, string> = {};
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const newErrors: Record<string, string> = {};
 
-    // Validate mandatory attestations
-    if (!accuracyAttestation) {
-      newErrors.accuracyAttestation =
-        "You must confirm the accuracy of information provided";
-    }
-    if (!sanctionsDeclaration) {
-      newErrors.sanctionsDeclaration =
-        "You must confirm the sanctions/AML declaration";
-    }
-    if (!dataConsent) {
-      newErrors.dataConsent =
-        "You must consent to data processing to proceed";
-    }
+      // Validate mandatory attestations - early exit pattern (JS performance 7.7)
+      if (!accuracyAttestation) {
+        newErrors.accuracyAttestation =
+          "You must confirm the accuracy of information provided";
+      }
+      if (!sanctionsDeclaration) {
+        newErrors.sanctionsDeclaration =
+          "You must confirm the sanctions/AML declaration";
+      }
+      if (!dataConsent) {
+        newErrors.dataConsent =
+          "You must consent to data processing to proceed";
+      }
 
-    // For individuals, validate PEP details if PEP status is true
-    if (isIndividual && pepStatus && !pepDetails.trim()) {
-      newErrors.pepDetails =
-        "Please provide details about your PEP status";
-    }
+      // For individuals, validate PEP details if PEP status is true
+      if (isIndividual && pepStatus && !pepDetails.trim()) {
+        newErrors.pepDetails =
+          "Please provide details about your PEP status";
+      }
 
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        return;
+      }
 
-    setErrors({});
-    onSubmit({
-      ...initialData,
-      pepStatus: isIndividual ? pepStatus : undefined,
-      pepDetails: isIndividual ? pepDetails : undefined,
-      sourceOfWealthNarrative: isIndividual ? sourceOfWealthNarrative : undefined,
+      setErrors({});
+      onSubmit({
+        ...initialData,
+        pepStatus: isIndividual ? pepStatus : undefined,
+        pepDetails: isIndividual ? pepDetails : undefined,
+        sourceOfWealthNarrative: isIndividual ? sourceOfWealthNarrative : undefined,
+        accuracyAttestation,
+        sanctionsDeclaration,
+        dataConsent,
+      } as InvestorData);
+    },
+    [
       accuracyAttestation,
       sanctionsDeclaration,
       dataConsent,
-    } as InvestorData);
-  };
+      isIndividual,
+      pepStatus,
+      pepDetails,
+      sourceOfWealthNarrative,
+      initialData,
+      onSubmit,
+    ]
+  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">

@@ -31,13 +31,7 @@ export type AuditAction =
   | "banking_change_rejected"
   | "login_success"
   | "login_failed"
-  | "session_expired"
-  | "ticket_created"
-  | "ticket_assigned"
-  | "ticket_status_changed"
-  | "ticket_commented"
-  | "ticket_resolved"
-  | "ticket_closed";
+  | "session_expired";
 
 // Target types for audit logs
 export type AuditTargetType =
@@ -48,7 +42,6 @@ export type AuditTargetType =
   | "deal"
   | "capital_notice"
   | "banking"
-  | "ticket"
   | "session";
 
 // Audit event input
@@ -222,152 +215,3 @@ export async function logRoleRevoke(params: {
   });
 }
 
-// ============================================================================
-// TICKET AUDIT HELPERS
-// ============================================================================
-
-/**
- * Helper to log ticket creation
- */
-export async function logTicketCreated(params: {
-  performedBy: string;
-  ticketId: string;
-  investorId: string;
-  category: string;
-  subject: string;
-  isCreatedByAdmin?: boolean;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-}): Promise<string> {
-  return logAuditEvent({
-    userId: params.performedBy,
-    action: "ticket_created",
-    targetType: "ticket",
-    targetId: params.ticketId,
-    newValue: {
-      investorId: params.investorId,
-      category: params.category,
-      subject: params.subject,
-      isCreatedByAdmin: params.isCreatedByAdmin ?? false,
-    },
-    ipAddress: params.ipAddress,
-    userAgent: params.userAgent,
-  });
-}
-
-/**
- * Helper to log ticket assignment
- */
-export async function logTicketAssigned(params: {
-  performedBy: string;
-  ticketId: string;
-  assignedTo: string;
-  previousAssignee?: string | null;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-}): Promise<string> {
-  return logAuditEvent({
-    userId: params.performedBy,
-    action: "ticket_assigned",
-    targetType: "ticket",
-    targetId: params.ticketId,
-    previousValue: params.previousAssignee
-      ? { assignedTo: params.previousAssignee }
-      : null,
-    newValue: { assignedTo: params.assignedTo },
-    ipAddress: params.ipAddress,
-    userAgent: params.userAgent,
-  });
-}
-
-/**
- * Helper to log ticket status changes
- */
-export async function logTicketStatusChange(params: {
-  performedBy: string;
-  ticketId: string;
-  previousStatus: string;
-  newStatus: string;
-  resolution?: string | null;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-}): Promise<string> {
-  return logAuditEvent({
-    userId: params.performedBy,
-    action: "ticket_status_changed",
-    targetType: "ticket",
-    targetId: params.ticketId,
-    previousValue: { status: params.previousStatus },
-    newValue: {
-      status: params.newStatus,
-      resolution: params.resolution ?? null,
-    },
-    ipAddress: params.ipAddress,
-    userAgent: params.userAgent,
-  });
-}
-
-/**
- * Helper to log ticket comments
- */
-export async function logTicketComment(params: {
-  performedBy: string;
-  ticketId: string;
-  commentId: string;
-  isInternal: boolean;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-}): Promise<string> {
-  return logAuditEvent({
-    userId: params.performedBy,
-    action: "ticket_commented",
-    targetType: "ticket",
-    targetId: params.ticketId,
-    newValue: {
-      commentId: params.commentId,
-      isInternal: params.isInternal,
-    },
-    ipAddress: params.ipAddress,
-    userAgent: params.userAgent,
-  });
-}
-
-/**
- * Helper to log ticket resolution
- */
-export async function logTicketResolved(params: {
-  performedBy: string;
-  ticketId: string;
-  resolution: string;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-}): Promise<string> {
-  return logAuditEvent({
-    userId: params.performedBy,
-    action: "ticket_resolved",
-    targetType: "ticket",
-    targetId: params.ticketId,
-    newValue: { resolution: params.resolution },
-    ipAddress: params.ipAddress,
-    userAgent: params.userAgent,
-  });
-}
-
-/**
- * Helper to log ticket closure
- */
-export async function logTicketClosed(params: {
-  performedBy: string;
-  ticketId: string;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-}): Promise<string> {
-  return logAuditEvent({
-    userId: params.performedBy,
-    action: "ticket_closed",
-    targetType: "ticket",
-    targetId: params.ticketId,
-    ipAddress: params.ipAddress,
-    userAgent: params.userAgent,
-  });
-}
