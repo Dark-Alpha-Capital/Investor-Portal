@@ -35,8 +35,47 @@ const STATUSES = [
 
 const ITEMS_PER_PAGE = 12;
 
+type Deal = {
+  id: string;
+  name: string;
+  slug: string | null;
+  description: string | null;
+  teaserSummary: string | null;
+  sector: string | null;
+  geography: string | null;
+  dealType: string | null;
+  targetRaise: string | null;
+  minInvestment: string | null;
+  targetIrr: string | null;
+  targetMoic: string | null;
+  status: string;
+  visibility: string;
+  coverImageUrl: string | null;
+  launchDate: string | null;
+  closeDate: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  curationNote?: string | null;
+  isCurated?: boolean;
+};
+
 type DealsMarketplaceProps = {
-  initialData?: MarketplaceDealsData;
+  initialData: {
+    success: boolean;
+    deals: Deal[];
+    pagination: {
+      page: number;
+      limit: number;
+      totalCount: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPrevPage: boolean;
+    };
+    filters: {
+      sectors: string[];
+    };
+    clearanceStatus?: string | null;
+  };
 };
 
 export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
@@ -183,7 +222,7 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Sectors</SelectItem>
-              {availableSectors.map((s) => (
+              {availableSectors.map((s: string) => (
                 <SelectItem key={s} value={s.toLowerCase()}>
                   {s}
                 </SelectItem>

@@ -8,6 +8,7 @@ FROM base AS deps
 COPY package.json bun.lock* ./
 # Copy workspace packages (needed for workspace dependencies)
 COPY packages/db/package.json ./packages/db/
+COPY packages/mail/package.json ./packages/mail/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 # Copy worker package.json
 COPY apps/worker/package.json ./apps/worker/
@@ -25,6 +26,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json bun.lock* ./
 # Copy workspace packages (needed at runtime)
 COPY packages/db ./packages/db
+COPY packages/mail ./packages/mail
 COPY packages/typescript-config ./packages/typescript-config
 COPY apps/worker ./apps/worker
 
@@ -32,10 +34,11 @@ COPY apps/worker ./apps/worker
 WORKDIR /app/apps/worker
 
 # Expose port (Cloud Run requires a port, even for background services)
-EXPOSE 8080
+# Using 8081 to avoid conflict with server (8080)
+EXPOSE 8081
 
 # Set default port if not provided
-ENV PORT=8080
+ENV PORT=8081
 
 # Run the worker (long-running process)
 CMD ["bun", "run", "index.ts"]

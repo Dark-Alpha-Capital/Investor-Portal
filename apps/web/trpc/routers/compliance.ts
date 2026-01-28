@@ -32,7 +32,6 @@ import {
   ilike,
   inArray,
 } from "drizzle-orm";
-import { getSession } from "@/lib/get-session";
 import { nanoid } from "nanoid";
 import { revalidateTag } from "next/cache";
 import { after } from "next/server";
@@ -41,6 +40,7 @@ import {
   logPermissionGrant,
   logPermissionRevoke,
 } from "@/lib/audit";
+import { authSession } from "@/app/(auth)/auth";
 
 // Clearance status types
 const clearanceStatusSchema = z.enum([
@@ -407,8 +407,7 @@ export const complianceRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Start session check early
-      const sessionPromise = getSession();
-      const session = await sessionPromise;
+      const session = await authSession();
 
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
@@ -589,16 +588,13 @@ export const complianceRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Start session check early
-      const sessionPromise = getSession();
-      const session = await sessionPromise;
-
+      const session = await authSession();
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "Admin access required",
         });
       }
-
       const { permissions } = input;
 
       // Check if permission already exists
@@ -672,7 +668,7 @@ export const complianceRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const session = await getSession();
+      const session = await authSession();
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
           code: "UNAUTHORIZED",
@@ -739,13 +735,7 @@ export const complianceRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      const session = await getSession();
-      if (!session?.user || session.user.role !== "admin") {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Admin access required",
-        });
-      }
+
 
       const { page, limit, userId, targetId, action } = input;
       const offset = (page - 1) * limit;
@@ -831,112 +821,6 @@ export const complianceRouter = createTRPCRouter({
       };
     }),
 
-  /**
-   * Get current user's clearance status (for investor-facing view)
-   */
-  getMyClearance: baseProcedure.query(async ({ ctx }) => {
-    const session = await getSession();
-    if (!session?.user) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "You must be logged in",
-      });
-    }
-
-    const [clearance] = await ctx.db
-      .select({
-        status: investorClearance.status,
-        conditions: investorClearance.conditions,
-        conditionsJson: investorClearance.conditionsJson,
-        clearedAt: investorClearance.clearedAt,
-        investorVisibleNotes: investorClearance.investorVisibleNotes,
-        expiresAt: investorClearance.expiresAt,
-      })
-      .from(investorClearance)
-      .where(eq(investorClearance.userId, session.user.id))
-      .orderBy(desc(investorClearance.createdAt))
-      .limit(1);
-
-    return {
-      success: true,
-      clearance: clearance || null,
-    };
-  }),
-
-  /**
-   * Get current user's vehicle permissions (for investor-facing view)
-   */
-  getMyPermissions: baseProcedure.query(async ({ ctx }) => {
-    const session = await getSession();
-    if (!session?.user) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "You must be logged in",
-      });
-    }
-
-    const permissions = await ctx.db
-      .select({
-        dealId: vehiclePermission.dealId,
-        canViewTeaser: vehiclePermission.canViewTeaser,
-        canViewDocuments: vehiclePermission.canViewDocuments,
-        canExpressInterest: vehiclePermission.canExpressInterest,
-        canInvest: vehiclePermission.canInvest,
-        grantedAt: vehiclePermission.grantedAt,
-      })
-      .from(vehiclePermission)
-      .where(
-        and(
-          eq(vehiclePermission.userId, session.user.id),
-          isNull(vehiclePermission.revokedAt)
-        )
-      );
-
-    // Get deal names
-    const permissionsWithDeals = await Promise.all(
-      permissions.map(async (perm) => {
-        const [dealInfo] = await ctx.db
-          .select({ name: deal.name })
-          .from(deal)
-          .where(eq(deal.id, perm.dealId))
-          .limit(1);
-        return {
-          ...perm,
-          dealName: dealInfo?.name || "Unknown Deal",
-        };
-      })
-    );
-
-    return {
-      success: true,
-      permissions: permissionsWithDeals,
-    };
-  }),
-
-  /**
-   * Get all available deals for permission granting
-   */
-  getAvailableDeals: baseProcedure.query(async ({ ctx }) => {
-    const session = await getSession();
-    if (!session?.user || session.user.role !== "admin") {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Admin access required",
-      });
-    }
-
-    const deals = await ctx.db
-      .select({
-        id: deal.id,
-        name: deal.name,
-        status: deal.status,
-      })
-      .from(deal)
-      .orderBy(desc(deal.createdAt));
-
-    // Return deals array directly for easier consumption
-    return deals;
-  }),
 
   /**
    * Grant deal access to all cleared investors
@@ -958,8 +842,7 @@ export const complianceRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Start session check early
-      const sessionPromise = getSession();
-      const session = await sessionPromise;
+      const session = await authSession();
 
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
@@ -1101,7 +984,7 @@ export const complianceRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const session = await getSession();
+      const session = await authSession();
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
           code: "UNAUTHORIZED",
@@ -1189,7 +1072,7 @@ export const complianceRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const session = await getSession();
+      const session = await authSession();
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
           code: "UNAUTHORIZED",
@@ -1222,44 +1105,5 @@ export const complianceRouter = createTRPCRouter({
       };
     }),
 
-  /**
-   * Get document download URL (proxied through server for Nextcloud files)
-   */
-  getDocumentDownloadUrl: baseProcedure
-    .input(z.object({ documentId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const session = await getSession();
-      if (!session?.user || session.user.role !== "admin") {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Admin access required",
-        });
-      }
 
-      const [doc] = await ctx.db
-        .select({
-          id: onboardingDocument.id,
-          filePath: onboardingDocument.filePath,
-          fileName: onboardingDocument.fileName,
-          fileType: onboardingDocument.fileType,
-        })
-        .from(onboardingDocument)
-        .where(eq(onboardingDocument.id, input.documentId))
-        .limit(1);
-
-      if (!doc) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Document not found",
-        });
-      }
-
-      // Return a URL that goes through our API to proxy the Nextcloud file
-      return {
-        success: true,
-        downloadUrl: `/api/documents/download?id=${doc.id}`,
-        fileName: doc.fileName,
-        fileType: doc.fileType,
-      };
-    }),
 });

@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { cacheLife, cacheTag } from "next/cache";
-import { caller } from "@/trpc/server";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +16,10 @@ import { AuditHistory } from "@/components/investor-compliance-audit-history";
 import { ClearanceForm } from "@/components/investor-compliance-clearance-form";
 import { authSession } from "@/app/(auth)/auth";
 import { redirect } from "next/navigation";
+import {
+  getAllActiveDealsBasic,
+  getInvestorComplianceDetails,
+} from "@repo/db/queries";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -89,15 +92,25 @@ async function FetchInvestorDetailsWrapper({
   cacheLife("minutes");
   cacheTag(`investor-compliance-${investorId}`);
 
-  const data = await caller.compliance.getInvestorDetails({
-    userId: investorId,
-  });
+  const [data, deals] = await Promise.all([
+    getInvestorComplianceDetails(investorId),
+    getAllActiveDealsBasic(),
+  ]);
 
   if (!data.success || !data.investor) {
     notFound();
   }
 
   const { investor, onboarding, permissions, auditLog } = data;
+
+  const availableDeals = deals
+    // Exclude draft deals from assignment options
+    .filter((d) => d.status !== "draft")
+    .map((d) => ({
+      id: d.id,
+      name: d.name,
+      status: d.status,
+    }));
 
   // Cast the onboarding data to match the component's expected type
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -241,6 +254,7 @@ async function FetchInvestorDetailsWrapper({
           <VehiclePermissions
             investorId={investorId}
             permissions={permissions}
+            availableDeals={availableDeals as any}
           />
         </TabsContent>
 

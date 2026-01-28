@@ -3,14 +3,14 @@ import { TRPCError } from "@trpc/server";
 import { baseProcedure, createTRPCRouter } from "../init";
 import { user } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
-import { getSession } from "@/lib/get-session";
+import { authSession } from "@/app/(auth)/auth";
 
 export const authRouter = createTRPCRouter({
   /**
    * Get current session
    */
   getSession: baseProcedure.query(async ({ ctx }) => {
-    const session = await getSession();
+    const session = await authSession();
     if (!session?.user) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
@@ -36,18 +36,18 @@ export const authRouter = createTRPCRouter({
         });
       }
 
-      const foundUser = await ctx.db.query.user.findFirst({
-        where: eq(user.email, input.email),
-        columns: {
-          id: true,
-          email: true,
-          emailVerified: true,
-        },
-      });
+      const foundUser = await ctx.db.select().from(user).where(eq(user.email, input.email)).limit(1);
+      if (!foundUser) {
+        return {
+          exists: false,
+          emailVerified: false,
+        };
+      }
+
 
       return {
         exists: !!foundUser,
-        emailVerified: foundUser?.emailVerified ?? false,
+        emailVerified: foundUser[0]?.emailVerified ?? false,
       };
     }),
 });

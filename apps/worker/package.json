@@ -5,7 +5,10 @@
   "private": true,
   "scripts": {
     "start": "bun run index.ts",
-    "dev": "bun run index.ts --watch"
+    "dev": "bun run index.ts --watch",
+    "build": "echo 'No build needed for Bun runtime'",
+    "lint": "eslint . || true",
+    "check-types": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -14,7 +17,7 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@repo/mail": "workspace:*",
+    "@repo/mail": "*",
     "axios": "^1.13.2",
     "bullmq": "^5.66.2",
     "ioredis": "^5.8.2",

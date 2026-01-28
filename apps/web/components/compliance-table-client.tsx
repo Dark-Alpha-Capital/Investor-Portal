@@ -58,7 +58,6 @@ type Investor = {
   email: string;
   image: string | null;
   createdAt: Date | null;
-  kycStatus: string | null;
   isOnboardingCompleted: boolean | null;
   clearance: Clearance | null;
   dealAccessCount: number;
@@ -183,7 +182,7 @@ export function ComplianceTableClient({
         router.push(`${pathname}?${params.toString()}`);
       });
     },
-    [pathname, router, searchParams]
+    [pathname, router, searchParams],
   );
 
   const handleClearanceStatusChange = useCallback(
@@ -193,14 +192,14 @@ export function ComplianceTableClient({
         page: "1",
       });
     },
-    [updateQueryParams]
+    [updateQueryParams],
   );
 
   const handlePageChange = useCallback(
     (page: number) => {
       updateQueryParams({ page: page.toString() });
     },
-    [updateQueryParams]
+    [updateQueryParams],
   );
 
   const { investors, pagination } = initialData;
@@ -416,7 +415,7 @@ export function ComplianceTableClient({
                     {item}
                   </PaginationLink>
                 </PaginationItem>
-              )
+              ),
             )}
 
             <PaginationItem>

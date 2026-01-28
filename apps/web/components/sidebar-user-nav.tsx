@@ -18,7 +18,7 @@ import {
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { useTheme } from "next-themes";
-import type { Session } from "@/lib/get-session";
+import type { Session } from "@/app/(auth)/auth";
 
 export function SidebarUserNav({ session }: { session: Session }) {
   const router = useRouter();
@@ -45,7 +45,7 @@ export function SidebarUserNav({ session }: { session: Session }) {
             >
               <Image
                 src={
-                  session?.user.image ??
+                  session?.user.image ||
                   `https://avatar.vercel.sh/${session?.user.email}`
                 }
                 alt={session?.user.email ?? "User Avatar"}

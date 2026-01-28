@@ -8,6 +8,11 @@
     "./emails": "./emails/index.ts",
     "./types": "./types.ts"
   },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint .",
+    "check-types": "tsc --noEmit"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@repo/typescript-config": "*"

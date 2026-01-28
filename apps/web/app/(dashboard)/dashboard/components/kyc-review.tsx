@@ -12,7 +12,8 @@ export function KycReviewScreen() {
             </div>
             <h1 className="text-3xl font-bold mb-3">KYC Under Review</h1>
             <p className="text-muted-foreground text-balance">
-              Your onboarding documents are currently being reviewed by our team.
+              Your onboarding documents are currently being reviewed by our
+              team.
             </p>
           </div>
 
@@ -30,20 +31,20 @@ export function KycReviewScreen() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary mt-0.5">•</span>
+                <span>Review typically takes 1-2 business days</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary mt-0.5">•</span>
                 <span>
-                  Review typically takes 1-2 business days
+                  You'll receive an email notification once the review is
+                  complete
                 </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary mt-0.5">•</span>
                 <span>
-                  You'll receive an email notification once the review is complete
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>
-                  If additional information is needed, we'll contact you directly
+                  If additional information is needed, we'll contact you
+                  directly
                 </span>
               </li>
             </ul>
@@ -60,9 +61,3 @@ export function KycReviewScreen() {
     </div>
   );
 }
-
-
-
-
-
-

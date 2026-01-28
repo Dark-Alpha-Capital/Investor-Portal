@@ -305,7 +305,7 @@ const PaginationControls = memo(function PaginationControls({
   return (
     <div className="flex items-center justify-center gap-2">
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
         onClick={() => onPageChange(page - 1)}
         disabled={!hasPrevPage}
@@ -326,19 +326,19 @@ const PaginationControls = memo(function PaginationControls({
           ) : (
             <Button
               key={pageNum}
-              variant={pageNum === page ? "default" : "outline"}
+              variant={pageNum === page ? "default" : "ghost"}
               size="sm"
               onClick={() => onPageChange(pageNum as number)}
               className="min-w-[36px]"
             >
               {pageNum}
             </Button>
-          )
+          ),
         )}
       </div>
 
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
         onClick={() => onPageChange(page + 1)}
         disabled={!hasNextPage}
@@ -389,7 +389,7 @@ export function AdminsTableClient({ initialData }: AdminsTableClientProps) {
         router.push(`${pathname}?${params.toString()}`, { scroll: false });
       });
     },
-    [searchParams, pathname, router, startTransition]
+    [searchParams, pathname, router, startTransition],
   );
 
   // Handle page change
@@ -397,7 +397,7 @@ export function AdminsTableClient({ initialData }: AdminsTableClientProps) {
     (newPage: number) => {
       updateParams({ adminsPage: newPage.toString() });
     },
-    [updateParams]
+    [updateParams],
   );
 
   // Selection handlers - memoized for stability

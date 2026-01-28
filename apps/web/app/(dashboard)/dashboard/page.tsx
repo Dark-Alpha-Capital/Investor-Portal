@@ -29,31 +29,27 @@ const formatCurrency = (value: number): string => {
 };
 
 /**
- * Dashboard Main Component - Server Component
+ * Dashboard Main Presentational Component
  * Renders the main dashboard content with portfolio metrics and investments
  */
-async function DashboardMain({ userId }: { userId: string }) {
-  "use cache";
-  cacheLife("minutes");
-  cacheTag(`dashboard-clearance-${userId}`);
-
-  const [portfolioData, clearanceData] = await Promise.all([
-    getPortfolioData(userId),
-    getClearanceData(userId),
-  ]);
-
-  const clearanceStatus =
-    (clearanceData.clearance?.status as ClearanceStatus) ?? null;
-  const clearanceConditions =
-    (clearanceData.clearance?.conditionsJson as string[]) ?? null;
-
+function DashboardMain({
+  portfolioData,
+  clearanceStatus,
+  clearanceConditions,
+}: {
+  portfolioData: Awaited<ReturnType<typeof getPortfolioData>>;
+  clearanceStatus: ClearanceStatus | null;
+  clearanceConditions: string[] | null;
+}) {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
         {/* Header Section */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight mb-2">Dashboard</h1>
+            <h1 className="text-4xl font-bold tracking-tight mb-2">
+              Dashboard
+            </h1>
             <p className="text-muted-foreground text-base">
               Overview of your investment portfolio and activity
             </p>
@@ -187,9 +183,7 @@ async function DashboardMain({ userId }: { userId: string }) {
                   investment opportunities
                 </p>
                 <Link href="/deals">
-                  <Button>
-                    Browse Investment Opportunities
-                  </Button>
+                  <Button>Browse Investment Opportunities</Button>
                 </Link>
               </div>
             ) : (
@@ -212,7 +206,7 @@ async function DashboardMain({ userId }: { userId: string }) {
                             </span>
                             <span className="font-medium">
                               {formatCurrency(
-                                parseFloat(investment.committedAmount)
+                                parseFloat(investment.committedAmount),
                               )}
                             </span>
                           </div>
@@ -222,7 +216,7 @@ async function DashboardMain({ userId }: { userId: string }) {
                             </span>
                             <span className="font-medium">
                               {formatCurrency(
-                                parseFloat(investment.fundedAmount || "0")
+                                parseFloat(investment.fundedAmount || "0"),
                               )}
                             </span>
                           </div>
@@ -233,7 +227,7 @@ async function DashboardMain({ userId }: { userId: string }) {
                               </span>
                               <span className="font-medium text-green-600 dark:text-green-400">
                                 {formatCurrency(
-                                  parseFloat(investment.currentValue)
+                                  parseFloat(investment.currentValue),
                                 )}
                               </span>
                             </div>
@@ -256,6 +250,34 @@ async function DashboardMain({ userId }: { userId: string }) {
         </Card>
       </div>
     </div>
+  );
+}
+
+/**
+ * Cached wrapper component that fetches dashboard data
+ * Uses Next.js Cache Components pattern with cache directives
+ */
+async function FetchDashboardWrapper({ userId }: { userId: string }) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(`dashboard-clearance-${userId}`);
+
+  const [portfolioData, clearanceData] = await Promise.all([
+    getPortfolioData(userId),
+    getClearanceData(userId),
+  ]);
+
+  const clearanceStatus =
+    (clearanceData.clearance?.status as ClearanceStatus) ?? null;
+  const clearanceConditions =
+    (clearanceData.clearance?.conditionsJson as string[]) ?? null;
+
+  return (
+    <DashboardMain
+      portfolioData={portfolioData}
+      clearanceStatus={clearanceStatus}
+      clearanceConditions={clearanceConditions}
+    />
   );
 }
 
@@ -300,7 +322,7 @@ async function DashboardContent() {
     case "cleared":
     case "cleared_with_conditions":
       // User is cleared, show full dashboard
-      return <DashboardMain userId={userId} />;
+      return <FetchDashboardWrapper userId={userId} />;
     case "rejected":
       // Clearance was rejected
       return <KycRejectedScreen />;

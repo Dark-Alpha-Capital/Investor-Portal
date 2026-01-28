@@ -1,55 +1,60 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import { Kysely, PostgresDialect } from "kysely";
-import { Pool } from "pg";
-import {
-  user,
-  session,
-  account,
-  verification,
-  onboarding,
-  onboardingDocument,
-  deal,
-  dealInvite,
-  dealInterest,
-  investment,
-  investmentDocument,
-} from "./schema";
+import { drizzle } from "drizzle-orm/postgres-js";
+import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+export {
+  eq,
+  and,
+  or,
+  sql,
+  asc,
+  desc,
+  inArray,
+  count,
+  gte,
+  lte,
+} from "drizzle-orm";
+export type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 
-const databaseUrl = process.env.DATABASE_URL;
+let cachedDb: PostgresJsDatabase | undefined;
+let cachedClient: postgres.Sql | undefined;
 
-if (!databaseUrl) {
-  throw new Error(
-    "DATABASE_URL or POSTGRES_URL environment variable is not set"
-  );
+function getDb(): PostgresJsDatabase {
+  if (cachedDb) {
+    return cachedDb;
+  }
+
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error("DATABASE_URL is required");
+  }
+
+  const client =
+    cachedClient ??
+    postgres(url, {
+      max: 10,
+      idle_timeout: 20,
+      connect_timeout: 10,
+      onnotice: () => { },
+      debug: process.env.NODE_ENV === "development" ? console.log : undefined,
+    });
+
+  if (process.env.NODE_ENV !== "production") {
+    cachedClient = client;
+  }
+
+  const database = drizzle(client);
+  cachedDb = database;
+
+  return database;
 }
 
-// Create a pg Pool for Better Auth Kysely connection
-// This pool can be shared with auth.ts to avoid duplicate connections
-export const pool = new Pool({
-  connectionString: databaseUrl,
-});
-
-const dialect = new PostgresDialect({
-  pool,
-});
-
-export const dbClient = new Kysely<any>({
-  dialect,
-});
-
-// Drizzle database instance
-export const db = drizzle(pool, {
-  schema: {
-    user,
-    session,
-    account,
-    verification,
-    onboarding,
-    onboardingDocument,
-    deal,
-    dealInvite,
-    dealInterest,
-    investment,
-    investmentDocument,
+export const db = new Proxy({} as PostgresJsDatabase, {
+  get(_target, prop) {
+    const database = getDb();
+    const value = database[prop as keyof PostgresJsDatabase];
+    if (typeof value === "function") {
+      return value.bind(database);
+    }
+    return value;
   },
 });

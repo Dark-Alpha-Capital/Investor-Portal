@@ -1,6 +1,5 @@
-import React from "react";
-import { DealForm } from "../../../../../../components/deals-deal-form";
-
+import React, { Suspense } from "react";
+import { DealForm } from "@/components/deals-deal-form";
 export default function NewDealPage() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
@@ -11,7 +10,9 @@ export default function NewDealPage() {
         </p>
       </div>
 
-      <DealForm />
+      <Suspense fallback={<div>Loading...</div>}>
+        <DealForm />
+      </Suspense>
     </div>
   );
 }

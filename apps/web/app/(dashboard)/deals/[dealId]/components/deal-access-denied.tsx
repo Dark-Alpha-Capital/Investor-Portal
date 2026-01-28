@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShieldX, ArrowLeft, AlertTriangle, CheckCircle2 } from "lucide-react";
@@ -13,8 +19,7 @@ export function DealAccessDenied({
   clearanceStatus,
   reason,
 }: DealAccessDeniedProps) {
-  const isClearedWithConditions =
-    clearanceStatus === "cleared_with_conditions";
+  const isClearedWithConditions = clearanceStatus === "cleared_with_conditions";
   const isPending = clearanceStatus === "pending";
   const isRejected = clearanceStatus === "rejected";
   const isNotCleared = !clearanceStatus || clearanceStatus === "not_cleared";
@@ -92,7 +97,7 @@ export function DealAccessDenied({
           )}
 
           <div className="flex gap-3 pt-4">
-            <Button variant="outline" asChild>
+            <Button variant="ghost" asChild>
               <Link href="/deals">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Deals

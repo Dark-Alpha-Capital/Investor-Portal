@@ -1,0 +1,165 @@
+services:
+  # Redis for BullMQ
+  redis:
+    image: redis:7-alpine
+    container_name: investor-portal-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Server (Bun + Hono) - API server for file handling and onboarding
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: investor-portal-server
+    ports:
+      - "${SERVER_PORT:-8080}:8080" # External:Internal port mapping
+    # ============================================
+    # RUNTIME VARIABLES (Server-side & Secrets)
+    # ============================================
+    # These are injected into the container at startup and can be changed
+    # without rebuilding the image.
+    #
+    # The env_file directive loads ALL variables from ./apps/server/.env
+    # into the container. No need to list them individually.
+    #
+    # Create ./apps/server/.env with your variables:
+    # DATABASE_URL=postgresql://...
+    # POSTGRES_URL=postgresql://...
+    # REDIS_URL=redis://redis:6379
+    # GCLOUD_PROJECT_ID=...
+    # etc.
+    env_file:
+      - ./apps/server/.env
+    environment:
+      # Core runtime configuration (always set)
+      - NODE_ENV=production
+      - PORT=8080
+      # Override Redis URL to use Docker service name
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      # All other variables (DATABASE_URL, POSTGRES_URL, GCLOUD_PROJECT_ID, etc.)
+      # are loaded from ./apps/server/.env via env_file above
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Worker (Bun + BullMQ)
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: investor-portal-worker
+    ports:
+      - "${WORKER_PORT:-8081}:8081"
+    # ============================================
+    # RUNTIME VARIABLES (Server-side & Secrets)
+    # ============================================
+    # These are injected into the container at startup and can be changed
+    # without rebuilding the image.
+    #
+    # The env_file directive loads ALL variables from ./apps/worker/.env
+    # into the container. No need to list them individually.
+    #
+    # Create ./apps/worker/.env with your variables:
+    # DATABASE_URL=postgresql://...
+    # POSTGRES_URL=postgresql://...
+    # REDIS_URL=redis://redis:6379
+    # RESEND_API_KEY=...
+    # etc.
+    env_file:
+      - ./apps/worker/.env
+    environment:
+      # Core runtime configuration (always set)
+      - NODE_ENV=production
+      - PORT=8081
+      # Override Redis URL to use Docker service name
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      # All other variables (DATABASE_URL, POSTGRES_URL, RESEND_API_KEY, etc.)
+      # are loaded from ./apps/worker/.env via env_file above
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Web (Next.js) - Frontend application
+  web:
+    build:
+      context: .
+      dockerfile: ./apps/web/Dockerfile
+      # Build-time args: these are read from the environment (or root .env)
+      # where `docker compose` is run. They are *not* populated from
+      # `env_file`, which only applies at container runtime.
+      args:
+        NEXT_PUBLIC_BETTER_AUTH_URL: ${NEXT_PUBLIC_BETTER_AUTH_URL}
+        DATABASE_URL: ${DATABASE_URL}
+        REDIS_URL: ${REDIS_URL}
+        BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+    container_name: investor-portal-web
+    ports:
+      - "3005:3000" # External:Internal port mapping
+
+    env_file:
+      - ./apps/web/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+
+    depends_on:
+      redis:
+        condition: service_healthy
+      server:
+        condition: service_started
+    networks:
+      - app-network
+    restart: unless-stopped
+    # Health check to ensure the application is running
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  app-network:
+    driver: bridge
+    # For VM deployment, services communicate via service names (redis, server, worker, web)
+
+volumes:
+  redis_data:
+    # Persistent storage for Redis data
+# Port Summary for VM Deployment:
+# - Web:    3000 (HTTP) - Main frontend application
+# - Server: 8080 (HTTP) - API server for file handling
+# - Worker: 8081 (HTTP) - Background job processor (health checks)
+# - Redis:  6379 (TCP)  - Queue/Job processing (can be internal-only)
+#
+# For production VM deployment:
+# 1. Use a reverse proxy (nginx/traefik) to expose ports 80/443
+# 2. Map domains: example.com -> web:3000, api.example.com -> server:8080
+# 3. Keep worker and redis internal-only (remove port mappings if not needed externally)
+# 4. Set NEXT_PUBLIC_APP_URL to your actual domain
+# 5. Configure firewall to only expose necessary ports
