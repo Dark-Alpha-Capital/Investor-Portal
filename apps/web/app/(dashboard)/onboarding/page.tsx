@@ -82,7 +82,7 @@ async function OnboardingContentWrapper() {
               <Button asChild>
                 <Link href="/admin">Go to Admin Dashboard</Link>
               </Button>
-              <Button asChild variant="outline">
+              <Button asChild variant="secondary">
                 <Link href="/dashboard">Go to Dashboard</Link>
               </Button>
             </div>

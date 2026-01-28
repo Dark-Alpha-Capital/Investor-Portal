@@ -35,7 +35,6 @@ export const user = pgTable("user", {
     .default(false)
     .notNull(),
   kycStatus: kyc_status_enum("kyc_status").default("review").notNull(),
-
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -500,7 +499,6 @@ export const banking_request_type_enum = pgEnum("banking_request_type", [
   "change", // Change existing account
   "remove", // Remove account
 ]);
-
 
 // 17. Audit action types
 export const audit_action_enum = pgEnum("audit_action", [
@@ -1273,7 +1271,6 @@ export const bankingVerification = pgTable(
   ]
 );
 
-
 // --- EVIDENCE EXPORT (Retention Tracking) ---
 export const evidenceExport = pgTable(
   "evidence_export",
@@ -1482,7 +1479,6 @@ export const bankingVerificationRelations = relations(
     }),
   })
 );
-
 
 export const evidenceExportRelations = relations(evidenceExport, ({ one }) => ({
   exportedByUser: one(user, {

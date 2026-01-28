@@ -119,7 +119,7 @@ async function FetchInvestorDetailsWrapper({
 
   const getClearanceStatusBadge = () => {
     if (!investor.clearance) {
-      return <Badge variant="outline">No Clearance</Badge>;
+      return <Badge variant="secondary">No Clearance</Badge>;
     }
     const statusConfig: Record<
       string,
@@ -165,7 +165,7 @@ async function FetchInvestorDetailsWrapper({
               {investor.isOnboardingCompleted ? (
                 <Badge variant="default">Onboarding Complete</Badge>
               ) : (
-                <Badge variant="outline">Onboarding Incomplete</Badge>
+                <Badge variant="secondary">Onboarding Incomplete</Badge>
               )}
             </div>
           </div>

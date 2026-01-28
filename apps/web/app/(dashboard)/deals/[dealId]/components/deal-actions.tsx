@@ -252,7 +252,7 @@ export function DealActions({
                         </p>
                       )}
                     </div>
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="default">
                       Select
                     </Button>
                   </div>
@@ -293,7 +293,7 @@ export function DealActions({
                 </div>
                 <DialogFooter>
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => {
                       setIsSoftCommitDialogOpen(false);
                       setProposedAmount("");
@@ -349,7 +349,7 @@ export function DealActions({
                     </div>
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="default"
                       onClick={() => {
                         setProposedAmount(userInterest.proposedAmount || "");
                       }}
@@ -393,7 +393,7 @@ export function DealActions({
                 </div>
                 <DialogFooter>
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => {
                       setIsSoftCommitDialogOpen(false);
                       setProposedAmount("");
@@ -433,7 +433,7 @@ export function DealActions({
                 </div>
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="secondary"
                   onClick={handleMeetingRequestClick}
                   disabled={loadingAction === "meeting_requested"}
                 >
@@ -455,7 +455,7 @@ export function DealActions({
                 </div>
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="secondary"
                   onClick={handlePassClick}
                   disabled={loadingAction === "pass"}
                 >

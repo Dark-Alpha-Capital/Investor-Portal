@@ -4,9 +4,13 @@ import Header from "@/components/header";
 import Footer from "@/components/footer";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
-import { montserrat, raleway, fira_code } from "@/app/fonts";
+import { fontSans, fontMono } from "@/app/fonts";
 import { TRPCReactProvider } from "@/trpc/client";
-import { generatePageMetadata, generateOrganizationJsonLd, siteConfig } from "@/lib/seo";
+import {
+  generatePageMetadata,
+  generateOrganizationJsonLd,
+  siteConfig,
+} from "@/lib/seo";
 import { JsonLd } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = generatePageMetadata({
@@ -34,9 +38,7 @@ export default function RootLayout({
       <head>
         <JsonLd data={organizationJsonLd} />
       </head>
-      <body
-        className={`${montserrat.variable} ${raleway.variable} ${fira_code.variable} antialiased`}
-      >
+      <body className={`${fontSans.variable} ${fontMono.variable} antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

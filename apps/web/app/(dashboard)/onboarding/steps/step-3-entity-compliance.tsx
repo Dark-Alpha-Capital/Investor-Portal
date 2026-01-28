@@ -594,7 +594,7 @@ export function Step3EntityCompliance({
       <div className="flex justify-between pt-4 border-t gap-3">
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="lg"
           onClick={onBack}
           className="bg-transparent"

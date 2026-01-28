@@ -110,7 +110,7 @@ export function OnboardingCompleteView({
                 </Link>
               </Button>
             )}
-            <Button asChild variant="outline">
+            <Button asChild variant="secondary">
               <Link href="/dashboard">Go to Dashboard</Link>
             </Button>
           </div>

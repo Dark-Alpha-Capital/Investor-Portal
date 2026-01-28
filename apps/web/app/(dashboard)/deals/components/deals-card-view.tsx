@@ -51,7 +51,7 @@ const formatStatus = (status: string) => {
 function DealCardItem({ deal }: { deal: Deal }) {
   return (
     <Link href={`/deals/${deal.id}`} className="block group">
-      <article className="h-full border border-border rounded-lg overflow-hidden transition-colors hover:border-primary/50">
+      <article className="h-full overflow-hidden rounded-lg border border-border/50 bg-card transition-all duration-200 hover:border-border hover:shadow-md">
         {deal.coverImageUrl && (
           <div className="relative w-full h-40 overflow-hidden bg-muted">
             <img
@@ -164,9 +164,18 @@ function DealCardItem({ deal }: { deal: Deal }) {
 
 export function DealsCardView({ deals }: DealsCardViewProps) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      {deals.map((deal) => (
-        <DealCardItem key={deal.id} deal={deal} />
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {deals.map((deal, index) => (
+        <div
+          key={deal.id}
+          className="animate-in fade-in slide-in-from-bottom-4"
+          style={{
+            animationDelay: `${index * 50}ms`,
+            animationFillMode: "both",
+          }}
+        >
+          <DealCardItem deal={deal} />
+        </div>
       ))}
     </div>
   );

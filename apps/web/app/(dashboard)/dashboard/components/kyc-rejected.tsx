@@ -49,7 +49,7 @@ export function KycRejectedScreen() {
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button
-              variant="outline"
+              variant="default"
               size="lg"
               onClick={() => router.push("/onboarding?step=2")}
               className="gap-2"
@@ -58,7 +58,7 @@ export function KycRejectedScreen() {
               <ArrowRight className="w-4 h-4" />
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               size="lg"
               onClick={() => (window.location.href = "mailto:support@example.com")}
               className="gap-2"

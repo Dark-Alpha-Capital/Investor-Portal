@@ -579,7 +579,7 @@ export function Step2Accreditation({
         {onBack ? (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="lg"
             onClick={onBack}
             className="bg-transparent"

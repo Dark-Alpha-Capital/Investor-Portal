@@ -129,7 +129,7 @@ export function RepeatingGroup<T>({
       {items.length < maxItems && (
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           onClick={handleAdd}
           className="w-full gap-2"
         >

@@ -1030,7 +1030,7 @@ export function OnboardingFlow({
             <div className="flex-1 flex justify-end">
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={handleReset}
                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
@@ -1124,7 +1124,7 @@ export function OnboardingFlow({
               <div className="flex gap-3 pt-4">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="lg"
                   onClick={handleBack}
                   className="gap-2 bg-transparent"
@@ -1172,7 +1172,7 @@ export function OnboardingFlow({
               <div className="flex gap-3 pt-4">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="lg"
                   onClick={handleBack}
                   className="gap-2 bg-transparent"
@@ -1246,7 +1246,7 @@ export function OnboardingFlow({
               <div className="flex gap-3 pt-4">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="lg"
                   onClick={handleBack}
                   disabled={isUpdatingOnboarding}
@@ -1366,7 +1366,7 @@ export function OnboardingFlow({
               <div className="flex gap-3 pt-4">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="lg"
                   onClick={handleBack}
                   disabled={isSubmittingOnboarding}
@@ -1431,7 +1431,7 @@ export function OnboardingFlow({
               <div className="flex gap-3 pt-4">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="lg"
                   onClick={handleBack}
                   disabled={isUpdatingOnboarding}
@@ -1551,7 +1551,7 @@ export function OnboardingFlow({
               <div className="flex gap-3 pt-4">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="lg"
                   onClick={handleBack}
                   disabled={isSubmittingOnboarding}

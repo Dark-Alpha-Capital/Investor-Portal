@@ -95,13 +95,17 @@ const ResetPasswordContent = () => {
 
   if (status === "success") {
     return (
-      <div className="flex h-screen">
-        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/10 via-primary/5 to-background items-center justify-center p-12">
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="text-center space-y-6 max-w-md">
-              <div className="w-24 h-24 mx-auto bg-primary/20 rounded-full flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center p-4 lg:p-8">
+        <div className="w-full max-w-md space-y-8">
+          <div className="flex justify-end">
+            <ModeToggle />
+          </div>
+
+          <div className="space-y-4 text-center">
+            <div className="w-16 h-16 mx-auto flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
                 <svg
-                  className="w-12 h-12 text-primary"
+                  className="w-8 h-8 text-primary"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -110,56 +114,21 @@ const ResetPasswordContent = () => {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    d="M5 13l4 4L19 7"
                   />
                 </svg>
               </div>
-              <h2 className="text-3xl font-bold text-foreground">
-                Password Reset Successful
-              </h2>
-              <p className="text-muted-foreground text-lg">
-                Your password has been reset successfully. You can now sign in
-                with your new password.
-              </p>
             </div>
+            <h1 className="text-3xl font-bold tracking-tight">Password Reset Successful!</h1>
+            <p className="text-muted-foreground text-base">
+              Your password has been reset successfully. You can now sign in
+              with your new password.
+            </p>
           </div>
-        </div>
 
-        <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
-          <div className="w-full max-w-md space-y-6">
-            <ModeToggle />
-
-            <div className="space-y-1 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
-                  <svg
-                    className="w-8 h-8 text-green-600 dark:text-green-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                </div>
-              </div>
-              <h2 className="text-2xl font-bold">Password Reset Successful!</h2>
-              <p className="text-muted-foreground mt-2">
-                Your password has been reset successfully. You can now sign in
-                with your new password.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <Button className="w-full" asChild>
-                <Link href="/login">Continue to Sign In</Link>
-              </Button>
-            </div>
-          </div>
+          <Button className="w-full h-11" asChild>
+            <Link href="/login">Continue to Sign In</Link>
+          </Button>
         </div>
       </div>
     );
@@ -167,13 +136,17 @@ const ResetPasswordContent = () => {
 
   if (status === "error") {
     return (
-      <div className="flex h-screen">
-        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/10 via-primary/5 to-background items-center justify-center p-12">
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="text-center space-y-6 max-w-md">
-              <div className="w-24 h-24 mx-auto bg-destructive/20 rounded-full flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center p-4 lg:p-8">
+        <div className="w-full max-w-md space-y-8">
+          <div className="flex justify-end">
+            <ModeToggle />
+          </div>
+
+          <div className="space-y-4 text-center">
+            <div className="w-16 h-16 mx-auto flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
                 <svg
-                  className="w-12 h-12 text-destructive"
+                  className="w-8 h-8 text-destructive"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -182,52 +155,22 @@ const ResetPasswordContent = () => {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    d="M6 18L18 6M6 6l12 12"
                   />
                 </svg>
               </div>
-              <h2 className="text-3xl font-bold text-foreground">
-                Reset Failed
-              </h2>
-              <p className="text-muted-foreground text-lg">{errorMessage}</p>
             </div>
+            <h1 className="text-3xl font-bold tracking-tight">Reset Failed</h1>
+            <p className="text-muted-foreground text-base">{errorMessage}</p>
           </div>
-        </div>
 
-        <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
-          <div className="w-full max-w-md space-y-6">
-            <ModeToggle />
-
-            <div className="space-y-1 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
-                  <svg
-                    className="w-8 h-8 text-red-600 dark:text-red-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </div>
-              </div>
-              <h2 className="text-2xl font-bold">Reset Failed</h2>
-              <p className="text-muted-foreground mt-2">{errorMessage}</p>
-            </div>
-
-            <div className="space-y-4">
-              <Button variant="outline" className="w-full" asChild>
-                <Link href="/forgot-password">Request New Reset Link</Link>
-              </Button>
-              <Button variant="ghost" className="w-full" asChild>
-                <Link href="/login">Back to Sign In</Link>
-              </Button>
-            </div>
+          <div className="space-y-3">
+            <Button variant="secondary" className="w-full h-11" asChild>
+              <Link href="/forgot-password">Request New Reset Link</Link>
+            </Button>
+            <Button variant="ghost" className="w-full h-11" asChild>
+              <Link href="/login">Back to Sign In</Link>
+            </Button>
           </div>
         </div>
       </div>
@@ -235,52 +178,24 @@ const ResetPasswordContent = () => {
   }
 
   return (
-    <div className="flex h-screen">
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/10 via-primary/5 to-background items-center justify-center p-12">
-        <div className="w-full h-full flex items-center justify-center">
-          <div className="text-center space-y-6 max-w-md">
-            <div className="w-24 h-24 mx-auto bg-primary/20 rounded-full flex items-center justify-center">
-              <svg
-                className="w-12 h-12 text-primary"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                />
-              </svg>
-            </div>
-            <h2 className="text-3xl font-bold text-foreground">
-              Reset your password
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              Enter your new password below. Make sure it's at least 8
-              characters long.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
-        <div className="w-full max-w-md space-y-6">
+    <div className="min-h-screen flex items-center justify-center p-4 lg:p-8">
+      <div className="w-full max-w-md space-y-8">
+        <div className="flex justify-end">
           <ModeToggle />
+        </div>
 
-          <div className="space-y-1 text-center">
-            <h2 className="text-2xl font-bold">Create new password</h2>
-            <p className="text-muted-foreground">
-              Enter your new password below
-            </p>
-          </div>
+        <div className="space-y-2 text-center">
+          <h1 className="text-3xl font-bold tracking-tight">Create new password</h1>
+          <p className="text-muted-foreground text-base">
+            Enter your new password below. Make sure it's at least 8 characters long.
+          </p>
+        </div>
 
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="space-y-4"
-            >
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-5"
+          >
               <FormField
                 control={form.control}
                 name="password"
@@ -322,25 +237,24 @@ const ResetPasswordContent = () => {
                   </FormItem>
                 )}
               />
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={resetPassword.isPending || !token}
-              >
-                {resetPassword.isPending ? "Resetting..." : "Reset password"}
-              </Button>
-            </form>
-          </Form>
-
-          <div className="text-center text-sm text-muted-foreground">
-            Remember your password?{" "}
-            <Link
-              href="/login"
-              className="font-medium text-primary underline-offset-4 hover:underline"
+            <Button
+              type="submit"
+              className="w-full h-11"
+              disabled={resetPassword.isPending || !token}
             >
-              Sign in
-            </Link>
-          </div>
+              {resetPassword.isPending ? "Resetting..." : "Reset password"}
+            </Button>
+          </form>
+        </Form>
+
+        <div className="text-center text-sm text-muted-foreground">
+          Remember your password?{" "}
+          <Link
+            href="/login"
+            className="font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            Sign in
+          </Link>
         </div>
       </div>
     </div>

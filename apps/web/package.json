@@ -85,9 +85,10 @@
     "zod": "^4.2.1"
   },
   "devDependencies": {
-    "@slicemachine/adapter-next": "^0.3.77",
     "@repo/typescript-config": "*",
+    "@slicemachine/adapter-next": "^0.3.77",
     "@tailwindcss/postcss": "^4",
+    "@tailwindcss/typography": "^0.5.19",
     "@types/node": "^20",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",

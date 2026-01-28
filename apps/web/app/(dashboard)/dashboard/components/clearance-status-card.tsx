@@ -48,7 +48,7 @@ const statusConfig = {
     icon: ShieldAlert,
     label: "Cleared with Conditions",
     description: "You have access with certain restrictions.",
-    variant: "outline" as const,
+    variant: "secondary" as const,
     color: "text-blue-600 dark:text-blue-400",
     bgColor: "bg-blue-50 dark:bg-blue-950/20",
   },
@@ -70,18 +70,22 @@ export function ClearanceStatusCard({
   // If onboarding not completed, show onboarding prompt
   if (!isOnboardingCompleted) {
     return (
-      <Card className="border-amber-200 dark:border-amber-800">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
-            <CardTitle className="text-lg">Complete Your Onboarding</CardTitle>
+      <Card className="border-l-4 border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/10 dark:border-amber-800/50">
+        <CardHeader className="pb-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-950/30">
+              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="space-y-1 flex-1">
+              <CardTitle className="text-lg font-semibold">Complete Your Onboarding</CardTitle>
+              <CardDescription className="text-sm">
+                Finish your investor profile to access deal opportunities
+              </CardDescription>
+            </div>
           </div>
-          <CardDescription>
-            Finish your investor profile to access deal opportunities
-          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
+        <CardContent className="pt-0">
+          <p className="text-sm text-muted-foreground mb-5">
             Complete the onboarding process to gain access to the deal
             marketplace and investment opportunities.
           </p>
@@ -102,18 +106,22 @@ export function ClearanceStatusCard({
   const StatusIcon = config.icon;
 
   return (
-    <Card className={`border-l-4 ${config.bgColor}`} style={{ borderLeftColor: "currentColor" }}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <StatusIcon className={`h-5 w-5 ${config.color}`} />
-            <CardTitle className="text-lg">Clearance Status</CardTitle>
+    <Card className={`relative overflow-hidden border-l-4 border-border/50 ${config.bgColor}`} style={{ borderLeftColor: "currentColor" }}>
+      <CardHeader className="pb-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${config.bgColor}`}>
+              <StatusIcon className={`h-5 w-5 ${config.color}`} />
+            </div>
+            <div className="space-y-1">
+              <CardTitle className="text-lg font-semibold">Clearance Status</CardTitle>
+              <CardDescription className="text-sm">{config.description}</CardDescription>
+            </div>
           </div>
-          <Badge variant={config.variant}>{config.label}</Badge>
+          <Badge variant={config.variant} className="shrink-0">{config.label}</Badge>
         </div>
-        <CardDescription>{config.description}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-0">
         {/* Status-specific content */}
         {currentStatus === "pending" && (
           <Alert>
@@ -171,7 +179,7 @@ export function ClearanceStatusCard({
                 Please contact our compliance team for more information.
               </AlertDescription>
             </Alert>
-            <Button variant="outline" asChild>
+            <Button variant="secondary" asChild>
               <Link href="/support">Contact Support</Link>
             </Button>
           </div>

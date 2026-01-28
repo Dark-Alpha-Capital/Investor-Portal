@@ -1038,7 +1038,7 @@ export function Step4InvestmentProfile({
         {onBack ? (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="lg"
             onClick={onBack}
             className="bg-transparent"

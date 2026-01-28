@@ -477,7 +477,7 @@ export function Step1AccountProfile({
         {onBack ? (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="lg"
             onClick={onBack}
             className="bg-transparent"

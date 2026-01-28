@@ -541,7 +541,7 @@ export function KycDocuments({
                   <CheckCircle2 className="w-5 h-5 text-primary" />
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     onClick={() =>
                       setPreviewFile({ file, type, title: info.title })
@@ -553,7 +553,7 @@ export function KycDocuments({
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     onClick={() => handleFileChange(type, null)}
                   >
@@ -735,7 +735,7 @@ export function KycDocuments({
         <div className="flex gap-3 pt-4">
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="lg"
             onClick={onBack}
             disabled={isSubmitting}

@@ -55,7 +55,7 @@ export default function AdminError({
               <RefreshCw className="h-4 w-4 mr-2" />
               Retry
             </Button>
-            <Button variant="outline" asChild>
+            <Button variant="secondary" asChild>
               <Link href="/admin">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Admin Home

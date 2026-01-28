@@ -58,7 +58,7 @@ async function FetchDealDetailWrapper({ dealId }: { dealId: string }) {
       <div>
         <div className="flex gap-2">
           <Link href={`/admin/deals/${dealId}/curate`}>
-            <Button variant="outline">
+            <Button variant="secondary">
               <Users className="mr-2 h-4 w-4" />
               Curate
             </Button>
@@ -117,7 +117,7 @@ const DealDetailPage = async ({ params }: PageProps) => {
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       <div className="mb-6 flex items-center justify-between">
         <Link href="/admin/deals">
-          <Button variant="outline">
+          <Button variant="secondary">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Deals
           </Button>

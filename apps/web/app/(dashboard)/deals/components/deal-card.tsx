@@ -61,106 +61,118 @@ export function DealCard({ deal }: DealCardProps) {
   const dealUrl = `/deals/${deal.id}`;
 
   return (
-    <Link href={dealUrl}>
-      <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
+    <Link href={dealUrl} className="block h-full">
+      <Card className="group h-full cursor-pointer border-border/50 bg-card transition-all duration-200 hover:border-border hover:shadow-lg">
         {deal.coverImageUrl && (
-          <div className="relative w-full h-48 overflow-hidden rounded-t-xl">
+          <div className="relative w-full h-48 overflow-hidden rounded-t-lg">
             <img
               src={deal.coverImageUrl}
               alt={deal.name}
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
+            <div className="absolute top-3 right-3">
+              <Badge
+                variant={(statusColors[deal.status] as any) || "secondary"}
+                className="backdrop-blur-sm bg-background/80"
+              >
+                {deal.status.replace(/_/g, " ")}
+              </Badge>
+            </div>
           </div>
         )}
-        <CardHeader>
-          <div className="flex items-start justify-between gap-2">
-            <CardTitle className="text-xl line-clamp-2">{deal.name}</CardTitle>
-            <Badge variant={(statusColors[deal.status] as any) || "secondary"}>
-              {deal.status.replace(/_/g, " ")}
-            </Badge>
+        <CardHeader className={deal.coverImageUrl ? "" : "pb-3"}>
+          <div className="flex items-start justify-between gap-3">
+            <CardTitle className="text-xl line-clamp-2 font-semibold group-hover:text-primary transition-colors flex-1">
+              {deal.name}
+            </CardTitle>
+            {!deal.coverImageUrl && (
+              <Badge
+                variant={(statusColors[deal.status] as any) || "secondary"}
+                className="shrink-0"
+              >
+                {deal.status.replace(/_/g, " ")}
+              </Badge>
+            )}
           </div>
           {deal.teaserSummary && (
-            <CardDescription className="line-clamp-2">
+            <CardDescription className="line-clamp-2 text-sm mt-2">
               {deal.teaserSummary}
             </CardDescription>
           )}
           {deal.curationNote && (
-            <div className="mt-2 p-2 bg-muted rounded-md">
+            <div className="mt-3 rounded-lg border border-border/50 bg-muted/50 p-3">
+              <p className="text-xs font-medium text-muted-foreground mb-1">
+                Curated for you
+              </p>
               <p className="text-sm text-muted-foreground italic">
                 "{deal.curationNote}"
               </p>
             </div>
           )}
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {/* Sector and Geography */}
-            {(deal.sector || deal.geography) && (
-              <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                {deal.sector && (
-                  <span className="px-2 py-1 bg-muted rounded-md">
-                    {deal.sector}
-                  </span>
-                )}
-                {deal.geography && (
-                  <span className="px-2 py-1 bg-muted rounded-md">
-                    {deal.geography}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Financial Metrics */}
-            <div className="grid grid-cols-2 gap-3 pt-2 border-t">
-              {deal.targetRaise && (
-                <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Target Raise
-                    </p>
-                    <p className="font-semibold">
-                      {formatCurrency(deal.targetRaise)}
-                    </p>
-                  </div>
-                </div>
+        <CardContent className="space-y-4">
+          {/* Sector and Geography */}
+          {(deal.sector || deal.geography) && (
+            <div className="flex flex-wrap gap-2">
+              {deal.sector && (
+                <span className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                  {deal.sector}
+                </span>
               )}
-              {deal.minInvestment && (
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Min Investment
-                    </p>
-                    <p className="font-semibold">
-                      {formatCurrency(deal.minInvestment)}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {deal.targetIrr && (
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Target IRR</p>
-                    <p className="font-semibold">
-                      {parseFloat(deal.targetIrr).toFixed(1)}%
-                    </p>
-                  </div>
-                </div>
-              )}
-              {deal.targetMoic && (
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Target MOIC</p>
-                    <p className="font-semibold">
-                      {parseFloat(deal.targetMoic).toFixed(2)}x
-                    </p>
-                  </div>
-                </div>
+              {deal.geography && (
+                <span className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                  {deal.geography}
+                </span>
               )}
             </div>
+          )}
+
+          {/* Financial Metrics */}
+          <div className="grid grid-cols-2 gap-4 border-t border-border/50 pt-4">
+            {deal.targetRaise && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Target className="h-3.5 w-3.5" />
+                  <span>Target Raise</span>
+                </div>
+                <p className="text-base font-semibold">
+                  {formatCurrency(deal.targetRaise)}
+                </p>
+              </div>
+            )}
+            {deal.minInvestment && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <DollarSign className="h-3.5 w-3.5" />
+                  <span>Min Investment</span>
+                </div>
+                <p className="text-base font-semibold">
+                  {formatCurrency(deal.minInvestment)}
+                </p>
+              </div>
+            )}
+            {deal.targetIrr && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  <span>Target IRR</span>
+                </div>
+                <p className="text-base font-semibold">
+                  {parseFloat(deal.targetIrr).toFixed(1)}%
+                </p>
+              </div>
+            )}
+            {deal.targetMoic && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  <span>Target MOIC</span>
+                </div>
+                <p className="text-base font-semibold">
+                  {parseFloat(deal.targetMoic).toFixed(2)}x
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

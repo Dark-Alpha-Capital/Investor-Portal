@@ -406,7 +406,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                   onOpenChange={setIsSoftCommitDialogOpen}
                 >
                   <DialogTrigger asChild>
-                    <Button className="flex-1" size="lg" variant="outline">
+                    <Button className="flex-1" size="lg" variant="default">
                       Soft Commit
                     </Button>
                   </DialogTrigger>
@@ -446,7 +446,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                     </div>
                     <DialogFooter>
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         onClick={() => {
                           setIsSoftCommitDialogOpen(false);
                           setProposedAmount("");
@@ -483,7 +483,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                       <Button
                         className="flex-1"
                         size="lg"
-                        variant="outline"
+                        variant="default"
                         onClick={() => {
                           setProposedAmount(userInterest.proposedAmount || "");
                         }}
@@ -531,7 +531,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                       </div>
                       <DialogFooter>
                         <Button
-                          variant="outline"
+                          variant="secondary"
                           onClick={() => {
                             setIsSoftCommitDialogOpen(false);
                             setProposedAmount("");
@@ -561,7 +561,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                   <Button
                     className="flex-1"
                     size="lg"
-                    variant="outline"
+                    variant="secondary"
                     onClick={handleMeetingRequestClick}
                     disabled={isSubmitting}
                   >
@@ -571,7 +571,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                   <Button
                     className="flex-1"
                     size="lg"
-                    variant="outline"
+                    variant="secondary"
                     onClick={handlePassClick}
                     disabled={isSubmitting}
                   >

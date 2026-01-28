@@ -1,12 +1,4 @@
-"use client";
-
-import {
-  Home,
-  Shield,
-  User,
-  Briefcase,
-  UserCheck,
-} from "lucide-react";
+import { Home, Shield, User, Briefcase, UserCheck } from "lucide-react";
 
 import {
   SidebarGroup,
@@ -16,10 +8,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { useClientSession } from "@/lib/get-client-session";
+import type { Session } from "@/lib/get-session";
 
-export function DashboardNavLinks() {
-  const { data: session, isPending } = useClientSession();
+export function DashboardNavLinks({ session }: { session: Session }) {
   const isAdmin = session?.user?.role === "admin";
 
   // Base menu items for all users
@@ -63,37 +54,23 @@ export function DashboardNavLinks() {
   // Combine items based on user role
   const items = isAdmin ? [...baseItems, ...adminItems] : baseItems;
 
-  if (isPending) {
-    return (
-      <SidebarGroup>
-        <SidebarGroupLabel>Application</SidebarGroupLabel>
-        <SidebarGroupContent>
-          <SidebarMenu>
-            {baseItems.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton disabled>
-                  <item.icon />
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
-    );
-  }
-
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Application</SidebarGroupLabel>
+      <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        Navigation
+      </SidebarGroupLabel>
       <SidebarGroupContent>
-        <SidebarMenu>
+        <SidebarMenu className="space-y-1">
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild>
+              <SidebarMenuButton
+                asChild
+                tooltip={item.title}
+                className="group relative transition-colors duration-150"
+              >
                 <a href={item.url}>
-                  <item.icon />
-                  <span>{item.title}</span>
+                  <item.icon className="h-4 w-4 transition-transform duration-150 group-hover:scale-110" />
+                  <span className="font-medium">{item.title}</span>
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>

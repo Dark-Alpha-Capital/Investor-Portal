@@ -29,7 +29,9 @@ export const investmentsRouter = createTRPCRouter({
 
       // Filter by specific investment if provided
       if (input?.investmentId) {
-        whereConditions.push(eq(investmentDocument.investmentId, input.investmentId));
+        whereConditions.push(
+          eq(investmentDocument.investmentId, input.investmentId)
+        );
       }
 
       // Build query - only get documents for investments owned by this user
@@ -51,7 +53,10 @@ export const investmentsRouter = createTRPCRouter({
           dealId: deal.id,
         })
         .from(investmentDocument)
-        .innerJoin(investment, eq(investmentDocument.investmentId, investment.id))
+        .innerJoin(
+          investment,
+          eq(investmentDocument.investmentId, investment.id)
+        )
         .innerJoin(deal, eq(investment.dealId, deal.id))
         .where(and(...whereConditions))
         .orderBy(desc(investmentDocument.uploadedAt));
@@ -59,4 +64,3 @@ export const investmentsRouter = createTRPCRouter({
       return documents;
     }),
 });
-

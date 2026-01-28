@@ -106,7 +106,6 @@ export const complianceRouter = createTRPCRouter({
           email: user.email,
           image: user.image,
           createdAt: user.createdAt,
-          kycStatus: user.kycStatus,
           isOnboardingCompleted: user.isOnboardingCompleted,
         })
         .from(user)
@@ -191,7 +190,6 @@ export const complianceRouter = createTRPCRouter({
           email: user.email,
           image: user.image,
           createdAt: user.createdAt,
-          kycStatus: user.kycStatus,
           isOnboardingCompleted: user.isOnboardingCompleted,
         })
         .from(user)
@@ -374,13 +372,13 @@ export const complianceRouter = createTRPCRouter({
       // Combine onboarding with related data
       const onboardingWithRelations = onboardingData
         ? {
-            ...onboardingData,
-            beneficialOwners,
-            authorizedSignatories,
-            attestations,
-            documents,
-            editHistory,
-          }
+          ...onboardingData,
+          beneficialOwners,
+          authorizedSignatories,
+          attestations,
+          documents,
+          editHistory,
+        }
         : null;
 
       return {

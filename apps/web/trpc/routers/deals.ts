@@ -1155,13 +1155,13 @@ export const dealsRouter = createTRPCRouter({
           eq(
             deal.status,
             status as
-              | "draft"
-              | "coming_soon"
-              | "live"
-              | "closing"
-              | "funded"
-              | "exited"
-              | "cancelled"
+            | "draft"
+            | "coming_soon"
+            | "live"
+            | "closing"
+            | "funded"
+            | "exited"
+            | "cancelled"
           )
         );
       }
@@ -1306,172 +1306,6 @@ export const dealsRouter = createTRPCRouter({
       })),
     };
   }),
-
-  getDealForView: baseProcedure
-    .input(z.object({ dealId: z.string() }))
-    .query(async ({ input, ctx }) => {
-      const session = await getSession();
-      if (!session?.user) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You must be logged in to view deals",
-        });
-      }
-
-      // Fetch the deal by ID or slug
-      const [dealRecord] = await ctx.db
-        .select()
-        .from(deal)
-        .where(or(eq(deal.id, input.dealId), eq(deal.slug, input.dealId)))
-        .limit(1);
-
-      if (!dealRecord) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Deal not found",
-        });
-      }
-
-      // Exclude draft deals (except for admins)
-      const isAdmin = session.user.role === "admin";
-      if (dealRecord.status === "draft" && !isAdmin) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Deal not found",
-        });
-      }
-
-      const actualDealId = dealRecord.id;
-
-      // Check access based on vehiclePermission (admins bypass this check)
-      let permissions = {
-        canViewTeaser: isAdmin,
-        canViewDocuments: isAdmin,
-        canExpressInterest: isAdmin,
-        canInvest: isAdmin,
-      };
-      let clearanceStatus: string | null = null;
-      let curationNote: string | null = null;
-
-      if (!isAdmin) {
-        // Check clearance status first
-        const [clearanceRecord] = await ctx.db
-          .select({ status: investorClearance.status })
-          .from(investorClearance)
-          .where(eq(investorClearance.userId, session.user.id))
-          .orderBy(desc(investorClearance.createdAt))
-          .limit(1);
-
-        clearanceStatus = clearanceRecord?.status ?? null;
-        const isCleared =
-          clearanceStatus === "cleared" ||
-          clearanceStatus === "cleared_with_conditions";
-
-        if (!isCleared) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "You must be cleared by compliance to view deals",
-          });
-        }
-
-        // Check vehiclePermission for this deal
-        const [permissionRecord] = await ctx.db
-          .select({
-            canViewTeaser: vehiclePermission.canViewTeaser,
-            canViewDocuments: vehiclePermission.canViewDocuments,
-            canExpressInterest: vehiclePermission.canExpressInterest,
-            canInvest: vehiclePermission.canInvest,
-            notes: vehiclePermission.notes,
-          })
-          .from(vehiclePermission)
-          .where(
-            and(
-              eq(vehiclePermission.userId, session.user.id),
-              eq(vehiclePermission.dealId, actualDealId),
-              isNull(vehiclePermission.revokedAt)
-            )
-          )
-          .limit(1);
-
-        if (!permissionRecord || !permissionRecord.canViewTeaser) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "You do not have access to this deal",
-          });
-        }
-
-        permissions = {
-          canViewTeaser: permissionRecord.canViewTeaser,
-          canViewDocuments: permissionRecord.canViewDocuments,
-          canExpressInterest: permissionRecord.canExpressInterest,
-          canInvest: permissionRecord.canInvest,
-        };
-        curationNote = permissionRecord.notes;
-      }
-
-      // Get user's interest in this deal (if any)
-      const [userInterest] = await ctx.db
-        .select()
-        .from(dealInterest)
-        .where(
-          and(
-            eq(dealInterest.dealId, actualDealId),
-            eq(dealInterest.userId, session.user.id)
-          )
-        )
-        .limit(1);
-
-      // Get user's investment in this deal (if any)
-      const [userInvestment] = await ctx.db
-        .select()
-        .from(investment)
-        .where(
-          and(
-            eq(investment.dealId, actualDealId),
-            eq(investment.userId, session.user.id)
-          )
-        )
-        .limit(1);
-
-      return {
-        success: true,
-        deal: {
-          ...dealRecord,
-          targetRaise: dealRecord.targetRaise?.toString() ?? null,
-          minInvestment: dealRecord.minInvestment?.toString() ?? null,
-          targetIrr: dealRecord.targetIrr?.toString() ?? null,
-          targetMoic: dealRecord.targetMoic?.toString() ?? null,
-          launchDate: dealRecord.launchDate?.toISOString() ?? null,
-          closeDate: dealRecord.closeDate?.toISOString() ?? null,
-          createdAt: dealRecord.createdAt.toISOString(),
-          updatedAt: dealRecord.updatedAt?.toISOString() ?? null,
-        },
-        // Permission flags for the UI to use
-        permissions,
-        clearanceStatus,
-        userInterest: userInterest
-          ? {
-              ...userInterest,
-              proposedAmount: userInterest.proposedAmount?.toString() ?? null,
-              createdAt: userInterest.createdAt.toISOString(),
-              updatedAt: userInterest.updatedAt?.toISOString() ?? null,
-            }
-          : null,
-        userInvestment: userInvestment
-          ? {
-              ...userInvestment,
-              committedAmount: userInvestment.committedAmount.toString(),
-              fundedAmount: userInvestment.fundedAmount?.toString() ?? null,
-              currentValue: userInvestment.currentValue?.toString() ?? null,
-              distributions: userInvestment.distributions?.toString() ?? null,
-              ownershipPercentage:
-                userInvestment.ownershipPercentage?.toString() ?? null,
-              committedDate: userInvestment.committedDate.toISOString(),
-            }
-          : null,
-        curationNote,
-      };
-    }),
 
   expressInterest: baseProcedure
     .input(

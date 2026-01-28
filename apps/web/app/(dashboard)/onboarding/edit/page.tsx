@@ -37,7 +37,7 @@ export default function EditOnboardingPage() {
           </AlertDescription>
         </Alert>
         <div className="mt-4">
-          <Button asChild variant="outline">
+          <Button asChild variant="secondary">
             <Link href="/onboarding">Back to Onboarding</Link>
           </Button>
         </div>
@@ -77,7 +77,7 @@ export default function EditOnboardingPage() {
           </AlertDescription>
         </Alert>
         <div className="mt-4">
-          <Button asChild variant="outline">
+          <Button asChild variant="secondary">
             <Link href="/onboarding">Back to Onboarding</Link>
           </Button>
         </div>
