@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@repo/db";
 import { onboardingDocument, onboarding } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
-import { getSession } from "@/lib/get-session";
+import { authSession } from "@/app/(auth)/auth";
 import { createClient } from "webdav";
 
 /**
@@ -14,7 +14,7 @@ import { createClient } from "webdav";
 export async function GET(request: NextRequest) {
   try {
     // Get authenticated user
-    const session = await getSession();
+    const session = await authSession();
 
     if (!session?.user) {
       return NextResponse.json(

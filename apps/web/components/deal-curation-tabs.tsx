@@ -37,7 +37,6 @@ type Investor = {
   name: string;
   email: string;
   image: string | null;
-  kycStatus: string;
   isOnboardingCompleted: boolean;
 };
 
@@ -51,7 +50,6 @@ type DealInvite = {
     name: string;
     email: string;
     image: string | null;
-    kycStatus: string;
     isOnboardingCompleted: boolean;
   };
 };
@@ -87,7 +85,7 @@ const InvestorRow = memo(function InvestorRow({
       e.stopPropagation();
       onToggle(investor.id);
     },
-    [investor.id, onToggle]
+    [investor.id, onToggle],
   );
 
   const handleCheckboxChange = useCallback(() => {
@@ -108,11 +106,6 @@ const InvestorRow = memo(function InvestorRow({
       </TableCell>
       <TableCell className="font-medium">{investor.name}</TableCell>
       <TableCell className="text-muted-foreground">{investor.email}</TableCell>
-      <TableCell>
-        <Badge variant="outline" className="text-xs font-normal capitalize">
-          {investor.kycStatus.replace(/_/g, " ")}
-        </Badge>
-      </TableCell>
       <TableCell>
         {investor.isOnboardingCompleted ? (
           <Badge variant="default" className="text-xs">
@@ -164,11 +157,6 @@ const InvitedInvestorRow = memo(function InvitedInvestorRow({
         {invite.user.email}
       </TableCell>
       <TableCell>
-        <Badge variant="outline" className="text-xs font-normal capitalize">
-          {invite.user.kycStatus.replace(/_/g, " ")}
-        </Badge>
-      </TableCell>
-      <TableCell>
         {invite.user.isOnboardingCompleted ? (
           <Badge variant="default" className="text-xs">
             Completed
@@ -218,9 +206,6 @@ const SelectedInvestorItem = memo(function SelectedInvestorItem({
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <Badge variant="outline" className="text-xs font-normal capitalize">
-          {investor.kycStatus.replace(/_/g, " ")}
-        </Badge>
         {investor.isOnboardingCompleted ? (
           <Badge variant="default" className="text-xs">
             Completed
@@ -244,7 +229,7 @@ export function DealCurationTabs({
   const router = useRouter();
   const trpc = useTRPC();
   const [selectedInvestors, setSelectedInvestors] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -254,7 +239,7 @@ export function DealCurationTabs({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setSearchQuery(e.target.value);
     },
-    []
+    [],
   );
 
   const invitedUserIds = useMemo(() => {
@@ -271,7 +256,7 @@ export function DealCurationTabs({
     return uninvitedInvestors.filter(
       (investor) =>
         investor.name.toLowerCase().includes(query) ||
-        investor.email.toLowerCase().includes(query)
+        investor.email.toLowerCase().includes(query),
     );
   }, [uninvitedInvestors, searchQuery]);
 
@@ -284,7 +269,7 @@ export function DealCurationTabs({
       onError: (error: any) => {
         toast.error(error.message || "Failed to invite investors");
       },
-    })
+    }),
   );
 
   const { mutateAsync: removeInvites, isPending: isRemoving } = useMutation(
@@ -296,7 +281,7 @@ export function DealCurationTabs({
       onError: (error: any) => {
         toast.error(error.message || "Failed to remove investor");
       },
-    })
+    }),
   );
 
   // Use functional setState updates and useCallback for stable references
@@ -326,7 +311,7 @@ export function DealCurationTabs({
     () =>
       filteredInvestors.length > 0 &&
       filteredInvestors.every((investor) => selectedInvestors.has(investor.id)),
-    [filteredInvestors, selectedInvestors]
+    [filteredInvestors, selectedInvestors],
   );
 
   const handleInviteClick = useCallback(() => {
@@ -363,7 +348,7 @@ export function DealCurationTabs({
         handleDeselectAll();
       }
     },
-    [handleSelectAll, handleDeselectAll]
+    [handleSelectAll, handleDeselectAll],
   );
 
   const handleRemove = useCallback(
@@ -377,7 +362,7 @@ export function DealCurationTabs({
         // Error handled by mutation options
       }
     },
-    [dealId, removeInvites]
+    [dealId, removeInvites],
   );
 
   // Get selected investor details for display in dialog
@@ -388,7 +373,7 @@ export function DealCurationTabs({
   // Memoize tab counts to avoid recalculation
   const uninvitedCount = useMemo(
     () => investors.length - invitedUserIds.size,
-    [investors.length, invitedUserIds.size]
+    [investors.length, invitedUserIds.size],
   );
 
   return (
@@ -410,7 +395,7 @@ export function DealCurationTabs({
               </Badge>
               <Button
                 onClick={handleSelectAll}
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 disabled={allSelected || filteredInvestors.length === 0}
               >
@@ -419,7 +404,7 @@ export function DealCurationTabs({
               </Button>
               <Button
                 onClick={handleDeselectAll}
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 disabled={selectedInvestors.size === 0}
               >
@@ -462,14 +447,13 @@ export function DealCurationTabs({
                   </TableHead>
                   <TableHead className="font-medium">Name</TableHead>
                   <TableHead className="font-medium">Email</TableHead>
-                  <TableHead className="font-medium">KYC Status</TableHead>
                   <TableHead className="font-medium">Onboarding</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredInvestors.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12">
+                    <TableCell colSpan={4} className="text-center py-12">
                       <p className="text-sm text-muted-foreground">
                         {uninvitedInvestors.length === 0
                           ? "All investors have been invited"
@@ -563,7 +547,6 @@ export function DealCurationTabs({
                 <TableRow>
                   <TableHead className="font-medium">Investor</TableHead>
                   <TableHead className="font-medium">Email</TableHead>
-                  <TableHead className="font-medium">KYC Status</TableHead>
                   <TableHead className="font-medium">Onboarding</TableHead>
                   <TableHead className="font-medium">Invited</TableHead>
                   <TableHead className="font-medium w-12"></TableHead>

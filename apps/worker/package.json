@@ -17,7 +17,7 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@repo/mail": "workspace:*",
+    "@repo/mail": "*",
     "axios": "^1.13.2",
     "bullmq": "^5.66.2",
     "ioredis": "^5.8.2",

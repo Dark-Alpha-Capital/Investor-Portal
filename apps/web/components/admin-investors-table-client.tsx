@@ -210,7 +210,7 @@ const InvestorsTableView = memo(function InvestorsTableView({
             </TableCell>
             <TableCell className="text-right">
               <Link href={`/admin/compliance/investors/${investor.id}`}>
-                <Button variant="outline" size="sm">
+                <Button variant="ghost" size="sm">
                   <Eye className="mr-2 h-4 w-4" />
                   View
                 </Button>
@@ -304,7 +304,7 @@ const InvestorsCardView = memo(function InvestorsCardView({
               href={`/admin/compliance/investors/${investor.id}`}
               className="block"
             >
-              <Button variant="outline" size="sm" className="w-full">
+              <Button variant="ghost" size="sm" className="w-full">
                 <Eye className="mr-2 h-4 w-4" />
                 View Profile
               </Button>
@@ -358,7 +358,7 @@ export function InvestorsTableClient({
         router.push(`${pathname}?${params.toString()}`, { scroll: false });
       });
     },
-    [searchParams, pathname, router, startTransition]
+    [searchParams, pathname, router, startTransition],
   );
 
   // Use server-fetched cached data directly
@@ -606,7 +606,7 @@ export function InvestorsTableClient({
                         {page}
                       </PaginationLink>
                     </PaginationItem>
-                  )
+                  ),
                 )}
 
                 <PaginationItem>

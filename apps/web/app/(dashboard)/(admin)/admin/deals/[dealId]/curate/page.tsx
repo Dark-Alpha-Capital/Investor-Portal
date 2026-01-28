@@ -1,4 +1,3 @@
-import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { Suspense } from "react";
 import {
@@ -7,8 +6,6 @@ import {
 } from "@repo/db/queries";
 import { DealCurationTabs } from "@/components/deal-curation-tabs";
 import BackButton from "@/components/back-button";
-import { authSession } from "@/app/(auth)/auth";
-import { redirect } from "next/navigation";
 
 type PageProps = {
   params: Promise<{
@@ -57,11 +54,7 @@ async function FetchDealCuration({
 }: {
   params: Promise<{ dealId: string }>;
 }) {
-  const [paramsData, sessionData] = await Promise.all([params, authSession()]);
-
-  if (!sessionData?.user || sessionData.user.role !== "admin") {
-    redirect("/login");
-  }
+  const [paramsData] = await Promise.all([params]);
 
   const { dealId } = paramsData;
 

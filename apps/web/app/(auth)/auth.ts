@@ -11,6 +11,7 @@ export type Session = {
     email?: string;
     name?: string;
     role?: string;
+    image?: string | null;
   };
 } | null;
 
@@ -40,6 +41,7 @@ async function _authSession(): Promise<Session> {
         email: session.user.email,
         name: session.user.name ?? undefined,
         role: userWithRole.role ?? undefined,
+        image: session.user.image ?? undefined,
       },
     };
   } catch (error) {

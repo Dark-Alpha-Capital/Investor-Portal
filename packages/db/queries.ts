@@ -10,6 +10,10 @@ import {
   investment,
   investorClearance,
   vehiclePermission,
+  beneficialOwner,
+  authorizedSignatory,
+  kycAttestation,
+  auditLog,
 } from "./schema";
 import {
   and,
@@ -480,7 +484,6 @@ export const getDealInvitesWithUsersByDealId = async (dealId: string) => {
           name: user.name,
           email: user.email,
           image: user.image,
-          kycStatus: user.kycStatus,
           isOnboardingCompleted: user.isOnboardingCompleted,
         },
       })
@@ -823,16 +826,9 @@ export const getUserOnboardingStatus = async (userId: string) => {
  */
 export const getOnboardingWithEditHistory = async (userId: string) => {
   try {
-    // Fetch onboarding data
+    // Fetch latest onboarding record with full columns
     const [onboardingData] = await db
-      .select({
-        id: onboarding.id,
-        submittedAt: onboarding.submittedAt,
-        lastEditedAt: onboarding.lastEditedAt,
-        editCount: onboarding.editCount,
-        isEditable: onboarding.isEditable,
-        organizationName: onboarding.organizationName,
-      })
+      .select()
       .from(onboarding)
       .where(eq(onboarding.userId, userId))
       .orderBy(desc(onboarding.createdAt))
@@ -1287,6 +1283,29 @@ export const getMarketplaceDeals = async ({
 };
 
 /**
+ * Get all non-draft deals with basic fields for admin views.
+ */
+export const getAllActiveDealsBasic = async () => {
+  try {
+    const records = await db
+      .select({
+        id: deal.id,
+        name: deal.name,
+        status: deal.status,
+        createdAt: deal.createdAt,
+      })
+      .from(deal)
+      .where(ne(deal.status, "draft"))
+      .orderBy(desc(deal.createdAt));
+
+    return records;
+  } catch (error) {
+    console.error("Error fetching active deals:", error);
+    return [];
+  }
+};
+
+/**
  * Get deal detail for view with user-specific data (interest, investment, permissions)
  * @param dealId The deal ID or slug
  * @param userId The user ID
@@ -1501,6 +1520,235 @@ export const getDealForView = async ({
       userInterest: null,
       userInvestment: null,
       curationNote: null,
+    };
+  }
+};
+
+/**
+ * Get full compliance details for an investor used by the admin compliance page.
+ *
+ * Returns:
+ * - investor: basic investor info with current clearance
+ * - onboarding: latest onboarding record with related data (owners, signatories, attestations, documents, edit history)
+ * - clearanceHistory: all clearance records (latest first)
+ * - permissions: active vehicle permissions with deal names and granter names
+ * - auditLog: recent audit log entries involving this investor
+ */
+export const getInvestorComplianceDetails = async (userId: string) => {
+  try {
+    // Get user details
+    const [investor] = await db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        createdAt: user.createdAt,
+        isOnboardingCompleted: user.isOnboardingCompleted,
+      })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
+
+    if (!investor) {
+      return {
+        success: false as const,
+        investor: null,
+        onboarding: null,
+        clearanceHistory: [],
+        permissions: [],
+        auditLog: [],
+      };
+    }
+
+    // Get latest onboarding record
+    const [onboardingData] = await db
+      .select()
+      .from(onboarding)
+      .where(eq(onboarding.userId, userId))
+      .orderBy(desc(onboarding.createdAt))
+      .limit(1);
+
+    // Related onboarding data
+    let owners: (typeof beneficialOwner.$inferSelect)[] = [];
+    let signatories: (typeof authorizedSignatory.$inferSelect)[] = [];
+    let attestations: (typeof kycAttestation.$inferSelect)[] = [];
+    let documents: (typeof onboardingDocument.$inferSelect)[] = [];
+    let editHistory: (typeof onboardingEditHistory.$inferSelect)[] = [];
+
+    if (onboardingData) {
+      owners = await db
+        .select()
+        .from(beneficialOwner)
+        .where(eq(beneficialOwner.onboardingId, onboardingData.id))
+        .orderBy(beneficialOwner.createdAt);
+
+      signatories = await db
+        .select()
+        .from(authorizedSignatory)
+        .where(eq(authorizedSignatory.onboardingId, onboardingData.id))
+        .orderBy(authorizedSignatory.createdAt);
+
+      attestations = await db
+        .select()
+        .from(kycAttestation)
+        .where(eq(kycAttestation.onboardingId, onboardingData.id))
+        .orderBy(kycAttestation.createdAt);
+
+      documents = await db
+        .select()
+        .from(onboardingDocument)
+        .where(eq(onboardingDocument.onboardingId, onboardingData.id))
+        .orderBy(desc(onboardingDocument.uploadedAt));
+
+      editHistory = await db
+        .select()
+        .from(onboardingEditHistory)
+        .where(eq(onboardingEditHistory.onboardingId, onboardingData.id))
+        .orderBy(desc(onboardingEditHistory.editedAt))
+        .limit(50);
+    }
+
+    // Clearance history (latest first)
+    const clearanceHistory = await db
+      .select({
+        id: investorClearance.id,
+        status: investorClearance.status,
+        conditions: investorClearance.conditions,
+        conditionsJson: investorClearance.conditionsJson,
+        clearedBy: investorClearance.clearedBy,
+        clearedAt: investorClearance.clearedAt,
+        notes: investorClearance.notes,
+        investorVisibleNotes: investorClearance.investorVisibleNotes,
+        createdAt: investorClearance.createdAt,
+      })
+      .from(investorClearance)
+      .where(eq(investorClearance.userId, userId))
+      .orderBy(desc(investorClearance.createdAt));
+
+    const currentClearance = clearanceHistory[0] || null;
+
+    // Active vehicle permissions with deal and user names
+    const permissionsRaw = await db
+      .select({
+        id: vehiclePermission.id,
+        dealId: vehiclePermission.dealId,
+        canViewTeaser: vehiclePermission.canViewTeaser,
+        canViewDocuments: vehiclePermission.canViewDocuments,
+        canExpressInterest: vehiclePermission.canExpressInterest,
+        canInvest: vehiclePermission.canInvest,
+        grantedAt: vehiclePermission.grantedAt,
+        grantedBy: vehiclePermission.grantedBy,
+      })
+      .from(vehiclePermission)
+      .where(
+        and(
+          eq(vehiclePermission.userId, userId),
+          isNull(vehiclePermission.revokedAt),
+        ),
+      )
+      .orderBy(desc(vehiclePermission.grantedAt));
+
+    const permissions = await Promise.all(
+      permissionsRaw.map(async (perm) => {
+        const [dealInfo] = await db
+          .select({ name: deal.name })
+          .from(deal)
+          .where(eq(deal.id, perm.dealId))
+          .limit(1);
+
+        let grantedByName: string | null = null;
+        if (perm.grantedBy) {
+          const [granter] = await db
+            .select({ name: user.name })
+            .from(user)
+            .where(eq(user.id, perm.grantedBy))
+            .limit(1);
+          grantedByName = granter?.name || null;
+        }
+
+        return {
+          ...perm,
+          dealName: dealInfo?.name || "Unknown Deal",
+          grantedByName,
+        };
+      }),
+    );
+
+    // Audit log entries involving this investor
+    const auditLogEntries = await db
+      .select({
+        id: auditLog.id,
+        action: auditLog.action,
+        targetType: auditLog.targetType,
+        targetId: auditLog.targetId,
+        previousValue: auditLog.previousValue,
+        newValue: auditLog.newValue,
+        metadata: auditLog.metadata,
+        userId: auditLog.userId,
+        createdAt: auditLog.createdAt,
+      })
+      .from(auditLog)
+      .where(
+        or(
+          eq(auditLog.targetId, userId),
+          sql`${auditLog.targetId} LIKE ${userId + ":%"}`,
+        ),
+      )
+      .orderBy(desc(auditLog.createdAt))
+      .limit(50);
+
+    const auditLogWithNames = await Promise.all(
+      auditLogEntries.map(async (entry) => {
+        let performedByName = "System";
+        if (entry.userId) {
+          const [performer] = await db
+            .select({ name: user.name })
+            .from(user)
+            .where(eq(user.id, entry.userId))
+            .limit(1);
+          performedByName = performer?.name || "Unknown User";
+        }
+        return {
+          ...entry,
+          performedByName,
+        };
+      }),
+    );
+
+    const investorWithClearance = {
+      ...investor,
+      clearance: currentClearance,
+    };
+
+    const onboardingWithRelations = onboardingData
+      ? {
+        ...onboardingData,
+        beneficialOwners: owners,
+        authorizedSignatories: signatories,
+        attestations,
+        documents,
+        editHistory,
+      }
+      : null;
+
+    return {
+      success: true as const,
+      investor: investorWithClearance,
+      onboarding: onboardingWithRelations,
+      clearanceHistory,
+      permissions,
+      auditLog: auditLogWithNames,
+    };
+  } catch (error) {
+    console.error("Error fetching investor compliance details:", error);
+    return {
+      success: false as const,
+      investor: null,
+      onboarding: null,
+      clearanceHistory: [],
+      permissions: [],
+      auditLog: [],
     };
   }
 };

@@ -42,7 +42,7 @@ export default function MainSiteError({
             <RefreshCw className="h-4 w-4 mr-2" />
             Try Again
           </Button>
-          <Button variant="outline" asChild>
+          <Button variant="ghost" asChild>
             <Link href="/">
               <Home className="h-4 w-4 mr-2" />
               Go Home

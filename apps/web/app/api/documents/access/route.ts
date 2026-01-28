@@ -5,7 +5,7 @@ import { db } from "@repo/db";
 import { onboardingDocument, onboarding, user } from "@repo/db/schema";
 import { getSignedUrl } from "@/lib/storage";
 import { eq } from "drizzle-orm";
-import { getSession } from "@/lib/get-session";
+import { authSession } from "@/app/(auth)/auth";
 
 /**
  * GET /api/documents/access
@@ -16,7 +16,7 @@ import { getSession } from "@/lib/get-session";
 export async function GET(request: NextRequest) {
   try {
     // Get authenticated user
-    const session = await getSession();
+    const session = await authSession();
 
     if (!session?.user) {
       return NextResponse.json(

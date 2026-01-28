@@ -18,7 +18,7 @@ import {
   type OnboardingInvestorConfirmationJobData,
   type OnboardingAdminNotificationJobData,
 } from "@repo/mail/types";
-import { getSession } from "@/lib/get-session";
+import { authSession } from "@/app/(auth)/auth";
 
 // Admin email for onboarding notifications - can be configured via env var
 const ADMIN_NOTIFICATION_EMAIL =
@@ -241,11 +241,7 @@ export const onboardingRouter = createTRPCRouter({
         });
       }
 
-      // Start session check early (async-api-routes pattern)
-      const sessionPromise = getSession();
-
-      // Await session before proceeding
-      const session = await sessionPromise;
+      const session = await authSession();
       if (!session?.user) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
@@ -423,64 +419,64 @@ export const onboardingRouter = createTRPCRouter({
       // Prepare data for parallel inserts
       const uboRecords = hasBeneficialOwners
         ? investorData.beneficialOwners!.map((ubo) => ({
-            id: randomUUID(),
-            onboardingId: onboardingId,
-            fullName: ubo.fullName,
-            dateOfBirth: ubo.dateOfBirth || null,
-            nationality: ubo.nationality || null,
-            countryOfResidence: ubo.countryOfResidence || null,
-            ownershipPercentage: ubo.ownershipPercentage,
-            controlType: ubo.controlType || null,
-            addressLine1: ubo.addressLine1 || null,
-            addressLine2: ubo.addressLine2 || null,
-            city: ubo.city || null,
-            stateProvince: ubo.stateProvince || null,
-            postalCode: ubo.postalCode || null,
-            country: ubo.country || null,
-            idDocumentType: ubo.idDocumentType || null,
-            idDocumentNumber: ubo.idDocumentNumber || null,
-            idExpiryDate: ubo.idExpiryDate || null,
-            isPep: ubo.isPep || false,
-            pepDetails: ubo.pepDetails || null,
-          }))
+          id: randomUUID(),
+          onboardingId: onboardingId,
+          fullName: ubo.fullName,
+          dateOfBirth: ubo.dateOfBirth || null,
+          nationality: ubo.nationality || null,
+          countryOfResidence: ubo.countryOfResidence || null,
+          ownershipPercentage: ubo.ownershipPercentage,
+          controlType: ubo.controlType || null,
+          addressLine1: ubo.addressLine1 || null,
+          addressLine2: ubo.addressLine2 || null,
+          city: ubo.city || null,
+          stateProvince: ubo.stateProvince || null,
+          postalCode: ubo.postalCode || null,
+          country: ubo.country || null,
+          idDocumentType: ubo.idDocumentType || null,
+          idDocumentNumber: ubo.idDocumentNumber || null,
+          idExpiryDate: ubo.idExpiryDate || null,
+          isPep: ubo.isPep || false,
+          pepDetails: ubo.pepDetails || null,
+        }))
         : null;
 
       const signatoryRecords = hasAuthorizedSignatories
         ? investorData.authorizedSignatories!.map((sig) => ({
-            id: randomUUID(),
-            onboardingId: onboardingId,
-            fullName: sig.fullName,
-            title: sig.title || null,
-            email: sig.email || null,
-            phone: sig.phone || null,
-            authorizationScope: sig.authorizationScope || null,
-            authorizationLimit: sig.authorizationLimit || null,
-            idDocumentType: sig.idDocumentType || null,
-            idDocumentNumber: sig.idDocumentNumber || null,
-            boardResolutionDate: sig.boardResolutionDate || null,
-          }))
+          id: randomUUID(),
+          onboardingId: onboardingId,
+          fullName: sig.fullName,
+          title: sig.title || null,
+          email: sig.email || null,
+          phone: sig.phone || null,
+          authorizationScope: sig.authorizationScope || null,
+          authorizationLimit: sig.authorizationLimit || null,
+          idDocumentType: sig.idDocumentType || null,
+          idDocumentNumber: sig.idDocumentNumber || null,
+          boardResolutionDate: sig.boardResolutionDate || null,
+        }))
         : null;
 
       const kycAttestationRecord = hasKycAttestations
         ? {
-            id: randomUUID(),
-            onboardingId: onboardingId,
-            accuracyAttested: investorData.accuracyAttestation || false,
-            accuracyAttestedAt: investorData.accuracyAttestation
-              ? submittedAt
-              : null,
-            sanctionsDeclarationAttested:
-              investorData.sanctionsDeclaration || false,
-            sanctionsDeclarationAttestedAt: investorData.sanctionsDeclaration
-              ? submittedAt
-              : null,
-            dataConsentAttested: investorData.dataConsent || false,
-            dataConsentAttestedAt: investorData.dataConsent
-              ? submittedAt
-              : null,
-            ipAddress: null,
-            userAgent: null,
-          }
+          id: randomUUID(),
+          onboardingId: onboardingId,
+          accuracyAttested: investorData.accuracyAttestation || false,
+          accuracyAttestedAt: investorData.accuracyAttestation
+            ? submittedAt
+            : null,
+          sanctionsDeclarationAttested:
+            investorData.sanctionsDeclaration || false,
+          sanctionsDeclarationAttestedAt: investorData.sanctionsDeclaration
+            ? submittedAt
+            : null,
+          dataConsentAttested: investorData.dataConsent || false,
+          dataConsentAttestedAt: investorData.dataConsent
+            ? submittedAt
+            : null,
+          ipAddress: null,
+          userAgent: null,
+        }
         : null;
 
       // Execute parallel database operations
@@ -628,7 +624,7 @@ export const onboardingRouter = createTRPCRouter({
       })
     )
     .query(async ({ input, ctx }) => {
-      const session = await getSession();
+      const session = await authSession();
       if (!session?.user) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
@@ -662,47 +658,7 @@ export const onboardingRouter = createTRPCRouter({
       };
     }),
 
-  // Get onboarding for editing (investor can view their submitted data)
-  getMyOnboarding: baseProcedure.query(async ({ ctx }) => {
-    const session = await getSession();
-    if (!session?.user) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "You must be logged in",
-      });
-    }
 
-    const userId = session.user.id;
-
-    // Get the user's onboarding
-    const [onboardingData] = await ctx.db
-      .select()
-      .from(onboarding)
-      .where(eq(onboarding.userId, userId))
-      .orderBy(desc(onboarding.createdAt))
-      .limit(1);
-
-    if (!onboardingData) {
-      return {
-        success: true,
-        onboarding: null,
-        editHistory: [],
-      };
-    }
-
-    // Get edit history
-    const editHistory = await ctx.db
-      .select()
-      .from(onboardingEditHistory)
-      .where(eq(onboardingEditHistory.onboardingId, onboardingData.id))
-      .orderBy(desc(onboardingEditHistory.editedAt));
-
-    return {
-      success: true,
-      onboarding: onboardingData,
-      editHistory,
-    };
-  }),
 
   // Update onboarding data (investor can edit after submission)
   updateOnboarding: baseProcedure
@@ -765,7 +721,7 @@ export const onboardingRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const session = await getSession();
+      const session = await authSession();
       if (!session?.user) {
         throw new TRPCError({
           code: "UNAUTHORIZED",

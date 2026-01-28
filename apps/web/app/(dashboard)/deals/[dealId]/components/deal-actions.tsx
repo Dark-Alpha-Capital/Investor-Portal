@@ -75,7 +75,7 @@ export function DealActions({
   const trpc = useTRPC();
   const [isSoftCommitDialogOpen, setIsSoftCommitDialogOpen] = useState(false);
   const [proposedAmount, setProposedAmount] = useState<string>(
-    userInterest?.proposedAmount || ""
+    userInterest?.proposedAmount || "",
   );
 
   // Separate loading states for each action
@@ -98,7 +98,7 @@ export function DealActions({
         toast.error(error.message || "Failed to express interest");
         setLoadingAction(null);
       },
-    })
+    }),
   );
 
   const handleInterestedClick = () => {
@@ -124,7 +124,7 @@ export function DealActions({
 
   const handleUpdateStatus = (
     status: "soft_committed" | "pass" | "meeting_requested",
-    amount?: number
+    amount?: number,
   ) => {
     if (status === "soft_committed" && (!amount || amount <= 0)) {
       toast.error("Please enter a valid amount for soft commit");
@@ -156,8 +156,9 @@ export function DealActions({
             Limited Access
           </h3>
           <p className="text-sm text-amber-700 dark:text-amber-300">
-            Your current permissions do not allow expressing interest in this deal.
-            Please contact our IR team if you would like to learn more about this opportunity.
+            Your current permissions do not allow expressing interest in this
+            deal. Please contact our IR team if you would like to learn more
+            about this opportunity.
           </p>
         </div>
       </div>
@@ -192,8 +193,9 @@ export function DealActions({
       {canExpressInterest && !canInvest && (
         <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
           <p className="text-xs text-blue-700 dark:text-blue-300">
-            <strong>Note:</strong> You can express interest in this deal, but investment
-            commitment requires additional clearance. Contact our IR team for details.
+            <strong>Note:</strong> You can express interest in this deal, but
+            investment commitment requires additional clearance. Contact our IR
+            team for details.
           </p>
         </div>
       )}
@@ -405,7 +407,7 @@ export function DealActions({
                     onClick={() =>
                       handleUpdateStatus(
                         "soft_committed",
-                        parseFloat(proposedAmount)
+                        parseFloat(proposedAmount),
                       )
                     }
                     disabled={

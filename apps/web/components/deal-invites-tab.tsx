@@ -19,7 +19,6 @@ type Invite = {
     name: string;
     email: string;
     image: string | null;
-    kycStatus: string;
     isOnboardingCompleted: boolean;
   };
 };
@@ -34,7 +33,6 @@ const formatDate = (dateString: string | null | undefined): string => {
 };
 
 export function InvitesTab({ invites }: { invites: Invite[] }) {
-
   return (
     <div className="space-y-6">
       <div>

@@ -11,7 +11,6 @@ import {
 } from "@repo/db/schema";
 import { baseProcedure, createTRPCRouter } from "../init";
 import slugify from "slugify";
-import { getSession } from "@/lib/get-session";
 import { createDealSchema } from "@/lib/schemas/create-deal-schema";
 import { dealQueue } from "@/lib/redis";
 import {
@@ -29,6 +28,7 @@ import { z } from "zod";
 import { createClient } from "webdav";
 import { FileStat } from "webdav";
 import { revalidatePath } from "next/cache";
+import { authSession } from "@/app/(auth)/auth";
 
 // Helper functions hoisted outside mutations for better performance
 const sanitizeFileName = (fileName: string): string => {
@@ -68,7 +68,7 @@ export const dealsRouter = createTRPCRouter({
     .input(createDealSchema)
     .mutation(async ({ input, ctx }) => {
       // Start session check early (async-api-routes pattern)
-      const sessionPromise = getSession();
+      const sessionPromise = authSession();
       const session = await sessionPromise;
 
       if (!session?.user || session.user.role !== "admin") {
@@ -173,9 +173,7 @@ export const dealsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      // Start session check early
-      const sessionPromise = getSession();
-      const session = await sessionPromise;
+      const session = await authSession();
 
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
@@ -443,14 +441,7 @@ export const dealsRouter = createTRPCRouter({
   getInterests: baseProcedure
     .input(z.object({ dealId: z.string() }))
     .query(async ({ input, ctx }) => {
-      // Check if user is admin
-      const session = await getSession();
-      if (!session?.user || session.user.role !== "admin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only administrators can access deal interests",
-        });
-      }
+
 
       // Verify deal exists
       const [dealRecord] = await ctx.db
@@ -501,14 +492,7 @@ export const dealsRouter = createTRPCRouter({
   getInvestments: baseProcedure
     .input(z.object({ dealId: z.string() }))
     .query(async ({ input, ctx }) => {
-      // Check if user is admin
-      const session = await getSession();
-      if (!session?.user || session.user.role !== "admin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only administrators can access deal investments",
-        });
-      }
+
 
       // Verify deal exists
       const [dealRecord] = await ctx.db
@@ -569,15 +553,6 @@ export const dealsRouter = createTRPCRouter({
   getFiles: baseProcedure
     .input(z.object({ dealId: z.string() }))
     .query(async ({ input, ctx }) => {
-      // Check if user is admin
-      const session = await getSession();
-      if (!session?.user || session.user.role !== "admin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only administrators can access deal files",
-        });
-      }
-
       // Get deal to construct folder path
       const [dealRecord] = await ctx.db
         .select()
@@ -673,8 +648,7 @@ export const dealsRouter = createTRPCRouter({
     )
     .mutation(async ({ input, ctx }) => {
       // Start session check early
-      const sessionPromise = getSession();
-      const session = await sessionPromise;
+      const session = await authSession();
 
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
@@ -886,8 +860,7 @@ export const dealsRouter = createTRPCRouter({
     )
     .mutation(async ({ input, ctx }) => {
       // Start session check early
-      const sessionPromise = getSession();
-      const session = await sessionPromise;
+      const session = await authSession();
 
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
@@ -988,8 +961,7 @@ export const dealsRouter = createTRPCRouter({
     )
     .mutation(async ({ input, ctx }) => {
       // Start session check early
-      const sessionPromise = getSession();
-      const session = await sessionPromise;
+      const session = await authSession();
 
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
@@ -1028,7 +1000,7 @@ export const dealsRouter = createTRPCRouter({
     }),
 
   getPublicDeals: baseProcedure.query(async ({ ctx }) => {
-    const session = await getSession();
+    const session = await authSession();
 
     if (!session?.user) {
       throw new TRPCError({
@@ -1101,7 +1073,7 @@ export const dealsRouter = createTRPCRouter({
       const { page, limit, search, status, sector } = input;
       const offset = (page - 1) * limit;
 
-      const session = await getSession();
+      const session = await authSession();
       if (!session?.user) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
@@ -1248,7 +1220,7 @@ export const dealsRouter = createTRPCRouter({
     }),
 
   getCuratedDeals: baseProcedure.query(async ({ ctx }) => {
-    const session = await getSession();
+    const session = await authSession();
     if (!session?.user) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
@@ -1322,7 +1294,7 @@ export const dealsRouter = createTRPCRouter({
     )
     .mutation(async ({ input, ctx }) => {
       // Start session check early
-      const sessionPromise = getSession();
+      const sessionPromise = authSession();
       const session = await sessionPromise;
 
       if (!session?.user) {

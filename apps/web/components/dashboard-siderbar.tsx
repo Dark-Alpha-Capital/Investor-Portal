@@ -6,11 +6,11 @@ import {
 } from "@/components/ui/sidebar";
 import { SidebarUserNav } from "./sidebar-user-nav";
 import { DashboardNavLinks } from "./dashboard-nav-links";
-import { getSession } from "@/lib/get-session";
 import { DashboardSidebarSkeleton } from "./skeleton/dashboard-sidebar-skeleton";
+import { authSession } from "@/app/(auth)/auth";
 
 async function DashboardSidebarContent() {
-  const session = await getSession();
+  const session = await authSession();
 
   return (
     <>

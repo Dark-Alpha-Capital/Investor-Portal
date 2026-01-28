@@ -1,4 +1,3 @@
-import "server-only";
 import { caller } from "@/trpc/server";
 import { ComplianceTableClient } from "./compliance-table-client";
 
@@ -58,7 +57,6 @@ async function FetchComplianceWrapper({
   return (
     <ComplianceTableClient
       initialData={data}
-      initialPage={page}
       initialClearanceStatus={clearanceStatus || "all"}
     />
   );

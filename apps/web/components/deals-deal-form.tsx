@@ -48,27 +48,35 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
   const { mutate: createDeal, isPending: isCreating } = useMutation(
     trpc.deals.create.mutationOptions({
       onSuccess: (data) => {
-        const newDeal = data.deal;
+        const dealId = (data.deal as { id: string } | null)?.id;
+        if (!dealId) {
+          toast.error("Failed to create deal: Invalid response");
+          return;
+        }
         toast.success("Deal created successfully");
-        router.push(`/admin/deals/${newDeal.id}`);
+        router.push(`/admin/deals/${dealId}`);
       },
       onError: (error: any) => {
         toast.error(error.message || "Failed to create deal");
       },
-    })
+    }),
   );
 
   const { mutate: updateDeal, isPending: isUpdating } = useMutation(
     trpc.deals.update.mutationOptions({
       onSuccess: (data) => {
-        const newDeal = data.deal;
+        const dealId = (data.deal as { id: string } | null)?.id;
+        if (!dealId) {
+          toast.error("Failed to update deal: Invalid response");
+          return;
+        }
         toast.success("Deal updated successfully");
-        router.push(`/admin/deals/${newDeal.id}`);
+        router.push(`/admin/deals/${dealId}`);
       },
       onError: (error: any) => {
         toast.error(error.message || "Failed to update deal");
       },
-    })
+    }),
   );
 
   const isPending = isCreating || isUpdating;
@@ -130,7 +138,7 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
 
     for (const tab of tabs) {
       const hasError = tab.fields.some(
-        (field) => errors[field as keyof typeof errors]
+        (field) => errors[field as keyof typeof errors],
       );
       if (hasError) {
         setActiveTab(tab.key);

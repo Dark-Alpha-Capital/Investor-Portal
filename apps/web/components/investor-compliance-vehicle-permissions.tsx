@@ -52,7 +52,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 type VehiclePermission = {
@@ -76,6 +76,7 @@ type AvailableDeal = {
 type VehiclePermissionsProps = {
   investorId: string;
   permissions: VehiclePermission[];
+  availableDeals: AvailableDeal[];
 };
 
 type PermissionType =
@@ -124,6 +125,7 @@ const DEFAULT_PERMISSIONS = {
 export function VehiclePermissions({
   investorId,
   permissions: initialPermissions,
+  availableDeals,
 }: VehiclePermissionsProps) {
   const router = useRouter();
   const trpc = useTRPC();
@@ -133,26 +135,21 @@ export function VehiclePermissions({
   const [selectedDeal, setSelectedDeal] = useState<string>("");
   const [newPermissions, setNewPermissions] = useState(DEFAULT_PERMISSIONS);
 
-  // Fetch available deals
-  const { data: availableDeals = [], isLoading: isLoadingDeals } = useQuery(
-    trpc.compliance.getAvailableDeals.queryOptions()
-  );
-
   // Memoized computed values
   const existingDealIds = useMemo(
     () => new Set(initialPermissions.map((p) => p.dealId)),
-    [initialPermissions]
+    [initialPermissions],
   );
 
   const unassignedDeals = useMemo(
     () =>
       availableDeals.filter((d: AvailableDeal) => !existingDealIds.has(d.id)),
-    [availableDeals, existingDealIds]
+    [availableDeals, existingDealIds],
   );
 
   const hasUnassignedDeals = useMemo(
     () => unassignedDeals.length > 0,
-    [unassignedDeals]
+    [unassignedDeals],
   );
 
   // Reset form when dialog closes
@@ -174,7 +171,7 @@ export function VehiclePermissions({
       onError: (error) => {
         toast.error(error.message || "Failed to grant vehicle access");
       },
-    })
+    }),
   );
 
   const revokePermissionMutation = useMutation(
@@ -187,7 +184,7 @@ export function VehiclePermissions({
       onError: (error) => {
         toast.error(error.message || "Failed to revoke vehicle access");
       },
-    })
+    }),
   );
 
   const handleGrantPermission = useCallback(() => {
@@ -199,7 +196,7 @@ export function VehiclePermissions({
 
     // Ensure at least one permission is granted
     const hasAnyPermission = Object.values(newPermissions).some(
-      (value) => value === true
+      (value) => value === true,
     );
     if (!hasAnyPermission) {
       toast.error("Please select at least one permission");
@@ -220,7 +217,7 @@ export function VehiclePermissions({
         dealId,
       });
     },
-    [investorId, revokePermissionMutation]
+    [investorId, revokePermissionMutation],
   );
 
   const formatDate = useCallback((date: Date) => {
@@ -290,11 +287,7 @@ export function VehiclePermissions({
                     <SelectValue placeholder="Choose a deal..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {isLoadingDeals ? (
-                      <SelectItem value="loading" disabled>
-                        Loading deals...
-                      </SelectItem>
-                    ) : unassignedDeals.length === 0 ? (
+                    {unassignedDeals.length === 0 ? (
                       <SelectItem value="none" disabled>
                         No available deals
                       </SelectItem>
@@ -429,7 +422,7 @@ export function VehiclePermissions({
                                 <Icon className="h-3 w-3" aria-hidden="true" />
                                 {label}
                               </Badge>
-                            )
+                            ),
                           )
                         ) : (
                           <span className="text-xs text-muted-foreground">
@@ -479,7 +472,7 @@ export function VehiclePermissions({
                               onClick={() =>
                                 handleRevokePermission(
                                   permission.dealId,
-                                  permission.dealName
+                                  permission.dealName,
                                 )
                               }
                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
