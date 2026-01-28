@@ -7,7 +7,7 @@ const app = new Hono()
   .use(logger())
   .use(
     cors({
-      origin: ["https://investor-portal.dev", "http://localhost:3000"],
+      origin: ["https://investor-portal.dev", "http://localhost:3000", "https://investors.darkalphacapital.com"],
       credentials: true,
     })
   )
