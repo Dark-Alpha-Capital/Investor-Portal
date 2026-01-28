@@ -62,7 +62,8 @@ emailWorker.on("completed", (job) =>
 
 // Cloud Run requires the container to listen on PORT for health checks
 // Start a minimal HTTP server for health checks
-const port = parseInt(process.env.PORT || "8080", 10);
+// Use 8081 in dev to avoid conflict with server (8080), PORT env var overrides in production
+const port = parseInt(process.env.PORT || "8081", 10);
 
 Bun.serve({
   port,

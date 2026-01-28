@@ -32,10 +32,11 @@ COPY apps/worker ./apps/worker
 WORKDIR /app/apps/worker
 
 # Expose port (Cloud Run requires a port, even for background services)
-EXPOSE 8080
+# Using 8081 to avoid conflict with server (8080)
+EXPOSE 8081
 
 # Set default port if not provided
-ENV PORT=8080
+ENV PORT=8081
 
 # Run the worker (long-running process)
 CMD ["bun", "run", "index.ts"]

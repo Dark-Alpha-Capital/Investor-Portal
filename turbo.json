@@ -1,18 +1,40 @@
 {
-  "$schema": "https://turborepo.com/schema.json",
+  "$schema": "https://turborepo.dev/schema.v2.json",
   "ui": "tui",
+  "globalEnv": ["NODE_ENV", "CI"],
+  "globalDependencies": [".env"],
+  "remoteCache": {
+    "enabled": false
+  },
+  "concurrency": "10",
   "tasks": {
+    "transit": {
+      "dependsOn": ["^transit"]
+    },
     "build": {
-      "env":["GOOGLE_CLIENT_ID","GOOGLE_CLIENT_SECRET", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "DATABASE_URL", "POSTGRES_URL", "NEXTCLOUD_URL", "NEXTCLOUD_USER", "NEXTCLOUD_PASSWORD","REDIS_URL", "RESEND_API_KEY"],
       "dependsOn": ["^build"],
+      "env": [
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL",
+        "DATABASE_URL",
+        "POSTGRES_URL",
+        "NEXTCLOUD_URL",
+        "NEXTCLOUD_USER",
+        "NEXTCLOUD_PASSWORD",
+        "REDIS_URL",
+        "RESEND_API_KEY"
+      ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "outputLogs": "new-only"
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": ["transit"]
     },
     "check-types": {
-      "dependsOn": ["^check-types"]
+      "dependsOn": ["transit"]
     },
     "dev": {
       "cache": false,

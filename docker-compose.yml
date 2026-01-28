@@ -1,0 +1,150 @@
+version: "3.8"
+
+services:
+  # Redis for BullMQ
+  redis:
+    image: redis:7-alpine
+    container_name: investor-portal-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Server (Bun + Hono) - API server for file handling and onboarding
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: investor-portal-server
+    ports:
+      - "${SERVER_PORT:-8080}:8080" # External:Internal port mapping
+    environment:
+      # Database (external - set via env vars)
+      DATABASE_URL: ${DATABASE_URL}
+      POSTGRES_URL: ${POSTGRES_URL}
+      # Redis
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      # Server config
+      PORT: 8080
+      NODE_ENV: ${NODE_ENV:-production}
+      # Storage (if needed)
+      GCLOUD_PROJECT_ID: ${GCLOUD_PROJECT_ID:-}
+      GCS_CLIENT_EMAIL: ${GCS_CLIENT_EMAIL:-}
+      GCS_PRIVATE_KEY: ${GCS_PRIVATE_KEY:-}
+      GCLOUD_BUCKET: ${GCLOUD_BUCKET:-}
+      NEXTCLOUD_URL: ${NEXTCLOUD_URL:-}
+      NEXTCLOUD_USER: ${NEXTCLOUD_USER:-}
+      NEXTCLOUD_PASSWORD: ${NEXTCLOUD_PASSWORD:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Worker (Bun + BullMQ)
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: investor-portal-worker
+    ports:
+      - "${WORKER_PORT:-8081}:8081"
+    environment:
+      # Database (external - set via env vars)
+      DATABASE_URL: ${DATABASE_URL}
+      POSTGRES_URL: ${POSTGRES_URL}
+      # Redis (required)
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      # Worker config - uses 8081 internally to match code default
+      PORT: 8081
+      NODE_ENV: ${NODE_ENV:-production}
+      # Storage
+      NEXTCLOUD_URL: ${NEXTCLOUD_URL:-}
+      NEXTCLOUD_USER: ${NEXTCLOUD_USER:-}
+      NEXTCLOUD_PASSWORD: ${NEXTCLOUD_PASSWORD:-}
+      # Email
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      ADMIN_NOTIFICATION_EMAIL: ${ADMIN_NOTIFICATION_EMAIL:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Web (Next.js) - Frontend application
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Build-time environment variables
+        DATABASE_URL: ${DATABASE_URL}
+        DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL}}
+        AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
+        REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+        RESEND_API_KEY: ${RESEND_API_KEY:-}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        AI_API_KEY: ${AI_API_KEY:-}
+        OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    container_name: investor-portal-web
+    ports:
+      - "${WEB_PORT:-3000}:3000" # External:Internal port mapping
+    environment:
+      # Runtime environment variables
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      POSTGRES_URL: ${POSTGRES_URL}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      # Auth
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Email
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      ADMIN_NOTIFICATION_EMAIL: ${ADMIN_NOTIFICATION_EMAIL:-}
+      # Storage
+      NEXTCLOUD_URL: ${NEXTCLOUD_URL:-}
+      NEXTCLOUD_USER: ${NEXTCLOUD_USER:-}
+      NEXTCLOUD_PASSWORD: ${NEXTCLOUD_PASSWORD:-}
+      # Public URL - Update this to your VM's public IP or domain
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    depends_on:
+      redis:
+        condition: service_healthy
+      server:
+        condition: service_started
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
+    # For VM deployment, services communicate via service names (redis, server, worker, web)
+
+volumes:
+  redis_data:
+    # Persistent storage for Redis data
+# Port Summary for VM Deployment:
+# - Web:    3000 (HTTP) - Main frontend application
+# - Server: 8080 (HTTP) - API server for file handling
+# - Worker: 8081 (HTTP) - Background job processor (health checks)
+# - Redis:  6379 (TCP)  - Queue/Job processing (can be internal-only)
+#
+# For production VM deployment:
+# 1. Use a reverse proxy (nginx/traefik) to expose ports 80/443
+# 2. Map domains: example.com -> web:3000, api.example.com -> server:8080
+# 3. Keep worker and redis internal-only (remove port mappings if not needed externally)
+# 4. Set NEXT_PUBLIC_APP_URL to your actual domain
+# 5. Configure firewall to only expose necessary ports

@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   cacheComponents: true,
   images: {
     remotePatterns: [
@@ -34,6 +35,8 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: "../../",
   },
+  transpilePackages: ["@repo/db", "@repo/mail"],
+
 };
 
 export default nextConfig;

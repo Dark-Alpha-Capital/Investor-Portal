@@ -5,7 +5,10 @@
   "private": true,
   "scripts": {
     "start": "bun run index.ts",
-    "dev": "bun run index.ts --watch"
+    "dev": "bun run index.ts --watch",
+    "build": "echo 'No build needed for Bun runtime'",
+    "lint": "eslint . || true",
+    "check-types": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/bun": "latest"
