@@ -1,6 +1,14 @@
+import "server-only";
+import { cacheLife, cacheTag } from "next/cache";
 import { Suspense } from "react";
-import { DealCurationData } from "../components/deal-curation-data";
+import {
+  getInvestorsForCuration,
+  getDealInvitesForCuration,
+} from "@repo/db/queries";
+import { DealCurationTabs } from "@/components/deal-curation-tabs";
 import BackButton from "@/components/back-button";
+import { authSession } from "@/app/(auth)/auth";
+import { redirect } from "next/navigation";
 
 type PageProps = {
   params: Promise<{
@@ -11,10 +19,10 @@ type PageProps = {
 /**
  * Curate Deal Page
  *
- * Auth is handled by the admin layout at (admin)/layout.tsx
+ * Auth is handled in the FetchDealCuration component
  * This page uses Suspense to stream the deal curation data.
  */
-export default async function CurateDealPage({ params }: PageProps) {
+export default function CurateDealPage({ params }: PageProps) {
   return (
     <div className="container mx-auto py-8 px-4 max-w-6xl">
       {/* Static shell - prerendered */}
@@ -38,8 +46,40 @@ export default async function CurateDealPage({ params }: PageProps) {
           </div>
         }
       >
-        <DealCurationData params={params} />
+        <FetchDealCuration params={params} />
       </Suspense>
     </div>
+  );
+}
+
+async function FetchDealCuration({
+  params,
+}: {
+  params: Promise<{ dealId: string }>;
+}) {
+  const [paramsData, sessionData] = await Promise.all([params, authSession()]);
+
+  if (!sessionData?.user || sessionData.user.role !== "admin") {
+    redirect("/login");
+  }
+
+  const { dealId } = paramsData;
+
+  return <FetchDealCurationWrapper dealId={dealId} />;
+}
+
+async function FetchDealCurationWrapper({ dealId }: { dealId: string }) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(`deal-${dealId}`);
+  cacheTag("admin-deals");
+
+  const [investors, invites] = await Promise.all([
+    getInvestorsForCuration(),
+    getDealInvitesForCuration(dealId),
+  ]);
+
+  return (
+    <DealCurationTabs dealId={dealId} investors={investors} invites={invites} />
   );
 }

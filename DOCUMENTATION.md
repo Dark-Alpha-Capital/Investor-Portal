@@ -370,7 +370,99 @@ Investors progress through these KYC statuses after onboarding:
    └──────────┘ └──────────┘ └──────────┘
 ```
 
-### Flow 2: Admin Deal Management
+### Flow 2: Edit Onboarding Information
+
+After completing the initial onboarding, investors can edit their profile information at `/onboarding/edit`.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│            EDIT ONBOARDING FLOW (/onboarding/edit)           │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  PREREQUISITES:                                              │
+│  • User has completed initial onboarding                     │
+│  • Onboarding is marked as editable (isEditable = true)      │
+│                                                              │
+│  ACCESS:                                                     │
+│  • From /onboarding page → "Edit Onboarding" button          │
+│  • Direct navigation to /onboarding/edit                     │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────────────────────┐
+│                  EDIT MODE BEHAVIOR                          │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  SAME UI AS ORIGINAL ONBOARDING:                             │
+│  • Uses the same OnboardingFlow component                    │
+│  • All form fields pre-populated with existing data          │
+│  • Step-by-step wizard navigation preserved                  │
+│                                                              │
+│  STEP 1: Account Profile (editable)                          │
+│  • Organization name, primary contact                        │
+│  • Capital provider type, investor type                      │
+│                                                              │
+│  STEP 2: Accreditation & Status (editable)                   │
+│  • Accreditation status and method                           │
+│  • Entity tax ID, signatory information                      │
+│                                                              │
+│  STEP 3 (Entity): Entity Compliance (editable)               │
+│  • Beneficial owners                                         │
+│  • Authorized signatories                                    │
+│                                                              │
+│  STEP 3/4: KYC Documents (SKIP in edit mode)                 │
+│  • Shows message: "Documents already uploaded"               │
+│  • Users can continue without re-uploading                   │
+│  • To update documents, contact support                      │
+│                                                              │
+│  STEP 4/5: Investment Profile (editable)                     │
+│  • Investment mandate, sectors, preferences                  │
+│                                                              │
+│  STEP 5/6: Attestations (editable)                           │
+│  • Compliance attestations                                   │
+│                                                              │
+│  FINAL STEP: Review & Save (replaces Legal E-Sign)           │
+│  • No re-signature required                                  │
+│  • "Save All Changes" button                                 │
+│  • Original legal attestation remains on file                │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    SAVE CHANGES                              │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  • Calls updateOnboarding tRPC mutation                      │
+│  • Only changed fields are sent to server                    │
+│  • Edit history recorded in onboarding_edit_history table    │
+│  • editCount incremented on onboarding record                │
+│  • lastEditedAt timestamp updated                            │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────────────────────┐
+│                 SUCCESS SCREEN                               │
+│                                                              │
+│  "Changes Saved Successfully"                                │
+│  → Redirect to /onboarding                                   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Key Differences from Initial Onboarding:**
+
+| Aspect | Initial Onboarding | Edit Onboarding |
+|--------|-------------------|-----------------|
+| Data source | localStorage | Server (existing onboarding) |
+| KYC Documents | Required upload | Skipped (already uploaded) |
+| Legal E-Sign | Required | Skipped (already on file) |
+| Final action | `submitOnboarding` | `updateOnboarding` |
+| Reset button | Available | Hidden |
+| localStorage | Used for progress | Not used |
+
+### Flow 3: Admin Deal Management
 
 ```
 ┌──────────────────┐
@@ -1082,6 +1174,8 @@ export const createTRPCContext = cache(async () => {
 | Router | Procedure | Access | Purpose |
 |--------|-----------|--------|---------|
 | `onboarding` | `submit` | Protected | Submit onboarding form |
+| `onboarding` | `getMyOnboarding` | Protected | Get current user's onboarding data |
+| `onboarding` | `updateOnboarding` | Protected | Update existing onboarding data |
 | `onboarding` | `getJobProgress` | Protected | Check file upload status |
 | `admin` | `getInvestors` | Admin | Paginated investor list |
 | `admin` | `getAdmins` | Admin | Paginated admin list |
@@ -1102,6 +1196,7 @@ export const createTRPCContext = cache(async () => {
 - [x] Password reset flow
 - [x] Role-based access control (admin vs investor)
 - [x] Multi-step onboarding wizard (11 sections)
+- [x] Edit onboarding information (`/onboarding/edit`)
 - [x] KYC document upload to Nextcloud
 - [x] KYC status tracking (review/approved/pending_docs/rejected)
 - [x] Dashboard with KYC-status-based views
@@ -1172,4 +1267,4 @@ GCLOUD_BUCKET=your-bucket
 
 ---
 
-*Last updated: January 2025*
+*Last updated: January 2026*

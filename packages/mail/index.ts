@@ -91,6 +91,7 @@ export const renderEmailTemplate = async (
       return { subject, html };
     }
 
+
     default:
       throw new Error(`Unknown email type: ${(jobData as EmailJobData).type}`);
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,47 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { InvestorData } from "../onboarding-flow";
 import { AlertCircle, ArrowRight } from "lucide-react";
+
+// Hoist static arrays (rendering optimization 6.3, JS performance 7.1)
+const TIMING_OPTIONS = ["< 1 week", "1-2 weeks", "2-4 weeks", "> 4 weeks"] as const;
+const ROLE_OPTIONS = [
+  "Lead / majority control",
+  "Co-control",
+  "Significant minority with board seat",
+  "Minority without board seat",
+  "Flexible / situation-dependent",
+] as const;
+const SUPPORT_LETTER_OPTIONS = ["Yes", "No", "Possibly, case-by-case"] as const;
+const BROKER_OPTIONS = ["Yes", "No", "Case-by-case"] as const;
+const SUPPORT_LETTER_STAGES = [
+  "After teaser, to obtain CIM",
+  "After initial review of CIM",
+  "With IOI / term sheet",
+  "After management meeting",
+  "After signing LOI",
+  "After confirmatory diligence begins",
+  "Only after diligence is substantially complete",
+] as const;
+const UPDATE_FREQUENCY_OPTIONS = ["Deal-by-deal only", "Monthly", "Quarterly"] as const;
+const UPDATE_FORMAT_OPTIONS = [
+  "Email summaries",
+  "One-page deal briefs",
+  "Group update calls",
+  "1:1 calls as needed",
+] as const;
+const OWNERSHIP_OPTIONS = ["Majority", "Co-control", "Minority", "Flexible"] as const;
+const TRANSACTION_TYPES = [
+  "Control buyout / LBO",
+  "Growth equity",
+  "Minority recapitalization",
+  "Co-investment alongside another sponsor",
+  "Credit / debt-only",
+] as const;
+const ASSET_PROFILE_OPTIONS = [
+  "Prefer asset-light businesses",
+  "Comfortable with asset-heavy",
+  "Either, case-by-case",
+] as const;
 
 type Step4InvestmentProfileProps = {
   initialData: Partial<InvestorData>;
@@ -96,83 +137,119 @@ export function Step4InvestmentProfile({
   const [formData, setFormData] = useState<Partial<InvestorData>>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const updateField = (field: keyof InvestorData, value: string) => {
+  // Memoize updateField callback (re-render optimization 5.5)
+  const updateField = useCallback((field: keyof InvestorData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }));
-    }
-  };
+    setErrors((prev) => {
+      // Early exit if no error to clear (JS performance 7.7)
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }, []);
 
-  const toggleArrayField = (field: keyof InvestorData, value: string) => {
-    const currentValues = (formData[field] as string[]) || [];
-    const newValues = currentValues.includes(value)
-      ? currentValues.filter((v) => v !== value)
-      : [...currentValues, value];
-    setFormData((prev) => ({ ...prev, [field]: newValues }));
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }));
-    }
-  };
+  // Memoize toggleArrayField callback (re-render optimization 5.5)
+  const toggleArrayField = useCallback(
+    (field: keyof InvestorData, value: string) => {
+      const currentValues = (formData[field] as string[]) || [];
+      // Use Set for O(1) lookups (JS performance 7.11)
+      const currentSet = new Set(currentValues);
+      const newValues = currentSet.has(value)
+        ? currentValues.filter((v) => v !== value)
+        : [...currentValues, value];
+      setFormData((prev) => ({ ...prev, [field]: newValues }));
+      setErrors((prev) => {
+        // Early exit if no error to clear (JS performance 7.7)
+        if (!prev[field]) return prev;
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    },
+    [formData]
+  );
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const baseData = {
-      ...formData,
-      supportLetterStages: formData.supportLetterStages || [],
-      transactionTypes: formData.transactionTypes || [],
-      updateFormat: formData.updateFormat || [],
-    };
+  // Memoize scroll to error function (re-render optimization 5.2)
+  const scrollToError = useCallback((firstErrorKey: string) => {
+    setTimeout(() => {
+      let targetElement: HTMLElement | null = document.querySelector(
+        `[data-field="${firstErrorKey}"]`
+      ) as HTMLElement;
 
-    const result = step4Schema.safeParse(baseData);
+      if (!targetElement) {
+        targetElement = document.getElementById(firstErrorKey) as HTMLElement;
+      }
 
-    if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
-      for (const issue of result.error.issues) {
-        const field = issue.path[0];
-        if (typeof field === "string" && !fieldErrors[field]) {
-          fieldErrors[field] = issue.message;
+      if (!targetElement) {
+        targetElement = document.querySelector(
+          `[name="${firstErrorKey}"]`
+        ) as HTMLElement;
+      }
+
+      if (!targetElement) {
+        const errorMessage = document.querySelector(
+          `[data-error-for="${firstErrorKey}"]`
+        ) as HTMLElement;
+        if (errorMessage) {
+          const container = errorMessage.closest(
+            ".space-y-4, .space-y-2"
+          ) as HTMLElement;
+          targetElement = container || errorMessage;
         }
       }
-      setErrors(fieldErrors);
 
-      const firstErrorKey = Object.keys(fieldErrors)[0];
-      if (firstErrorKey) {
-        setTimeout(() => {
-          let targetElement: HTMLElement | null =
-            (document.getElementById(firstErrorKey) as HTMLElement) || null;
+      if (targetElement) {
+        targetElement.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 100);
+  }, []);
 
-          if (!targetElement) {
-            targetElement = document.querySelector(
-              `[name="${firstErrorKey}"]`
-            ) as HTMLElement;
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const baseData = {
+        ...formData,
+        supportLetterStages: formData.supportLetterStages || [],
+        transactionTypes: formData.transactionTypes || [],
+        updateFormat: formData.updateFormat || [],
+      };
+
+      const result = step4Schema.safeParse(baseData);
+
+      if (!result.success) {
+        const fieldErrors: Record<string, string> = {};
+        // Cache issues array length (JS performance 7.6)
+        const issues = result.error.issues;
+        const issuesLength = issues.length;
+        for (let i = 0; i < issuesLength; i++) {
+          const issue = issues[i];
+          const field = issue.path[0];
+          // Early exit if already has error (JS performance 7.7)
+          if (typeof field === "string" && !fieldErrors[field]) {
+            fieldErrors[field] = issue.message;
           }
+        }
+        setErrors(fieldErrors);
 
-          if (!targetElement) {
-            const errorMessage = document.querySelector(
-              `[data-error-for="${firstErrorKey}"]`
-            ) as HTMLElement;
-            if (errorMessage) {
-              const container = errorMessage.closest(
-                ".space-y-2"
-              ) as HTMLElement;
-              targetElement = container || errorMessage;
-            }
-          }
+        // Scroll to first error
+        const firstErrorKey = Object.keys(fieldErrors)[0];
+        if (firstErrorKey) {
+          scrollToError(firstErrorKey);
+        }
 
-          if (targetElement) {
-            targetElement.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-            });
-          }
-        }, 0);
+        return;
       }
 
-      return;
-    }
-
-    onSubmit(result.data as InvestorData);
-  };
+      onSubmit(result.data as InvestorData);
+    },
+    [formData, onSubmit, scrollToError]
+  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -206,19 +283,17 @@ export function Step4InvestmentProfile({
                 : ""
             }
           >
-            {["< 1 week", "1-2 weeks", "2-4 weeks", "> 4 weeks"].map(
-              (timing) => (
-                <div key={timing} className="flex items-center space-x-2">
-                  <RadioGroupItem value={timing} id={`loi-${timing}`} />
-                  <Label
-                    htmlFor={`loi-${timing}`}
-                    className="font-normal cursor-pointer"
-                  >
-                    {timing}
-                  </Label>
-                </div>
-              )
-            )}
+            {TIMING_OPTIONS.map((timing) => (
+              <div key={timing} className="flex items-center space-x-2">
+                <RadioGroupItem value={timing} id={`loi-${timing}`} />
+                <Label
+                  htmlFor={`loi-${timing}`}
+                  className="font-normal cursor-pointer"
+                >
+                  {timing}
+                </Label>
+              </div>
+            ))}
           </RadioGroup>
           {errors.timingToLOI && (
             <p className="text-destructive text-sm flex items-center gap-1">
@@ -242,19 +317,17 @@ export function Step4InvestmentProfile({
                 : ""
             }
           >
-            {["< 1 week", "1-2 weeks", "2-4 weeks", "> 4 weeks"].map(
-              (timing) => (
-                <div key={timing} className="flex items-center space-x-2">
-                  <RadioGroupItem value={timing} id={`commitment-${timing}`} />
-                  <Label
-                    htmlFor={`commitment-${timing}`}
-                    className="font-normal cursor-pointer"
-                  >
-                    {timing}
-                  </Label>
-                </div>
-              )
-            )}
+            {TIMING_OPTIONS.map((timing) => (
+              <div key={timing} className="flex items-center space-x-2">
+                <RadioGroupItem value={timing} id={`commitment-${timing}`} />
+                <Label
+                  htmlFor={`commitment-${timing}`}
+                  className="font-normal cursor-pointer"
+                >
+                  {timing}
+                </Label>
+              </div>
+            ))}
           </RadioGroup>
           {errors.timingToCommitment && (
             <p className="text-destructive text-sm flex items-center gap-1">
@@ -325,26 +398,20 @@ export function Step4InvestmentProfile({
                 : ""
             }
           >
-            {[
-              "Lead / majority control",
-              "Co-control",
-              "Significant minority with board seat",
-              "Minority without board seat",
-              "Flexible / situation-dependent",
-            ].map((role) => (
-              <div key={role} className="flex items-center space-x-2">
-                <RadioGroupItem
-                  value={role
-                    .toLowerCase()
-                    .replace(/\s+/g, "-")
-                    .replace(/\//g, "")}
-                  id={role}
-                />
-                <Label htmlFor={role} className="font-normal cursor-pointer">
-                  {role}
-                </Label>
-              </div>
-            ))}
+            {ROLE_OPTIONS.map((role) => {
+              const roleValue = role
+                .toLowerCase()
+                .replace(/\s+/g, "-")
+                .replace(/\//g, "");
+              return (
+                <div key={role} className="flex items-center space-x-2">
+                  <RadioGroupItem value={roleValue} id={role} />
+                  <Label htmlFor={role} className="font-normal cursor-pointer">
+                    {role}
+                  </Label>
+                </div>
+              );
+            })}
           </RadioGroup>
           {errors.preferredRole && (
             <p className="text-destructive text-sm flex items-center gap-1">
@@ -392,20 +459,23 @@ export function Step4InvestmentProfile({
                 : ""
             }
           >
-            {["Yes", "No", "Possibly, case-by-case"].map((option) => (
-              <div key={option} className="flex items-center space-x-2">
-                <RadioGroupItem
-                  value={option.toLowerCase().replace(/,\s+/g, "-")}
-                  id={`support-${option}`}
-                />
-                <Label
-                  htmlFor={`support-${option}`}
-                  className="font-normal cursor-pointer"
-                >
-                  {option}
-                </Label>
-              </div>
-            ))}
+            {SUPPORT_LETTER_OPTIONS.map((option) => {
+              const optionValue = option.toLowerCase().replace(/,\s+/g, "-");
+              return (
+                <div key={option} className="flex items-center space-x-2">
+                  <RadioGroupItem
+                    value={optionValue}
+                    id={`support-${option}`}
+                  />
+                  <Label
+                    htmlFor={`support-${option}`}
+                    className="font-normal cursor-pointer"
+                  >
+                    {option}
+                  </Label>
+                </div>
+              );
+            })}
           </RadioGroup>
           {errors.provideSupportLetter && (
             <p className="text-destructive text-sm flex items-center gap-1">
@@ -431,20 +501,20 @@ export function Step4InvestmentProfile({
                 : ""
             }
           >
-            {["Yes", "No", "Case-by-case"].map((option) => (
-              <div key={option} className="flex items-center space-x-2">
-                <RadioGroupItem
-                  value={option.toLowerCase().replace("-", "")}
-                  id={`broker-${option}`}
-                />
-                <Label
-                  htmlFor={`broker-${option}`}
-                  className="font-normal cursor-pointer"
-                >
-                  {option}
-                </Label>
-              </div>
-            ))}
+            {BROKER_OPTIONS.map((option) => {
+              const optionValue = option.toLowerCase().replace("-", "");
+              return (
+                <div key={option} className="flex items-center space-x-2">
+                  <RadioGroupItem value={optionValue} id={`broker-${option}`} />
+                  <Label
+                    htmlFor={`broker-${option}`}
+                    className="font-normal cursor-pointer"
+                  >
+                    {option}
+                  </Label>
+                </div>
+              );
+            })}
           </RadioGroup>
           {errors.joinBrokerConversations && (
             <p className="text-destructive text-sm flex items-center gap-1">
@@ -460,31 +530,26 @@ export function Step4InvestmentProfile({
             letter? <span className="text-destructive">*</span>
           </Label>
           <div className="space-y-2">
-            {[
-              "After teaser, to obtain CIM",
-              "After initial review of CIM",
-              "With IOI / term sheet",
-              "After management meeting",
-              "After signing LOI",
-              "After confirmatory diligence begins",
-              "Only after diligence is substantially complete",
-            ].map((stage) => (
-              <div key={stage} className="flex items-center space-x-2">
-                <Checkbox
-                  id={stage}
-                  checked={formData.supportLetterStages?.includes(stage)}
-                  onCheckedChange={() =>
-                    toggleArrayField("supportLetterStages", stage)
-                  }
-                />
-                <label
-                  htmlFor={stage}
-                  className="text-sm font-medium leading-none cursor-pointer"
-                >
-                  {stage}
-                </label>
-              </div>
-            ))}
+            {SUPPORT_LETTER_STAGES.map((stage) => {
+              const isChecked = formData.supportLetterStages?.includes(stage) ?? false;
+              return (
+                <div key={stage} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={stage}
+                    checked={isChecked}
+                    onCheckedChange={() =>
+                      toggleArrayField("supportLetterStages", stage)
+                    }
+                  />
+                  <label
+                    htmlFor={stage}
+                    className="text-sm font-medium leading-none cursor-pointer"
+                  >
+                    {stage}
+                  </label>
+                </div>
+              );
+            })}
           </div>
           {errors.supportLetterStages && (
             <p className="text-destructive text-sm flex items-center gap-1">
@@ -557,20 +622,20 @@ export function Step4InvestmentProfile({
                     : ""
                 }
               >
-                {["Deal-by-deal only", "Monthly", "Quarterly"].map((freq) => (
-                  <div key={freq} className="flex items-center space-x-2">
-                    <RadioGroupItem
-                      value={freq.toLowerCase().replace(/\s+/g, "-")}
-                      id={freq}
-                    />
-                    <Label
-                      htmlFor={freq}
-                      className="font-normal cursor-pointer"
-                    >
-                      {freq}
-                    </Label>
-                  </div>
-                ))}
+                {UPDATE_FREQUENCY_OPTIONS.map((freq) => {
+                  const freqValue = freq.toLowerCase().replace(/\s+/g, "-");
+                  return (
+                    <div key={freq} className="flex items-center space-x-2">
+                      <RadioGroupItem value={freqValue} id={freq} />
+                      <Label
+                        htmlFor={freq}
+                        className="font-normal cursor-pointer"
+                      >
+                        {freq}
+                      </Label>
+                    </div>
+                  );
+                })}
               </RadioGroup>
               {errors.updateFrequency && (
                 <p className="text-destructive text-sm flex items-center gap-1">
@@ -585,28 +650,26 @@ export function Step4InvestmentProfile({
                 Preferred format <span className="text-destructive">*</span>
               </Label>
               <div className="space-y-2">
-                {[
-                  "Email summaries",
-                  "One-page deal briefs",
-                  "Group update calls",
-                  "1:1 calls as needed",
-                ].map((format) => (
-                  <div key={format} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={format}
-                      checked={formData.updateFormat?.includes(format)}
-                      onCheckedChange={() =>
-                        toggleArrayField("updateFormat", format)
-                      }
-                    />
-                    <label
-                      htmlFor={format}
-                      className="text-sm font-medium leading-none cursor-pointer"
-                    >
-                      {format}
-                    </label>
-                  </div>
-                ))}
+                {UPDATE_FORMAT_OPTIONS.map((format) => {
+                  const isChecked = formData.updateFormat?.includes(format) ?? false;
+                  return (
+                    <div key={format} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={format}
+                        checked={isChecked}
+                        onCheckedChange={() =>
+                          toggleArrayField("updateFormat", format)
+                        }
+                      />
+                      <label
+                        htmlFor={format}
+                        className="text-sm font-medium leading-none cursor-pointer"
+                      >
+                        {format}
+                      </label>
+                    </div>
+                  );
+                })}
               </div>
               {errors.updateFormat && (
                 <p className="text-destructive text-sm flex items-center gap-1">
@@ -710,13 +773,11 @@ export function Step4InvestmentProfile({
                 : ""
             }
           >
-            {["Majority", "Co-control", "Minority", "Flexible"].map(
-              (ownership) => (
+            {OWNERSHIP_OPTIONS.map((ownership) => {
+              const ownershipValue = ownership.toLowerCase();
+              return (
                 <div key={ownership} className="flex items-center space-x-2">
-                  <RadioGroupItem
-                    value={ownership.toLowerCase()}
-                    id={ownership}
-                  />
+                  <RadioGroupItem value={ownershipValue} id={ownership} />
                   <Label
                     htmlFor={ownership}
                     className="font-normal cursor-pointer"
@@ -724,8 +785,8 @@ export function Step4InvestmentProfile({
                     {ownership}
                   </Label>
                 </div>
-              )
-            )}
+              );
+            })}
           </RadioGroup>
           {errors.preferredOwnership && (
             <p className="text-destructive text-sm flex items-center gap-1">
@@ -741,29 +802,26 @@ export function Step4InvestmentProfile({
             <span className="text-destructive">*</span>
           </Label>
           <div className="space-y-2">
-            {[
-              "Control buyout / LBO",
-              "Growth equity",
-              "Minority recapitalization",
-              "Co-investment alongside another sponsor",
-              "Credit / debt-only",
-            ].map((type) => (
-              <div key={type} className="flex items-center space-x-2">
-                <Checkbox
-                  id={type}
-                  checked={formData.transactionTypes?.includes(type)}
-                  onCheckedChange={() =>
-                    toggleArrayField("transactionTypes", type)
-                  }
-                />
-                <label
-                  htmlFor={type}
-                  className="text-sm font-medium leading-none cursor-pointer"
-                >
-                  {type}
-                </label>
-              </div>
-            ))}
+            {TRANSACTION_TYPES.map((type) => {
+              const isChecked = formData.transactionTypes?.includes(type) ?? false;
+              return (
+                <div key={type} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={type}
+                    checked={isChecked}
+                    onCheckedChange={() =>
+                      toggleArrayField("transactionTypes", type)
+                    }
+                  />
+                  <label
+                    htmlFor={type}
+                    className="text-sm font-medium leading-none cursor-pointer"
+                  >
+                    {type}
+                  </label>
+                </div>
+              );
+            })}
           </div>
           {errors.transactionTypes && (
             <p className="text-destructive text-sm flex items-center gap-1">
@@ -854,24 +912,20 @@ export function Step4InvestmentProfile({
                 : ""
             }
           >
-            {[
-              "Prefer asset-light businesses",
-              "Comfortable with asset-heavy",
-              "Either, case-by-case",
-            ].map((profile) => (
-              <div key={profile} className="flex items-center space-x-2">
-                <RadioGroupItem
-                  value={profile
-                    .toLowerCase()
-                    .replace(/,\s+/g, "-")
-                    .replace(/\s+/g, "-")}
-                  id={profile}
-                />
-                <Label htmlFor={profile} className="font-normal cursor-pointer">
-                  {profile}
-                </Label>
-              </div>
-            ))}
+            {ASSET_PROFILE_OPTIONS.map((profile) => {
+              const profileValue = profile
+                .toLowerCase()
+                .replace(/,\s+/g, "-")
+                .replace(/\s+/g, "-");
+              return (
+                <div key={profile} className="flex items-center space-x-2">
+                  <RadioGroupItem value={profileValue} id={profile} />
+                  <Label htmlFor={profile} className="font-normal cursor-pointer">
+                    {profile}
+                  </Label>
+                </div>
+              );
+            })}
           </RadioGroup>
           {errors.assetProfile && (
             <p className="text-destructive text-sm flex items-center gap-1">
@@ -963,11 +1017,28 @@ export function Step4InvestmentProfile({
         </div>
       </div>
 
+      {/* Error Summary */}
+      {Object.keys(errors).length > 0 && (
+        <div className="p-4 bg-destructive/10 border border-destructive rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="w-5 h-5 text-destructive" />
+            <h4 className="font-semibold text-destructive">
+              Please fix the following errors:
+            </h4>
+          </div>
+          <ul className="list-disc list-inside space-y-1 text-sm text-destructive">
+            {Object.entries(errors).map(([field, error]) => (
+              <li key={field}>{error}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="flex justify-between pt-4 border-t gap-3">
         {onBack ? (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="lg"
             onClick={onBack}
             className="bg-transparent"

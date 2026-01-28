@@ -49,7 +49,7 @@ export default function DashboardError({
               <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
             </Button>
-            <Button variant="outline" asChild>
+            <Button variant="secondary" asChild>
               <Link href="/dashboard">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Dashboard

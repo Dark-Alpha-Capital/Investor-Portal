@@ -2,11 +2,13 @@ import "@/app/globals.css";
 import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
-import { montserrat, raleway, fira_code } from "@/app/fonts";
+import { fontSans, fontMono } from "@/app/fonts";
 import { TRPCReactProvider } from "@/trpc/client";
 import { generateNoIndexMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = generateNoIndexMetadata("Sign In | DarkAlpha Capital");
+export const metadata: Metadata = generateNoIndexMetadata(
+  "Sign In | DarkAlpha Capital",
+);
 
 export default function RootLayout({
   children,
@@ -15,9 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${montserrat.variable} ${raleway.variable} ${fira_code.variable} antialiased`}
-      >
+      <body className={`${fontSans.variable} ${fontMono.variable} antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

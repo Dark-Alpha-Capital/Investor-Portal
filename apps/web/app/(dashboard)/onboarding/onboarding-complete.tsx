@@ -58,7 +58,7 @@ export function OnboardingComplete() {
             <ArrowRight className="w-4 h-4" />
           </Button>
           <Button
-            variant="outline"
+            variant="secondary"
             size="lg"
             className="w-full bg-transparent gap-2"
             onClick={handleGoHome}

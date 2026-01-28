@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -20,6 +20,16 @@ import {
   Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Hoist static arrays (rendering optimization 6.3, JS performance 7.1)
+const VALID_FILE_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+] as const;
 
 type KycDocumentsProps = {
   initialData: Partial<KycData>;
@@ -282,252 +292,302 @@ export function KycDocuments({
     };
   }, [previewUrl]);
 
-  // Get document requirements for the selected investor type
-  const requirements =
-    DOCUMENT_REQUIREMENTS[investorType as keyof typeof DOCUMENT_REQUIREMENTS] ||
-    DOCUMENT_REQUIREMENTS["individual-investor-including-hnwis"];
+  // Get document requirements for the selected investor type - memoize (re-render optimization 5.1)
+  const requirements = useMemo(
+    () =>
+      DOCUMENT_REQUIREMENTS[
+        investorType as keyof typeof DOCUMENT_REQUIREMENTS
+      ] || DOCUMENT_REQUIREMENTS["individual-investor-including-hnwis"],
+    [investorType]
+  );
 
-  const handleFileChange = (type: DocumentType, file: File | null) => {
-    if (file) {
-      // Validate file size (5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setErrors((prev) => ({
-          ...prev,
-          [type]: "File size must be less than 5MB",
-        }));
-        return;
+  // Memoize handleFileChange callback (re-render optimization 5.5)
+  const handleFileChange = useCallback(
+    (type: DocumentType, file: File | null) => {
+      if (file) {
+        // Validate file size (5MB) - hoist constant (JS performance 7.1)
+        const MAX_FILE_SIZE = 5 * 1024 * 1024;
+        if (file.size > MAX_FILE_SIZE) {
+          setErrors((prev) => ({
+            ...prev,
+            [type]: "File size must be less than 5MB",
+          }));
+          return;
+        }
+
+        // Validate file type - use hoisted VALID_FILE_TYPES (JS performance 7.11)
+        if (
+          !VALID_FILE_TYPES.includes(
+            file.type as (typeof VALID_FILE_TYPES)[number]
+          )
+        ) {
+          setErrors((prev) => ({
+            ...prev,
+            [type]: "File must be PDF, JPG, PNG, DOC, or DOCX",
+          }));
+          return;
+        }
       }
 
-      // Validate file type
-      const validTypes = [
-        "application/pdf",
-        "image/jpeg",
-        "image/jpg",
-        "image/png",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      ];
-      if (!validTypes.includes(file.type)) {
-        setErrors((prev) => ({
-          ...prev,
-          [type]: "File must be PDF, JPG, PNG, DOC, or DOCX",
-        }));
-        return;
+      setDocuments((prev) => ({ ...prev, [type]: file }));
+      setErrors((prev) => {
+        // Early exit if no error to clear (JS performance 7.7)
+        if (!prev[type]) return prev;
+        const next = { ...prev };
+        delete next[type];
+        return next;
+      });
+    },
+    []
+  );
+
+  // Memoize drag handlers (re-render optimization 5.5)
+  const handleDrop = useCallback(
+    (e: React.DragEvent, type: DocumentType) => {
+      e.preventDefault();
+      setDragOver(null);
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        handleFileChange(type, file);
       }
-    }
+    },
+    [handleFileChange]
+  );
 
-    setDocuments((prev) => ({ ...prev, [type]: file }));
-    if (errors[type]) {
-      setErrors((prev) => ({ ...prev, [type]: "" }));
-    }
-  };
+  const handleDragOver = useCallback(
+    (e: React.DragEvent, type: DocumentType) => {
+      e.preventDefault();
+      setDragOver(type);
+    },
+    []
+  );
 
-  const handleDrop = (e: React.DragEvent, type: DocumentType) => {
-    e.preventDefault();
+  const handleDragLeave = useCallback(() => {
     setDragOver(null);
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      handleFileChange(type, file);
-    }
-  };
+  }, []);
 
-  const handleDragOver = (e: React.DragEvent, type: DocumentType) => {
-    e.preventDefault();
-    setDragOver(type);
-  };
-
-  const handleDragLeave = () => {
-    setDragOver(null);
-  };
-
-  const validate = (): { isValid: boolean; firstErrorKey?: string } => {
+  // Memoize validate function (re-render optimization 5.2)
+  const validate = useCallback((): {
+    isValid: boolean;
+    firstErrorKey?: string;
+  } => {
     const newErrors: Record<string, string> = {};
     let firstErrorKey: string | undefined;
 
     // Validate all required documents for the investor type
-    requirements?.required?.forEach((docType) => {
-      if (!documents[docType as DocumentType]) {
-        const docInfo = requirements?.documents?.[docType] as
-          | DocumentInfo
-          | undefined;
-        if (docInfo) {
-          newErrors[docType] = `${docInfo.title} is required`;
-          // Track the first error encountered
-          if (!firstErrorKey) {
-            firstErrorKey = docType;
+    // Cache array length (JS performance 7.6)
+    const requiredDocs = requirements?.required;
+    if (requiredDocs) {
+      const requiredLength = requiredDocs.length;
+      for (let i = 0; i < requiredLength; i++) {
+        const docType = requiredDocs[i];
+        if (!documents[docType as DocumentType]) {
+          const docInfo = requirements?.documents?.[docType] as
+            | DocumentInfo
+            | undefined;
+          if (docInfo) {
+            newErrors[docType] = `${docInfo.title} is required`;
+            // Track the first error encountered
+            if (!firstErrorKey) {
+              firstErrorKey = docType;
+            }
           }
         }
       }
-    });
+    }
 
     setErrors(newErrors);
     return {
       isValid: Object.keys(newErrors).length === 0,
       firstErrorKey,
     };
-  };
+  }, [documents, requirements]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const validationResult = validate();
-    if (validationResult.isValid) {
-      // Create a complete KycData object with all fields
-      const completeKycData: KycData = {
-        identification: documents.identification || null,
-        proofOfAddress: documents.proofOfAddress || null,
-        w9OrW8BEN: documents.w9OrW8BEN || null,
-        fatcaCrsSelfCertification: documents.fatcaCrsSelfCertification || null,
-        sourceOfWealthDeclaration: documents.sourceOfWealthDeclaration || null,
-        pepDeclaration: documents.pepDeclaration || null,
-        certificateOfIncorporation:
-          documents.certificateOfIncorporation || null,
-        certificateOfGoodStanding: documents.certificateOfGoodStanding || null,
-        registerOfDirectorsShareholders:
-          documents.registerOfDirectorsShareholders || null,
-        ownershipChart: documents.ownershipChart || null,
-        companyBylaws: documents.companyBylaws || null,
-        authorizedSignatoryList: documents.authorizedSignatoryList || null,
-        uboIdAndAddress: documents.uboIdAndAddress || null,
-        lei: documents.lei || null,
-        taxFormsCorporate: documents.taxFormsCorporate || null,
-        fatcaCrsCorporate: documents.fatcaCrsCorporate || null,
-        trustDeed: documents.trustDeed || null,
-        trustDetails: documents.trustDetails || null,
-        trustIdAndAddress: documents.trustIdAndAddress || null,
-        taxFormsTrust: documents.taxFormsTrust || null,
-        sourceOfWealthSettlor: documents.sourceOfWealthSettlor || null,
-        fatcaCrsTrust: documents.fatcaCrsTrust || null,
-        partnershipAgreement: documents.partnershipAgreement || null,
-        certificateOfRegistration: documents.certificateOfRegistration || null,
-        authorizedSignatoryListPartnership:
-          documents.authorizedSignatoryListPartnership || null,
-        partnerIdAndAddress: documents.partnerIdAndAddress || null,
-        ownershipChartPartnership: documents.ownershipChartPartnership || null,
-        taxFormsPartnership: documents.taxFormsPartnership || null,
-        fatcaCrsPartnership: documents.fatcaCrsPartnership || null,
-      };
-      onSubmit(completeKycData);
-    } else {
-      // Scroll to first error that occurred during validation
-      if (validationResult.firstErrorKey) {
-        const firstErrorField = document.querySelector(
-          `[data-document-type="${validationResult.firstErrorKey}"]`
-        );
-        firstErrorField?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const validationResult = validate();
+      if (validationResult.isValid) {
+        // Create a complete KycData object with all fields
+        const completeKycData: KycData = {
+          identification: documents.identification || null,
+          proofOfAddress: documents.proofOfAddress || null,
+          w9OrW8BEN: documents.w9OrW8BEN || null,
+          fatcaCrsSelfCertification:
+            documents.fatcaCrsSelfCertification || null,
+          sourceOfWealthDeclaration:
+            documents.sourceOfWealthDeclaration || null,
+          pepDeclaration: documents.pepDeclaration || null,
+          certificateOfIncorporation:
+            documents.certificateOfIncorporation || null,
+          certificateOfGoodStanding:
+            documents.certificateOfGoodStanding || null,
+          registerOfDirectorsShareholders:
+            documents.registerOfDirectorsShareholders || null,
+          ownershipChart: documents.ownershipChart || null,
+          companyBylaws: documents.companyBylaws || null,
+          authorizedSignatoryList: documents.authorizedSignatoryList || null,
+          uboIdAndAddress: documents.uboIdAndAddress || null,
+          lei: documents.lei || null,
+          taxFormsCorporate: documents.taxFormsCorporate || null,
+          fatcaCrsCorporate: documents.fatcaCrsCorporate || null,
+          trustDeed: documents.trustDeed || null,
+          trustDetails: documents.trustDetails || null,
+          trustIdAndAddress: documents.trustIdAndAddress || null,
+          taxFormsTrust: documents.taxFormsTrust || null,
+          sourceOfWealthSettlor: documents.sourceOfWealthSettlor || null,
+          fatcaCrsTrust: documents.fatcaCrsTrust || null,
+          partnershipAgreement: documents.partnershipAgreement || null,
+          certificateOfRegistration:
+            documents.certificateOfRegistration || null,
+          authorizedSignatoryListPartnership:
+            documents.authorizedSignatoryListPartnership || null,
+          partnerIdAndAddress: documents.partnerIdAndAddress || null,
+          ownershipChartPartnership:
+            documents.ownershipChartPartnership || null,
+          taxFormsPartnership: documents.taxFormsPartnership || null,
+          fatcaCrsPartnership: documents.fatcaCrsPartnership || null,
+        };
+        onSubmit(completeKycData);
+      } else {
+        // Scroll to first error that occurred during validation
+        if (validationResult.firstErrorKey) {
+          const firstErrorField = document.querySelector(
+            `[data-document-type="${validationResult.firstErrorKey}"]`
+          );
+          firstErrorField?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }
       }
-    }
-  };
+    },
+    [validate, documents, onSubmit]
+  );
 
-  const renderFileUpload = (type: DocumentType) => {
-    const info = requirements?.documents?.[type] as DocumentInfo | undefined;
-    if (!info) return null;
+  // Memoize renderFileUpload function (re-render optimization 5.2)
+  const renderFileUpload = useCallback(
+    (type: DocumentType) => {
+      const info = requirements?.documents?.[type] as DocumentInfo | undefined;
+      if (!info) return null;
 
-    const file = documents[type];
-    const hasError = !!errors[type];
-    const isRequired = requirements?.required?.includes(type);
+      const file = documents[type];
+      const hasError = !!errors[type];
+      const isRequired = requirements?.required?.includes(type);
 
-    return (
-      <div key={type} className="space-y-2">
-        <Label htmlFor={type}>
-          {info.title}{" "}
-          {isRequired && <span className="text-destructive">{"*"}</span>}
-        </Label>
-        <p className="text-sm text-muted-foreground">{info.description}</p>
+      return (
+        <div key={type} className="space-y-2">
+          <Label htmlFor={type}>
+            {info.title}{" "}
+            {isRequired && <span className="text-destructive">{"*"}</span>}
+          </Label>
+          <p className="text-sm text-muted-foreground">{info.description}</p>
 
-        <div
-          data-document-type={type}
-          className={cn(
-            "border-2 border-dashed rounded-lg p-6 transition-all",
-            dragOver === type && "border-primary bg-accent",
-            hasError && "border-destructive",
-            !hasError && !file && "border-border hover:border-muted-foreground",
-            file && !hasError && "border-primary bg-primary/10"
-          )}
-          onDrop={(e) => handleDrop(e, type)}
-          onDragOver={(e) => handleDragOver(e, type)}
-          onDragLeave={handleDragLeave}
-        >
-          <input
-            id={type}
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-            onChange={(e) =>
-              handleFileChange(type, e.target.files?.[0] || null)
-            }
-            className="sr-only"
-          />
+          <div
+            data-document-type={type}
+            className={cn(
+              "border-2 border-dashed rounded-lg p-6 transition-all",
+              dragOver === type && "border-primary bg-accent",
+              hasError && "border-destructive",
+              !hasError &&
+                !file &&
+                "border-border hover:border-muted-foreground",
+              file && !hasError && "border-primary bg-primary/10"
+            )}
+            onDrop={(e) => handleDrop(e, type)}
+            onDragOver={(e) => handleDragOver(e, type)}
+            onDragLeave={handleDragLeave}
+          >
+            <input
+              id={type}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              onChange={(e) =>
+                handleFileChange(type, e.target.files?.[0] || null)
+              }
+              className="sr-only"
+            />
 
-          {!file ? (
-            <label
-              htmlFor={type}
-              className="flex flex-col items-center cursor-pointer"
-            >
-              <Upload
-                className={cn(
-                  "w-10 h-10 mb-3",
-                  hasError ? "text-destructive" : "text-muted-foreground"
-                )}
-              />
-              <p className="text-sm font-medium mb-1">
-                {"Click to upload or drag and drop"}
-              </p>
-              <p className="text-xs text-muted-foreground">{info.examples}</p>
-            </label>
-          ) : (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-primary" />
+            {!file ? (
+              <label
+                htmlFor={type}
+                className="flex flex-col items-center cursor-pointer"
+              >
+                <Upload
+                  className={cn(
+                    "w-10 h-10 mb-3",
+                    hasError ? "text-destructive" : "text-muted-foreground"
+                  )}
+                />
+                <p className="text-sm font-medium mb-1">
+                  {"Click to upload or drag and drop"}
+                </p>
+                <p className="text-xs text-muted-foreground">{info.examples}</p>
+              </label>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{file.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(file.size / 1024).toFixed(1)} KB
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {(file.size / 1024).toFixed(1)} KB
-                  </p>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-primary" />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() =>
+                      setPreviewFile({ file, type, title: info.title })
+                    }
+                    className="gap-2"
+                  >
+                    <Eye className="w-4 h-4" />
+                    {"Preview"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleFileChange(type, null)}
+                  >
+                    {"Remove"}
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-primary" />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setPreviewFile({ file, type, title: info.title })
-                  }
-                  className="gap-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  {"Preview"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleFileChange(type, null)}
-                >
-                  {"Remove"}
-                </Button>
-              </div>
-            </div>
+            )}
+          </div>
+
+          {errors[type] && (
+            <p className="text-destructive text-sm flex items-center gap-1">
+              <AlertCircle className="w-4 h-4" />
+              {errors[type]}
+            </p>
           )}
         </div>
+      );
+    },
+    [
+      documents,
+      errors,
+      requirements,
+      dragOver,
+      handleFileChange,
+      handleDrop,
+      handleDragOver,
+      handleDragLeave,
+      setPreviewFile,
+    ]
+  );
 
-        {errors[type] && (
-          <p className="text-destructive text-sm flex items-center gap-1">
-            <AlertCircle className="w-4 h-4" />
-            {errors[type]}
-          </p>
-        )}
-      </div>
-    );
-  };
-
-  // Get investor type display name
-  const getInvestorTypeDisplayName = () => {
+  // Get investor type display name - memoize (re-render optimization 5.1)
+  const getInvestorTypeDisplayName = useMemo(() => {
     const typeMap: Record<string, string> = {
       "individual-investor-including-hnwis":
         "Individual Investors (including HNWIs)",
@@ -537,7 +597,7 @@ export function KycDocuments({
       "partnerships-or-lps": "Partnerships or LPs",
     };
     return typeMap[investorType] || "Investor";
-  };
+  }, [investorType]);
 
   const renderPreview = () => {
     if (!previewFile || !previewUrl) return null;
@@ -630,9 +690,7 @@ export function KycDocuments({
           {investorType && (
             <p className="text-sm font-medium mt-2">
               Investor Type:{" "}
-              <span className="text-primary">
-                {getInvestorTypeDisplayName()}
-              </span>
+              <span className="text-primary">{getInvestorTypeDisplayName}</span>
             </p>
           )}
         </div>
@@ -657,10 +715,27 @@ export function KycDocuments({
           </ul>
         </div>
 
+        {/* Error Summary */}
+        {Object.keys(errors).length > 0 && (
+          <div className="p-4 bg-destructive/10 border border-destructive rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              <h4 className="font-semibold text-destructive">
+                Please fix the following errors:
+              </h4>
+            </div>
+            <ul className="list-disc list-inside space-y-1 text-sm text-destructive">
+              {Object.entries(errors).map(([field, error]) => (
+                <li key={field}>{error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="flex gap-3 pt-4">
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="lg"
             onClick={onBack}
             disabled={isSubmitting}

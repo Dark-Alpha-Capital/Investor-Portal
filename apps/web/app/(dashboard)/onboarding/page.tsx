@@ -1,15 +1,34 @@
+import "server-only";
 import { Suspense } from "react";
-import { OnboardingContent } from "./components/onboarding-content";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { authSession } from "@/app/(auth)/auth";
+import { cacheLife, cacheTag } from "next/cache";
+import {
+  getUserOnboardingStatus,
+  getOnboardingWithEditHistory,
+} from "@repo/db/queries";
+import { OnboardingFlow } from "./onboarding-flow";
 import { OnboardingSkeleton } from "@/components/skeleton/onboarding-skeleton";
+import { OnboardingCompleteView } from "./components/onboarding-complete-view";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ShieldX } from "lucide-react";
 
 /**
  * Onboarding Page using Next.js Cache Components pattern.
  *
  * Structure:
  * - Static shell: Page wrapper (prerendered)
- * - Dynamic content: OnboardingContent wrapped in Suspense (streamed at request time)
+ * - Dynamic content: OnboardingContentWrapper wrapped in Suspense (streamed at request time)
  *
- * The OnboardingContent component:
+ * The OnboardingContentWrapper component:
  * - Handles runtime data (session check)
  * - Checks if user is admin or already onboarded
  * - Renders appropriate screen or OnboardingFlow
@@ -17,7 +36,88 @@ import { OnboardingSkeleton } from "@/components/skeleton/onboarding-skeleton";
 export default function OnboardingPage() {
   return (
     <Suspense fallback={<OnboardingSkeleton />}>
-      <OnboardingContent />
+      <OnboardingContentWrapper />
     </Suspense>
   );
+}
+
+async function OnboardingContentWrapper() {
+  const session = await authSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  // Check if user is admin
+  const isAdmin =
+    session.user.role === "admin" ||
+    session.user.email?.endsWith("@darkalphacapital.com");
+
+  if (isAdmin) {
+    return (
+      <div className="container mx-auto py-8 px-4 max-w-2xl">
+        <Card className="text-center">
+          <CardHeader className="space-y-4">
+            <div className="flex justify-center">
+              <div className="p-3 rounded-full bg-muted">
+                <ShieldX className="h-6 w-6 text-muted-foreground" />
+              </div>
+            </div>
+            <div>
+              <CardTitle className="text-2xl">
+                Admin Access Restricted
+              </CardTitle>
+              <CardDescription className="mt-2">
+                Administrators cannot access the onboarding form
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <p className="text-sm text-muted-foreground">
+              As an administrator, you do not have access to the investor
+              onboarding process. Please use the admin dashboard to manage users
+              and review onboarding submissions.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Button asChild>
+                <Link href="/admin">Go to Admin Dashboard</Link>
+              </Button>
+              <Button asChild variant="secondary">
+                <Link href="/dashboard">Go to Dashboard</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const userId = session.user.id;
+
+  return <FetchOnboardingWrapper userId={userId} />;
+}
+
+async function FetchOnboardingWrapper({ userId }: { userId: string }) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(`onboarding-status-${userId}`);
+
+  const { isOnboardingCompleted } = await getUserOnboardingStatus(userId);
+
+  if (isOnboardingCompleted) {
+    const data = await getOnboardingWithEditHistory(userId);
+
+    if (!data) {
+      return <OnboardingFlow />;
+    }
+
+    return (
+      <OnboardingCompleteView
+        onboardingData={data.onboarding}
+        editHistory={data.editHistory}
+      />
+    );
+  }
+
+  return <OnboardingFlow />;
 }

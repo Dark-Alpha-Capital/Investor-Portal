@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 
@@ -32,12 +33,13 @@ export type SessionUser = NonNullable<Session>["user"];
 /**
  * Get typed session from Better Auth
  * Returns properly typed session with role field included via customSession plugin
+ * Uses React.cache() for per-request deduplication
  */
-export async function getSession(): Promise<Session> {
+export const getSession = cache(async (): Promise<Session> => {
   const result = await auth.api.getSession({
     headers: await headers(),
   });
 
   // Type assertion is safe because customSession plugin ensures role is included
   return result as Session;
-}
+});

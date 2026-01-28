@@ -2,8 +2,7 @@
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useCallback, useTransition } from "react";
-import { LayoutGrid, List, Loader2 } from "lucide-react";
-import type { MarketplaceDealsData } from "../lib/get-marketplace-deals-cached";
+import { LayoutGrid, List, Loader2, Briefcase } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -73,7 +72,7 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
         router.push(`${pathname}?${params.toString()}`, { scroll: false });
       });
     },
-    [searchParams, pathname, router, startTransition]
+    [searchParams, pathname, router, startTransition],
   );
 
   // Use server-fetched cached data directly
@@ -146,21 +145,23 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
   return (
     <div className="space-y-6">
       {/* Filters Bar */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-lg border border-border/50 bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
           {/* Search */}
-          <SearchInput
-            paramKey="search"
-            placeholder="Search deals..."
-            onResetPage={true}
-          />
+          <div className="flex-1 sm:max-w-md">
+            <SearchInput
+              paramKey="search"
+              placeholder="Search deals..."
+              onResetPage={true}
+            />
+          </div>
 
           {/* Status Filter */}
           <Select
             value={status}
             onValueChange={(value) => updateParams({ status: value }, true)}
           >
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-full sm:w-[160px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -177,7 +178,7 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
             value={sector}
             onValueChange={(value) => updateParams({ sector: value }, true)}
           >
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-full sm:w-[160px]">
               <SelectValue placeholder="Sector" />
             </SelectTrigger>
             <SelectContent>
@@ -192,47 +193,55 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
         </div>
 
         {/* View Toggle */}
-        <ToggleGroup
-          type="single"
-          value={view}
-          onValueChange={(value) => {
-            if (value) updateParams({ view: value });
-          }}
-          variant="outline"
-          size="sm"
-        >
-          <ToggleGroupItem value="card" aria-label="Card view">
-            <LayoutGrid className="h-4 w-4" />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="table" aria-label="Table view">
-            <List className="h-4 w-4" />
-          </ToggleGroupItem>
-        </ToggleGroup>
+        <div className="flex items-center gap-2">
+          <ToggleGroup
+            type="single"
+            value={view}
+            onValueChange={(value) => {
+              if (value) updateParams({ view: value });
+            }}
+            variant="outline"
+            size="sm"
+            className="border-border/50"
+          >
+            <ToggleGroupItem value="card" aria-label="Card view">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="table" aria-label="Table view">
+              <List className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+          {isPending && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
+        </div>
       </div>
 
       {/* Results count */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {pagination.totalCount} deal
-          {pagination.totalCount !== 1 ? "s" : ""} found
+        <p className="text-sm font-medium text-muted-foreground">
+          <span className="text-foreground">{pagination.totalCount}</span>{" "}
+          {pagination.totalCount === 1 ? "deal" : "deals"} found
           {pagination.totalPages > 1 && (
-            <span className="ml-1">
+            <span className="ml-2 text-xs">
               (page {currentPage} of {pagination.totalPages})
             </span>
           )}
         </p>
-        {/* Navigation pending indicator */}
-        {isPending && (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        )}
       </div>
 
       {/* Empty State */}
       {deals.length === 0 && (
-        <div className="py-12 text-center">
-          <p className="text-muted-foreground">No deals match your filters.</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Try adjusting your search criteria.
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border/50 bg-card py-16 text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+            <Briefcase className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <h3 className="mb-2 text-lg font-semibold">No deals found</h3>
+          <p className="mb-1 text-sm text-muted-foreground max-w-sm">
+            No deals match your current filters.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Try adjusting your search criteria or filters.
           </p>
         </div>
       )}
@@ -292,7 +301,7 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
                         {page}
                       </PaginationLink>
                     </PaginationItem>
-                  )
+                  ),
                 )}
 
                 <PaginationItem>

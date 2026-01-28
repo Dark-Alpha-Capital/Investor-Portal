@@ -4,6 +4,7 @@ import { dealsRouter } from "./deals";
 import { onboardingRouter } from "./onboarding";
 import { adminRouter } from "./admin";
 import { investmentsRouter } from "./investments";
+import { complianceRouter } from "./compliance";
 import { createTRPCRouter } from "../init";
 
 export const appRouter = createTRPCRouter({
@@ -13,6 +14,7 @@ export const appRouter = createTRPCRouter({
   onboarding: onboardingRouter,
   admin: adminRouter,
   investments: investmentsRouter,
+  compliance: complianceRouter,
 });
 
 // export type definition of API

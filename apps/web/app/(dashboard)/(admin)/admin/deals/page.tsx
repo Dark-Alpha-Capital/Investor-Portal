@@ -2,8 +2,12 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { DealsContent } from "./components/deals-content";
 import { DealsTableSkeleton } from "@/components/skeleton/deals-table-skeleton";
+import { DealsTable } from "@/components/deals-table";
+import { getAdminDeals } from "@repo/db/queries";
+import { cacheLife, cacheTag } from "next/cache";
+import { authSession } from "@/app/(auth)/auth";
+import { redirect } from "next/navigation";
 
 type SearchParams = Promise<{
   dealsPage?: string;
@@ -17,11 +21,11 @@ type SearchParams = Promise<{
  *
  * Structure:
  * - Static shell: Header with title and "Create Deal" button (prerendered)
- * - Dynamic content: DealsContent wrapped in Suspense (streamed at request time)
+ * - Dynamic content: DealsTableWrapper wrapped in Suspense (streamed at request time)
  *
- * The DealsContent component:
- * - Handles runtime data (searchParams, session check)
- * - Calls cached data fetching function
+ * The DealsTableWrapper component:
+ * - Handles runtime data (searchParams)
+ * - Calls tRPC query with cache directives
  * - Passes initial data to client DealsTable component
  */
 const DealsPage = ({ searchParams }: { searchParams: SearchParams }) => {
@@ -46,13 +50,79 @@ const DealsPage = ({ searchParams }: { searchParams: SearchParams }) => {
       </div>
 
       {/* Dynamic content - streamed at request time */}
-      {/* DealsContent handles runtime data (searchParams, session) */}
-      {/* and calls cached data fetching function */}
       <Suspense fallback={<DealsTableSkeleton />}>
-        <DealsContent searchParams={searchParams} />
+        <DealsTableWrapper searchParams={searchParams} />
       </Suspense>
     </div>
   );
 };
+
+async function DealsTableWrapper({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  // Extract values from searchParams - runtime data access
+  const [params, session] = await Promise.all([searchParams, authSession()]);
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  if (session.user.role !== "admin") {
+    redirect("/dashboard");
+  }
+
+  const page = parseInt(params.dealsPage || "1", 10);
+  const search = params.dealsSearch || undefined;
+  const status =
+    params.dealsStatus && params.dealsStatus !== "all"
+      ? params.dealsStatus
+      : undefined;
+  const visibility =
+    params.dealsVisibility && params.dealsVisibility !== "all"
+      ? params.dealsVisibility
+      : undefined;
+
+  // Pass initial data to client component
+  return (
+    <FetchDealsDataWrapper
+      page={page}
+      limit={12}
+      search={search}
+      status={status}
+      visibility={visibility}
+    />
+  );
+}
+
+async function FetchDealsDataWrapper({
+  page,
+  limit,
+  search,
+  status,
+  visibility,
+}: {
+  page: number;
+  limit: number;
+  search?: string;
+  status?: string;
+  visibility?: string;
+}) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("admin-deals");
+
+  // Call query function directly
+  const result = await getAdminDeals({
+    page,
+    limit,
+    search,
+    status,
+    visibility,
+  });
+
+  return <DealsTable initialData={result} />;
+}
 
 export default DealsPage;

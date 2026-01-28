@@ -1,22 +1,13 @@
-import { Montserrat, Raleway, Fira_Code } from "next/font/google";
+import { DM_Sans, Geist_Mono } from "next/font/google";
 
-export const montserrat = Montserrat({
-  variable: "--font-sans",
+
+
+export const fontSans = DM_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap", // Prevent FOIT (Flash of Invisible Text)
+  variable: "--font-geist",
 });
 
-export const raleway = Raleway({
-  variable: "--font-serif",
+export const fontMono = Geist_Mono({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-export const fira_code = Fira_Code({
-  variable: "--font-mono",
-  subsets: ["latin"],
-  weight: ["400", "700"], // Reduced weights for code - only need regular and bold
-  display: "swap",
+  variable: "--font-geist-mono",
 });

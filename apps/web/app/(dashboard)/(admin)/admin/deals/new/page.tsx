@@ -1,5 +1,5 @@
-import React, { Suspense } from "react";
-import { DealForm } from "../components/deal-form";
+import React from "react";
+import { DealForm } from "../../../../../../components/deals-deal-form";
 
 export default function NewDealPage() {
   return (
@@ -11,9 +11,7 @@ export default function NewDealPage() {
         </p>
       </div>
 
-      <Suspense fallback={<div>Loading...</div>}>
-        <DealForm />
-      </Suspense>
+      <DealForm />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { cache } from "react";
 import { auth as betterAuth } from "@/auth";
 
 export type UserType = "guest" | "regular";
@@ -17,7 +18,7 @@ export type Session = {
  * Auth wrapper that provides a session interface compatible with the chat SDK
  * Maps Better Auth sessions to the expected format
  */
-export async function authSession(): Promise<Session> {
+async function _authSession(): Promise<Session> {
   try {
     const session = await betterAuth.api.getSession({
       headers: await headers(),
@@ -46,3 +47,9 @@ export async function authSession(): Promise<Session> {
     return null;
   }
 }
+
+/**
+ * Cached version of authSession for per-request deduplication.
+ * Multiple calls to authSession() within the same request will only execute once.
+ */
+export const authSession = cache(_authSession);

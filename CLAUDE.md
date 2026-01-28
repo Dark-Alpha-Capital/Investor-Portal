@@ -103,6 +103,8 @@ Key enums: `kyc_status`, `document_status`, `deal_status`, `deal_visibility`, `i
 
 - `(auth)/`: Login, register, verify-email, password reset
 - `(dashboard)/`: Protected investor routes (dashboard, deals, onboarding, profile)
+  - `onboarding/`: Initial onboarding flow
+  - `onboarding/edit/`: Edit existing onboarding (same UI as initial, pre-populated)
 - `(dashboard)/(admin)/`: Admin-only routes
 - `(main-site)/`: Public marketing pages
 - `api/`: API routes including `/api/trpc/[trpc]` and `/api/auth/*`
