@@ -33,11 +33,19 @@ COPY turbo.json turbo.json
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV TURBOPACK_ROOT=/app
 
-# Build-time arguments for NEXT_PUBLIC_ variables
+# Build-time arguments for environment variables needed during `next build`
+# NOTE: These are provided by docker-compose via `build.args` and must be set
+# in the environment (or root .env) where `docker compose` is run.
 ARG NEXT_PUBLIC_BETTER_AUTH_URL
+ARG DATABASE_URL
+ARG REDIS_URL
+ARG BETTER_AUTH_SECRET
 
-# Convert ARGs to ENVs so the build process can access them
+# Expose build-time args as environment variables for the Node.js process
 ENV NEXT_PUBLIC_BETTER_AUTH_URL=${NEXT_PUBLIC_BETTER_AUTH_URL}
+ENV DATABASE_URL=${DATABASE_URL}
+ENV REDIS_URL=${REDIS_URL}
+ENV BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
 
 # Build the Next.js app directly (no need for turbo after pruning)
 WORKDIR /app/apps/web

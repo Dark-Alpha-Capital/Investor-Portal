@@ -100,57 +100,27 @@ services:
   web:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: ./apps/web/Dockerfile
+      # Build-time args: these are read from the environment (or root .env)
+      # where `docker compose` is run. They are *not* populated from
+      # `env_file`, which only applies at container runtime.
       args:
-        # ============================================
-        # BUILD-TIME VARIABLES (NEXT_PUBLIC_* and build-time secrets)
-        # ============================================
-        # These are embedded into the JavaScript bundles during build.
-        # They are "baked" into the image and cannot be changed without rebuilding.
-        #
-        # How it works:
-        # 1. Define in your .env file (root directory) or shell: NEXT_PUBLIC_APP_URL=...
-        # 2. Docker Compose reads ${VARIABLE} and passes as ARG to Dockerfile
-        # 3. Dockerfile converts ARG to ENV for Next.js build process
-        # 4. Next.js hardcodes these values into static JS files
-        - DATABASE_URL=${DATABASE_URL:-}
-        - DIRECT_URL=${DIRECT_URL:-${DATABASE_URL:-}}
-        - AUTH_SECRET=${BETTER_AUTH_SECRET:-}
-        - REDIS_URL=${REDIS_URL:-redis://redis:6379}
-        - RESEND_API_KEY=${RESEND_API_KEY:-}
-        - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-        - AI_API_KEY=${AI_API_KEY:-}
-        - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+        NEXT_PUBLIC_BETTER_AUTH_URL: ${NEXT_PUBLIC_BETTER_AUTH_URL}
+        DATABASE_URL: ${DATABASE_URL}
+        REDIS_URL: ${REDIS_URL}
+        BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
     container_name: investor-portal-web
     ports:
-      - "${WEB_PORT:-3000}:3000" # External:Internal port mapping
+      - "3005:3000" # External:Internal port mapping
 
-    # ============================================
-    # RUNTIME VARIABLES (Server-side & Secrets)
-    # ============================================
-    # These are injected into the container at startup and can be changed
-    # without rebuilding the image.
-    #
-    # The env_file directive loads ALL variables from ./apps/web/.env
-    # into the container. No need to list them individually.
-    #
-    # Create ./apps/web/.env with your variables:
-    # DATABASE_URL=postgresql://...
-    # BETTER_AUTH_SECRET=your-secret
-    # GOOGLE_CLIENT_ID=...
-    # REDIS_URL=redis://redis:6379
-    # etc.
     env_file:
       - ./apps/web/.env
     environment:
-      # Core runtime configuration (always set)
       - NODE_ENV=production
       - PORT=3000
       - HOSTNAME=0.0.0.0
-      # Override Redis URL to use Docker service name
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
-      # All other variables (DATABASE_URL, BETTER_AUTH_SECRET, GOOGLE_CLIENT_ID, etc.)
-      # are loaded from ./apps/web/.env via env_file above
+
     depends_on:
       redis:
         condition: service_healthy

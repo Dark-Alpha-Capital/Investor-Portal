@@ -36,18 +36,18 @@ export const authRouter = createTRPCRouter({
         });
       }
 
-      const foundUser = await ctx.db.query.user.findFirst({
-        where: eq(user.email, input.email),
-        columns: {
-          id: true,
-          email: true,
-          emailVerified: true,
-        },
-      });
+      const foundUser = await ctx.db.select().from(user).where(eq(user.email, input.email)).limit(1);
+      if (!foundUser) {
+        return {
+          exists: false,
+          emailVerified: false,
+        };
+      }
+
 
       return {
         exists: !!foundUser,
-        emailVerified: foundUser?.emailVerified ?? false,
+        emailVerified: foundUser[0]?.emailVerified ?? false,
       };
     }),
 });

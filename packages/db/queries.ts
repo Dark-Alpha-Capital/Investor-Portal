@@ -1,4 +1,4 @@
-import { db, pool } from ".";
+import { db } from ".";
 import {
   user,
   onboarding,
