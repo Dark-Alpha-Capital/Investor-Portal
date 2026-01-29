@@ -30,10 +30,6 @@ import {
 import { Button } from "@/components/ui/button";
 
 export default function Header() {
-  console.log("google client id", process.env.GOOGLE_CLIENT_ID);
-  console.log("google client secret", process.env.GOOGLE_CLIENT_SECRET);
-  console.log("database url", process.env.DATABASE_URL);
-
   const { data: session, isPending } = useClientSession();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

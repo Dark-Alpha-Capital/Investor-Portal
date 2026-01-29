@@ -117,9 +117,15 @@ export function useGoogleAuth() {
 
   return useMutation({
     mutationFn: async () => {
+      console.log("[Google Auth] Starting OAuth flow...");
+      console.log("[Google Auth] Base URL:", process.env.NEXT_PUBLIC_BETTER_AUTH_URL);
+
       const result = await authClient.signIn.social({
         provider: "google",
+        callbackURL: "/dashboard",
       });
+
+      console.log("[Google Auth] Result:", result);
 
       if (result.error) {
         throw result.error;
@@ -133,8 +139,7 @@ export function useGoogleAuth() {
       router.refresh();
     },
     onError: (error: { message?: string }) => {
-      console.log("error during google sign in", error)
-
+      console.error("[Google Auth] Error:", error);
       toast.error(error.message || "Failed to sign in with Google");
     },
   });
