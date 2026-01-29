@@ -7,6 +7,13 @@ import { nextCookies } from "better-auth/next-js";
 import { createAuthMiddleware } from "better-auth/api";
 import { admin, customSession } from "better-auth/plugins";
 import { sendEmailDirect } from "@repo/mail";
+import {
+  user as usersTable,
+  account as accountsTable,
+  session as sessionsTable,
+  verification as verificationsTable,
+} from "@repo/db/schema";
+
 
 // Type definitions for database hooks
 // Better Auth passes user data with Record<string, unknown> for extensibility
@@ -36,8 +43,12 @@ function getUserRoleFromEmail(email: string): string {
 export const auth: ReturnType<typeof betterAuth> = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
-    // Drizzle adapter automatically includes all user table fields in session
-    // including the 'role' field from the schema
+    schema: {
+      user: usersTable,
+      verification: verificationsTable,
+      account: accountsTable,
+      session: sessionsTable,
+    },
   }),
   emailAndPassword: {
     requireEmailVerification: true,
