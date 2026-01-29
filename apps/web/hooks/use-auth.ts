@@ -133,7 +133,7 @@ export function useGoogleAuth() {
       router.refresh();
     },
     onError: (error: { message?: string }) => {
-      console.log("error", error)
+      console.log("error during google sign in", error)
 
       toast.error(error.message || "Failed to sign in with Google");
     },
