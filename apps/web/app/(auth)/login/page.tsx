@@ -30,6 +30,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 const LoginPage = () => {
   console.log(process.env.GOOGLE_CLIENT_ID);
   console.log(process.env.GOOGLE_CLIENT_SECRET);
+  console.log("database url", process.env.DATABASE_URL);
 
   const signInEmail = useSignInEmail();
   const googleAuth = useGoogleAuth();
@@ -63,9 +64,6 @@ const LoginPage = () => {
           <h1 className="text-3xl font-bold tracking-tight">
             DAC Investor Portal
           </h1>
-          <p className="text-muted-foreground text-base">
-            Sign in to your account to continue
-          </p>
         </div>
 
         <div className="space-y-5">
