@@ -24,31 +24,14 @@ services:
     container_name: investor-portal-server
     ports:
       - "${SERVER_PORT:-8080}:8080" # External:Internal port mapping
-    # ============================================
-    # RUNTIME VARIABLES (Server-side & Secrets)
-    # ============================================
-    # These are injected into the container at startup and can be changed
-    # without rebuilding the image.
-    #
-    # The env_file directive loads ALL variables from ./apps/server/.env
-    # into the container. No need to list them individually.
-    #
-    # Create ./apps/server/.env with your variables:
-    # DATABASE_URL=postgresql://...
-    # POSTGRES_URL=postgresql://...
-    # REDIS_URL=redis://redis:6379
-    # GCLOUD_PROJECT_ID=...
-    # etc.
-    env_file:
-      - ./apps/server/.env
     environment:
-      # Core runtime configuration (always set)
       - NODE_ENV=production
       - PORT=8080
-      # Override Redis URL to use Docker service name
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
-      # All other variables (DATABASE_URL, POSTGRES_URL, GCLOUD_PROJECT_ID, etc.)
-      # are loaded from ./apps/server/.env via env_file above
+      - DATABASE_URL=${DATABASE_URL}
+      - NEXTCLOUD_URL=${NEXTCLOUD_URL}
+      - NEXTCLOUD_USER=${NEXTCLOUD_USER}
+      - NEXTCLOUD_PASSWORD=${NEXTCLOUD_PASSWORD}
     depends_on:
       redis:
         condition: service_healthy
@@ -64,31 +47,14 @@ services:
     container_name: investor-portal-worker
     ports:
       - "${WORKER_PORT:-8081}:8081"
-    # ============================================
-    # RUNTIME VARIABLES (Server-side & Secrets)
-    # ============================================
-    # These are injected into the container at startup and can be changed
-    # without rebuilding the image.
-    #
-    # The env_file directive loads ALL variables from ./apps/worker/.env
-    # into the container. No need to list them individually.
-    #
-    # Create ./apps/worker/.env with your variables:
-    # DATABASE_URL=postgresql://...
-    # POSTGRES_URL=postgresql://...
-    # REDIS_URL=redis://redis:6379
-    # RESEND_API_KEY=...
-    # etc.
-    env_file:
-      - ./apps/worker/.env
     environment:
-      # Core runtime configuration (always set)
       - NODE_ENV=production
       - PORT=8081
-      # Override Redis URL to use Docker service name
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
-      # All other variables (DATABASE_URL, POSTGRES_URL, RESEND_API_KEY, etc.)
-      # are loaded from ./apps/worker/.env via env_file above
+      - NEXTCLOUD_URL=${NEXTCLOUD_URL}
+      - NEXTCLOUD_USER=${NEXTCLOUD_USER}
+      - NEXTCLOUD_PASSWORD=${NEXTCLOUD_PASSWORD}
+      - RESEND_API_KEY=${RESEND_API_KEY}
     depends_on:
       redis:
         condition: service_healthy
@@ -107,19 +73,40 @@ services:
       args:
         NEXT_PUBLIC_BETTER_AUTH_URL: ${NEXT_PUBLIC_BETTER_AUTH_URL}
         DATABASE_URL: ${DATABASE_URL}
-        REDIS_URL: ${REDIS_URL}
+        REDIS_URL: ${REDIS_URL:-redis://redis:6379}
         BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+        GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+        GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+        GCLOUD_PROJECT_ID: ${GCLOUD_PROJECT_ID}
+        GCS_CLIENT_EMAIL: ${GCS_CLIENT_EMAIL}
+        GCS_PRIVATE_KEY: ${GCS_PRIVATE_KEY}
+        GCLOUD_BUCKET: ${GCLOUD_BUCKET}
+        RESEND_API_KEY: ${RESEND_API_KEY}
+        NEXTCLOUD_URL: ${NEXTCLOUD_URL}
+        NEXTCLOUD_USER: ${NEXTCLOUD_USER}
+        NEXTCLOUD_PASSWORD: ${NEXTCLOUD_PASSWORD}
     container_name: investor-portal-web
     ports:
       - "3005:3000" # External:Internal port mapping
-
-    env_file:
-      - ./apps/web/.env
     environment:
       - NODE_ENV=production
       - PORT=3000
       - HOSTNAME=0.0.0.0
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - DATABASE_URL=${DATABASE_URL}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL}
+      - NEXT_PUBLIC_BETTER_AUTH_URL=${NEXT_PUBLIC_BETTER_AUTH_URL}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GCLOUD_PROJECT_ID=${GCLOUD_PROJECT_ID}
+      - GCS_CLIENT_EMAIL=${GCS_CLIENT_EMAIL}
+      - GCS_PRIVATE_KEY=${GCS_PRIVATE_KEY}
+      - GCLOUD_BUCKET=${GCLOUD_BUCKET}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - NEXTCLOUD_URL=${NEXTCLOUD_URL}
+      - NEXTCLOUD_USER=${NEXTCLOUD_USER}
+      - NEXTCLOUD_PASSWORD=${NEXTCLOUD_PASSWORD}
 
     depends_on:
       redis:
