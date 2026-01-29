@@ -28,6 +28,9 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 const LoginPage = () => {
+  console.log(process.env.GOOGLE_CLIENT_ID);
+  console.log(process.env.GOOGLE_CLIENT_SECRET);
+
   const signInEmail = useSignInEmail();
   const googleAuth = useGoogleAuth();
   const form = useForm<LoginFormValues>({
