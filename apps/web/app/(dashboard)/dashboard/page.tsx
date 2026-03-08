@@ -43,11 +43,11 @@ function DashboardMain({
 }) {
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header Section */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight mb-2">
+            <h1 className="text-3xl font-semibold tracking-tight mb-2">
               Dashboard
             </h1>
             <p className="text-muted-foreground text-base">
@@ -75,7 +75,7 @@ function DashboardMain({
 
         {/* Portfolio Metrics Grid */}
         <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card className="group relative overflow-hidden border-border/50 bg-card transition-all duration-200 hover:border-border hover:shadow-md">
+          <Card className="group relative overflow-hidden border-border">
             <CardContent className="p-6">
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -98,7 +98,7 @@ function DashboardMain({
             </CardContent>
           </Card>
 
-          <Card className="group relative overflow-hidden border-border/50 bg-card transition-all duration-200 hover:border-border hover:shadow-md">
+          <Card className="group relative overflow-hidden border-border">
             <CardContent className="p-6">
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -121,7 +121,7 @@ function DashboardMain({
             </CardContent>
           </Card>
 
-          <Card className="group relative overflow-hidden border-border/50 bg-card transition-all duration-200 hover:border-border hover:shadow-md sm:col-span-2 lg:col-span-1">
+          <Card className="group relative overflow-hidden border-border sm:col-span-2 lg:col-span-1">
             <CardContent className="p-6">
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -146,8 +146,8 @@ function DashboardMain({
         </div>
 
         {/* Investments List */}
-        <Card className="border-border/50">
-          <CardHeader className="border-b border-border/50 pb-4">
+        <Card className="border-border">
+          <CardHeader className="border-b border-border pb-4">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-xl font-semibold">
@@ -194,7 +194,7 @@ function DashboardMain({
                     href={`/deals/${investment.dealId}`}
                     className="block"
                   >
-                    <div className="group flex items-center justify-between rounded-lg border border-border/50 bg-card p-5 transition-all duration-200 hover:border-border hover:bg-muted/30 hover:shadow-sm">
+                    <div className="group flex items-center justify-between border border-border p-5 transition-colors duration-150 hover:bg-muted/20">
                       <div className="flex-1 space-y-2">
                         <h4 className="font-semibold text-base group-hover:text-primary transition-colors">
                           {investment.dealName}

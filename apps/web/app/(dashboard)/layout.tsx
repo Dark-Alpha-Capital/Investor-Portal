@@ -22,10 +22,10 @@ export default function DashboardLayout({
         <DashboardProviders>
           <DashboardSidebar />
           <SidebarInset>
-            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-              <SidebarTrigger />
+            <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
+              <SidebarTrigger className="text-muted-foreground" />
             </header>
-            <main className="flex-1 transition-all duration-200 ease-in-out">
+            <main className="flex-1 transition-all duration-150 ease-out">
               {children}
             </main>
           </SidebarInset>

@@ -60,16 +60,16 @@ export function DashboardNavLinks({ session }: { session: Session }) {
         Navigation
       </SidebarGroupLabel>
       <SidebarGroupContent>
-        <SidebarMenu className="space-y-1">
+        <SidebarMenu className="space-y-0.5">
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton
                 asChild
                 tooltip={item.title}
-                className="group relative transition-colors duration-150"
+                className="group relative transition-colors duration-150 rounded-sm"
               >
                 <a href={item.url}>
-                  <item.icon className="h-4 w-4 transition-transform duration-150 group-hover:scale-110" />
+                  <item.icon className="h-4 w-4" />
                   <span className="font-medium">{item.title}</span>
                 </a>
               </SidebarMenuButton>

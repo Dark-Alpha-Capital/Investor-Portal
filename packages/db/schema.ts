@@ -1,11 +1,13 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   pgTable,
   doublePrecision,
+  integer,
   text,
   timestamp,
   boolean,
   index,
+  uniqueIndex,
   jsonb,
   pgEnum,
 } from "drizzle-orm/pg-core";
@@ -24,6 +26,36 @@ export const document_status_enum = pgEnum("document_status", [
   "incorrect_doc",
   "needs_revision",
 ]);
+
+export const outbox_status_enum = pgEnum("outbox_status", [
+  "pending",
+  "processing",
+  "dispatched",
+  "failed",
+]);
+
+export const sideEffectOutbox = pgTable(
+  "side_effect_outbox",
+  {
+    id: text("id").primaryKey(),
+    topic: text("topic").notNull(),
+    dedupeKey: text("dedupe_key").notNull().unique(),
+    payload: jsonb("payload").notNull(),
+    status: outbox_status_enum("status").default("pending").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    lastError: text("last_error"),
+    dispatchedAt: timestamp("dispatched_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("side_effect_outbox_status_idx").on(table.status),
+    index("side_effect_outbox_created_at_idx").on(table.createdAt),
+  ]
+);
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -577,28 +609,35 @@ export const dealInvite = pgTable(
   (t) => [
     index("deal_invite_user_idx").on(t.userId),
     index("deal_invite_deal_idx").on(t.dealId),
+    uniqueIndex("deal_invite_deal_user_uniq").on(t.dealId, t.userId),
   ]
 );
 
 // --- C. PROSPECTIVE INTEREST (The Marketplace Workflow) ---
 // Tracks when a user clicks "I'm Interested" or requests docs
-export const dealInterest = pgTable("deal_interest", {
-  id: text("id").primaryKey(),
-  dealId: text("deal_id")
-    .notNull()
-    .references(() => deal.id, { onDelete: "cascade" }),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
+export const dealInterest = pgTable(
+  "deal_interest",
+  {
+    id: text("id").primaryKey(),
+    dealId: text("deal_id")
+      .notNull()
+      .references(() => deal.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
 
-  status: interest_status_enum("status").default("interested").notNull(),
-  proposedAmount: doublePrecision("proposed_amount"),
+    status: interest_status_enum("status").default("interested").notNull(),
+    proposedAmount: doublePrecision("proposed_amount"),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("deal_interest_deal_user_uniq").on(table.dealId, table.userId),
+  ]
+);
 
 // --- D. CURRENT INVESTMENTS (The Portfolio/Holdings) ---
 // This is the source of truth for "My Portfolio"
@@ -988,6 +1027,9 @@ export const vehiclePermission = pgTable(
   (table) => [
     index("vehicle_permission_userId_idx").on(table.userId),
     index("vehicle_permission_dealId_idx").on(table.dealId),
+    uniqueIndex("vehicle_permission_user_deal_active_uniq")
+      .on(table.userId, table.dealId)
+      .where(sql`${table.revokedAt} is null`),
   ]
 );
 

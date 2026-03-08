@@ -5,8 +5,6 @@ import Link from "next/link";
 import {
   Menu,
   X,
-  Linkedin,
-  Calendar,
   Loader2,
   LogOut,
   User,
@@ -14,8 +12,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";
-import MainLogo from "@/public/one-bridge-logo.png";
-import Image from "next/image";
 import { authClient } from "@/lib/auth-client";
 import { useClientSession } from "@/lib/get-client-session";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -69,8 +65,8 @@ export default function Header() {
     <>
       <header
         className={cn(
-          "w-full transition-all duration-300 z-40 fixed top-0",
-          "bg-background border-b border-border",
+          "w-full transition-all duration-200 z-40 fixed top-0",
+          "bg-background/95 border-b border-border backdrop-blur",
         )}
       >
         <div className="mx-auto extra-big-container px-4 sm:px-6 lg:px-8">
@@ -81,7 +77,7 @@ export default function Header() {
               </span>
             </Link>
 
-            <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8">
+            <nav className="hidden lg:flex items-center space-x-6">
               {navItems.map((item) => {
                 const isAboutRoute = item.href === "/about";
                 const aboutSubRoutes = [
@@ -99,9 +95,9 @@ export default function Header() {
                     key={item.name}
                     href={item.href}
                     className={cn(
-                      "text-sm font-medium text-foreground transition-colors hover:text-primary relative",
+                      "text-sm font-medium text-foreground/80 transition-colors hover:text-foreground relative",
                       {
-                        "text-primary after:absolute after:bottom-[-0.2rem] after:left-0 after:w-full after:h-0.5 after:bg-primary":
+                        "text-foreground after:absolute after:bottom-[-0.2rem] after:left-0 after:w-full after:h-px after:bg-foreground":
                           item.href === "/"
                             ? pathname === "/"
                             : isAboutRoute
@@ -185,11 +181,7 @@ export default function Header() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <Button
-                  onClick={() => router.push("/login")}
-                  variant="default"
-                  size="default"
-                >
+                <Button onClick={() => router.push("/login")} size="sm">
                   Login
                 </Button>
               )}
@@ -229,21 +221,16 @@ export default function Header() {
           onClick={() => setIsMobileMenuOpen(false)}
         />
 
-        <div
-          className={cn(
-            "fixed inset-y-0 left-0 w-full sm:w-3/4 md:w-2/3 lg:w-1/2 max-w-md bg-background shadow-xl transform transition-transform duration-300 ease-in-out",
-            isMobileMenuOpen ? "translate-x-0" : "-translate-x-full",
-          )}
-        >
-          <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between">
+          <div
+            className={cn(
+              "fixed inset-y-0 left-0 w-full sm:w-3/4 max-w-md bg-background border-r border-border transform transition-transform duration-200 ease-out",
+              isMobileMenuOpen ? "translate-x-0" : "-translate-x-full",
+            )}
+          >
+            <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between">
             <div className="flex items-center">
-              <Link href="/" className="">
-                <Image
-                  src={MainLogo}
-                  alt="Meridian Partners Logo"
-                  className="h-10 sm:h-12 md:h-16 w-auto"
-                  priority
-                />
+              <Link href="/" className="text-lg font-semibold tracking-tight">
+                DAC INVESTORS
               </Link>
             </div>
             <button
@@ -351,50 +338,6 @@ export default function Header() {
               )}
             </div>
 
-            {/* CTA buttons in mobile menu */}
-            <div className="mt-8 pt-6 border-t border-border space-y-2">
-              <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-3">
-                Quick Actions
-              </p>
-
-              <Link
-                href="/contact"
-                className="flex items-center py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-primary-foreground bg-primary rounded-md hover:bg-primary/90 transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
-                Set an Appointment
-              </Link>
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-border">
-              <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-3">
-                Contact Us
-              </p>
-              <Link
-                href="tel:+918561046369"
-                className="block py-2 text-sm text-foreground hover:text-primary transition-colors"
-              >
-                +91 8561046369
-              </Link>
-              <Link
-                href="mailto:info@onebridgekp.com"
-                className="block py-2 text-sm text-foreground hover:text-primary transition-colors"
-              >
-                pragya@onebridgeknowledgepartners.com
-              </Link>
-              <div className="flex space-x-4 mt-4">
-                <Link
-                  href="https://linkedin.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-primary transition-colors"
-                  aria-label="LinkedIn"
-                >
-                  <Linkedin className="h-4 w-4 sm:h-5 sm:w-5" />
-                </Link>
-              </div>
-            </div>
           </nav>
         </div>
       </div>

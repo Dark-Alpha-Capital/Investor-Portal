@@ -5,14 +5,17 @@ import {
   onboarding,
   onboardingDocument,
   onboardingEditHistory,
+  sideEffectOutbox,
   user,
   beneficialOwner,
   authorizedSignatory,
   kycAttestation,
 } from "@repo/db/schema";
-import { eq, desc } from "drizzle-orm";
-import { onboardingQueue, emailQueue } from "@/lib/redis";
+import { and, eq, desc, sql } from "drizzle-orm";
+import { onboardingQueue } from "@/lib/redis";
 import { TRPCError } from "@trpc/server";
+import { revalidateTag } from "next/cache";
+import { dispatchPendingOutbox } from "@/lib/outbox";
 import {
   EMAIL_CONFIG,
   type OnboardingInvestorConfirmationJobData,
@@ -216,17 +219,6 @@ const sanitizeFileName = (fileName: string): string => {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.\./g, "_");
 };
 
-// Queue job options - extracted as constant to avoid recreation
-const QUEUE_JOB_OPTIONS = {
-  removeOnComplete: {
-    age: 24 * 3600, // Keep completed jobs for 24 hours
-    count: 1000, // Keep last 1000 completed jobs
-  },
-  removeOnFail: {
-    age: 7 * 24 * 3600, // Keep failed jobs for 7 days
-  },
-} as const;
-
 export const onboardingRouter = createTRPCRouter({
   submit: baseProcedure
     .input(onboardingSubmitSchema)
@@ -387,20 +379,6 @@ export const onboardingRouter = createTRPCRouter({
         submittedAt,
       };
 
-      // Save onboarding data to database
-      try {
-        await ctx.db.insert(onboarding).values(onboardingData);
-      } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to save onboarding data to database",
-          cause: error,
-        });
-      }
-
       // Prepare parallel database operations for entity-specific data
       const isEntity = investorData.legalEntityType === "entity";
       const hasBeneficialOwners =
@@ -479,47 +457,6 @@ export const onboardingRouter = createTRPCRouter({
         }
         : null;
 
-      // Execute parallel database operations
-      const dbOperations: Promise<unknown>[] = [
-        // Update user onboarding status
-        ctx.db
-          .update(user)
-          .set({
-            isOnboardingCompleted: true,
-          })
-          .where(eq(user.id, userId)),
-      ];
-
-      if (uboRecords) {
-        dbOperations.push(ctx.db.insert(beneficialOwner).values(uboRecords));
-      }
-
-      if (signatoryRecords) {
-        dbOperations.push(
-          ctx.db.insert(authorizedSignatory).values(signatoryRecords)
-        );
-      }
-
-      if (kycAttestationRecord) {
-        dbOperations.push(
-          ctx.db.insert(kycAttestation).values(kycAttestationRecord)
-        );
-      }
-
-      // Execute all database operations in parallel
-      try {
-        await Promise.all(dbOperations);
-      } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to save onboarding related data",
-          cause: error,
-        });
-      }
-
       // Prepare file upload job data and document records
       const fileJobData = {
         onboardingId,
@@ -574,32 +511,78 @@ export const onboardingRouter = createTRPCRouter({
         submittedAt: submittedAt.toISOString(),
       };
 
-      // Execute file upload queue, document insert, and email queues in parallel
       try {
-        const [fileJob] = await Promise.all([
-          onboardingQueue.add(
-            "upload-onboarding-files",
-            fileJobData,
-            QUEUE_JOB_OPTIONS
-          ),
-          ctx.db.insert(onboardingDocument).values(documentRecords),
-          emailQueue.add(
-            "onboarding-investor-confirmation",
-            investorEmailData,
-            QUEUE_JOB_OPTIONS
-          ),
-          emailQueue.add(
-            "onboarding-admin-notification",
-            adminEmailData,
-            QUEUE_JOB_OPTIONS
-          ),
-        ]);
+        // Keep all database writes atomic to avoid partial onboarding state.
+        await ctx.db.transaction(async (tx) => {
+          await tx.insert(onboarding).values(onboardingData);
+
+          await tx
+            .update(user)
+            .set({
+              isOnboardingCompleted: true,
+            })
+            .where(eq(user.id, userId));
+
+          if (uboRecords) {
+            await tx.insert(beneficialOwner).values(uboRecords);
+          }
+
+          if (signatoryRecords) {
+            await tx.insert(authorizedSignatory).values(signatoryRecords);
+          }
+
+          if (kycAttestationRecord) {
+            await tx.insert(kycAttestation).values(kycAttestationRecord);
+          }
+
+          await tx.insert(onboardingDocument).values(documentRecords);
+
+          await tx.insert(sideEffectOutbox).values([
+            {
+              id: randomUUID(),
+              topic: "queue",
+              dedupeKey: `onboarding:upload-files:${onboardingId}`,
+              payload: {
+                queue: "onboarding",
+                jobName: "upload-onboarding-files",
+                jobId: `upload-onboarding-files:${onboardingId}`,
+                data: fileJobData,
+              },
+            },
+            {
+              id: randomUUID(),
+              topic: "queue",
+              dedupeKey: `onboarding:email-investor:${onboardingId}`,
+              payload: {
+                queue: "email",
+                jobName: "onboarding-investor-confirmation",
+                jobId: `onboarding-investor-confirmation:${onboardingId}`,
+                data: investorEmailData,
+              },
+            },
+            {
+              id: randomUUID(),
+              topic: "queue",
+              dedupeKey: `onboarding:email-admin:${onboardingId}`,
+              payload: {
+                queue: "email",
+                jobName: "onboarding-admin-notification",
+                jobId: `onboarding-admin-notification:${onboardingId}`,
+                data: adminEmailData,
+              },
+            },
+          ]);
+        });
+
+        await dispatchPendingOutbox(ctx.db);
+
+        revalidateTag(`onboarding-status-${userId}`, "max");
 
         return {
           success: true,
           message: "Onboarding data submitted successfully",
           onboardingId,
-          jobId: fileJob.id,
+          jobId: `upload-onboarding-files:${onboardingId}`,
           timestamp: submittedAt.toISOString(),
           userId,
           fileCount: files.length,
@@ -627,14 +610,17 @@ export const onboardingRouter = createTRPCRouter({
       const session = await authSession();
       if (!session?.user) {
         throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You must be logged in to get job progress",
+          code: "FORBIDDEN",
+          message: "You are not allowed to access this job",
         });
       }
       const job = await onboardingQueue.getJob(input.jobId);
 
       if (!job) {
-        throw new Error("Job not found");
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Job not found",
+        });
       }
 
       // Verify the job belongs to this user by checking the job data
@@ -643,7 +629,10 @@ export const onboardingRouter = createTRPCRouter({
       };
 
       if (jobData.investorId !== session.user.id) {
-        throw new Error("Unauthorized");
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not allowed to access this job",
+        });
       }
 
       const state = await job.getState();
@@ -862,19 +851,6 @@ export const onboardingRouter = createTRPCRouter({
         };
       }
 
-      // Update the onboarding record
-      const currentEditCount = parseInt(currentOnboarding.editCount || "0", 10);
-      await ctx.db
-        .update(onboarding)
-        .set({
-          ...updateData,
-          lastEditedAt: new Date(),
-          lastEditedBy: userId,
-          editCount: String(currentEditCount + 1),
-        })
-        .where(eq(onboarding.id, currentOnboarding.id));
-
-      // Insert edit history records
       const editHistoryRecords = changes.map((change) => ({
         id: randomUUID(),
         onboardingId: currentOnboarding.id,
@@ -886,9 +862,45 @@ export const onboardingRouter = createTRPCRouter({
         editedAt: new Date(),
       }));
 
-      if (editHistoryRecords.length > 0) {
-        await ctx.db.insert(onboardingEditHistory).values(editHistoryRecords);
+      // Transactional optimistic-concurrency update to avoid lost updates.
+      const updatedAtMarker = currentOnboarding.updatedAt;
+      const editUpdateResult = await ctx.db.transaction(async (tx) => {
+        const updatedRows = await tx
+          .update(onboarding)
+          .set({
+            ...updateData,
+            lastEditedAt: new Date(),
+            lastEditedBy: userId,
+            editCount: sql`((COALESCE(${onboarding.editCount}, '0'))::int + 1)::text`,
+          })
+          .where(
+            and(
+              eq(onboarding.id, currentOnboarding.id),
+              eq(onboarding.updatedAt, updatedAtMarker)
+            )
+          )
+          .returning({ id: onboarding.id });
+
+        if (updatedRows.length === 0) {
+          return { updated: false as const };
+        }
+
+        if (editHistoryRecords.length > 0) {
+          await tx.insert(onboardingEditHistory).values(editHistoryRecords);
+        }
+
+        return { updated: true as const };
+      });
+
+      if (!editUpdateResult.updated) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "Onboarding was updated by another request. Please refresh and retry.",
+        });
       }
+
+      revalidateTag(`onboarding-status-${userId}`, "max");
 
       console.log(
         `[Onboarding] User ${userId} edited ${changes.length} field(s) on onboarding ${currentOnboarding.id}`

@@ -1,8 +1,8 @@
 "use client";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useCallback, useTransition } from "react";
-import { LayoutGrid, List, Loader2, Briefcase } from "lucide-react";
+import { useCallback, useEffect, useTransition } from "react";
+import { Loader2, Briefcase } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -10,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Pagination,
   PaginationContent,
@@ -22,7 +21,6 @@ import {
 } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/search-input";
 import { DealsTableView } from "./deals-table-view";
-import { DealsCardView } from "./deals-card-view";
 
 const STATUSES = [
   { value: "all", label: "All Statuses" },
@@ -85,18 +83,28 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
   const [isPending, startTransition] = useTransition();
 
   // Get filter values from URL params
-  const view = searchParams.get("view") || "card";
   const status = searchParams.get("status") || "all";
   const sector = searchParams.get("sector") || "all";
   const searchParam = searchParams.get("search") || "";
   const pageParam = searchParams.get("page") || "1";
   const currentPage = Math.max(1, parseInt(pageParam, 10) || 1);
 
+  useEffect(() => {
+    if (!searchParams.has("view")) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("view");
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [pathname, router, searchParams]);
+
   // Update URL params helper - wrapped in transition to show pending state
   const updateParams = useCallback(
     (updates: Record<string, string>, resetPage = false) => {
       const params = new URLSearchParams(searchParams.toString());
       Object.entries(updates).forEach(([key, value]) => {
+        if (key === "view") {
+          params.delete("view");
+          return;
+        }
         if (value && value !== "all" && value !== "" && value !== "1") {
           params.set(key, value);
         } else {
@@ -184,7 +192,7 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
   return (
     <div className="space-y-6">
       {/* Filters Bar */}
-      <div className="flex flex-col gap-4 rounded-lg border border-border/50 bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
           {/* Search */}
           <div className="flex-1 sm:max-w-md">
@@ -200,7 +208,7 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
             value={status}
             onValueChange={(value) => updateParams({ status: value }, true)}
           >
-            <SelectTrigger className="w-full sm:w-[160px]">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -217,7 +225,7 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
             value={sector}
             onValueChange={(value) => updateParams({ sector: value }, true)}
           >
-            <SelectTrigger className="w-full sm:w-[160px]">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Sector" />
             </SelectTrigger>
             <SelectContent>
@@ -231,29 +239,9 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
           </Select>
         </div>
 
-        {/* View Toggle */}
-        <div className="flex items-center gap-2">
-          <ToggleGroup
-            type="single"
-            value={view}
-            onValueChange={(value) => {
-              if (value) updateParams({ view: value });
-            }}
-            variant="outline"
-            size="sm"
-            className="border-border/50"
-          >
-            <ToggleGroupItem value="card" aria-label="Card view">
-              <LayoutGrid className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="table" aria-label="Table view">
-              <List className="h-4 w-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
-          {isPending && (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          )}
-        </div>
+        {isPending && (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        )}
       </div>
 
       {/* Results count */}
@@ -271,7 +259,7 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
 
       {/* Empty State */}
       {deals.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-border/50 bg-card py-16 text-center">
+        <div className="flex flex-col items-center justify-center border-y border-border py-16 text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
             <Briefcase className="h-8 w-8 text-muted-foreground" />
           </div>
@@ -288,11 +276,7 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
       {/* Deals Display */}
       {deals.length > 0 && (
         <>
-          {view === "table" ? (
-            <DealsTableView deals={deals} />
-          ) : (
-            <DealsCardView deals={deals} />
-          )}
+          <DealsTableView deals={deals} />
 
           {/* Pagination */}
           {pagination.totalPages > 1 && (

@@ -41,10 +41,10 @@ export default function AdminPage({
   searchParams: SearchParams;
 }) {
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl">
+    <div className="container mx-auto py-8 px-4 max-w-6xl">
       {/* Static shell - prerendered */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Admin Dashboard</h1>
         <p className="text-muted-foreground mt-2">
           Manage users and monitor system activity
         </p>

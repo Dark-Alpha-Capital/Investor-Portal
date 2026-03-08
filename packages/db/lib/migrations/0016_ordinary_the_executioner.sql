@@ -1,0 +1,3 @@
+CREATE UNIQUE INDEX "deal_interest_deal_user_uniq" ON "deal_interest" USING btree ("deal_id","user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "deal_invite_deal_user_uniq" ON "deal_invite" USING btree ("deal_id","user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "vehicle_permission_user_deal_active_uniq" ON "vehicle_permission" USING btree ("user_id","deal_id") WHERE "vehicle_permission"."revoked_at" is null;
