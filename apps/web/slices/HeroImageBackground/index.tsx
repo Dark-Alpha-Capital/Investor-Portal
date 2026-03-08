@@ -1,10 +1,7 @@
 import { FC } from "react";
 import { Content } from "@prismicio/client";
-import { PrismicLink, SliceComponentProps } from "@prismicio/react";
-import { PrismicNextImage, PrismicNextLink } from "@prismicio/next";
-import { Button } from "@/components/ui/button";
-import Heading from "@/components/Heading";
-import Link from "next/link";
+import { SliceComponentProps } from "@prismicio/react";
+import { PrismicNextImage } from "@prismicio/next";
 
 export type HeroImageBackgroundProps =
   SliceComponentProps<Content.HeroImageBackgroundSlice>;
@@ -14,24 +11,24 @@ const HeroImageBackground: FC<HeroImageBackgroundProps> = ({ slice }) => {
     <section
       data-slice-type={slice.slice_type}
       data-slice-variation={slice.variation}
-      className="relative min-h-[70vh] flex items-center overflow-hidden"
+      className="relative isolate flex min-h-[70vh] items-center overflow-hidden py-20"
     >
       <PrismicNextImage
         field={slice.primary.background_image}
-        className="object-cover absolute inset-0"
+        className="absolute inset-0 h-full w-full object-cover"
         priority
         sizes="100vw"
       />
+      <div className="absolute inset-0 bg-slate-950/35" />
 
-      <div className="relative z-20 big-container">
-        <div className="max-w-2xl space-y-4 md:space-y-6">
-          <Heading size="md" className="text-dark-blue">
+      <div className="relative z-10 mx-auto w-[min(92%,72rem)]">
+        <div className="max-w-3xl space-y-5 text-white md:space-y-7">
+          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl">
             {slice.primary.heading}
-          </Heading>
-
-          <Heading size="xs" className="font-normal text-dark-blue">
+          </h1>
+          <p className="max-w-2xl text-base leading-relaxed text-white/90 md:text-lg">
             {slice.primary.tagline}
-          </Heading>
+          </p>
         </div>
       </div>
     </section>

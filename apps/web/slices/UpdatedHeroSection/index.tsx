@@ -1,12 +1,9 @@
 import { FC } from "react";
 import { Content } from "@prismicio/client";
 import { PrismicRichText, SliceComponentProps } from "@prismicio/react";
-import { Link } from "@radix-ui/react-navigation-menu";
-import Image from "next/image";
 import { PrismicNextImage, PrismicNextLink } from "@prismicio/next";
-import { ArrowRightIcon, DotIcon } from "lucide-react";
+import { ArrowRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Heading from "@/components/Heading";
 
 /**
  * Props for `UpdatedHeroSection`.
@@ -22,39 +19,42 @@ const UpdatedHeroSection: FC<UpdatedHeroSectionProps> = ({ slice }) => {
     <section
       data-slice-type={slice.slice_type}
       data-slice-variation={slice.variation}
+      className="py-16 md:py-24"
     >
-      <div className="relative mix-h-[50vh] bg-gradient-to-br from-muted via-background to-muted py-12 md:py-20">
+      <div className="relative min-h-[56vh] overflow-hidden">
         <PrismicNextImage
           field={slice.primary.background_image}
-          className="object-cover opacity-90 w-full h-full absolute inset-0 z-0"
+          className="absolute inset-0 z-0 h-full w-full object-cover"
           fill
+          sizes="100vw"
         />
-        <div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="">
-            <Heading size="md" className="text-dark-blue text-center font-bold">
+        <div className="absolute inset-0 bg-slate-950/35" />
+        <div className="relative z-10 mx-auto w-[min(92%,76rem)]">
+          <div className="mb-6 text-center">
+            <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
               {slice.primary.heading}
-            </Heading>
+            </h2>
           </div>
-          <div className="rounded-3xl mt-4 bg-card p-8 shadow-xl md:p-12 lg:p-16">
-            <div className="grid gap-10 md:grid-cols-2 md:gap-16">
-              <div className="space-y-6">
-                <h2 className="text-4xl font-bold text-foreground sm:text-5xl">
+          <div className="border border-white/35 bg-white/90 p-6 backdrop-blur md:p-10 lg:p-12">
+            <div className="grid gap-10 md:grid-cols-2 md:gap-14">
+              <div className="space-y-5">
+                <h3 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
                   {slice.primary.title}
-                </h2>
+                </h3>
 
-                <p className="text-xl text-foreground">
+                <p className="text-lg leading-relaxed text-muted-foreground md:text-xl">
                   {slice.primary.tagline}
                 </p>
               </div>
 
               {/* Right Column */}
               <div className="space-y-6">
-                <div className="prose prose-sm">
+                <div className="prose prose-slate max-w-none prose-sm prose-p:leading-relaxed">
                   <PrismicRichText field={slice.primary.content} />
                 </div>
                 <Button
                   size="lg"
-                  className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
+                  className="mt-2 w-full sm:w-auto"
                   asChild
                 >
                   <PrismicNextLink field={slice.primary.button_link}>

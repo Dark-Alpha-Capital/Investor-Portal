@@ -17,15 +17,15 @@ const ContentHeading: FC<ContentHeadingProps> = ({ slice }) => {
     <section
       data-slice-type={slice.slice_type}
       data-slice-variation={slice.variation}
-      className={cn("w-full block-space")}
+      className="py-16 md:py-24"
     >
       <div
         className={cn(
-          "big-container",
-          slice.variation === "contentNarrowContainer" && "narrow-container"
+          "mx-auto w-[min(92%,72rem)]",
+          slice.variation === "contentNarrowContainer" && "w-[min(92%,46rem)]"
         )}
       >
-        <div className="prose">
+        <div className="prose prose-slate max-w-none prose-p:leading-relaxed prose-li:leading-relaxed prose-headings:tracking-tight">
           <PrismicRichText field={slice.primary.main_content} />
         </div>
       </div>

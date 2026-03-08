@@ -17,25 +17,27 @@ const ReuseableCards: FC<ReuseableCardsProps> = ({ slice }) => {
     <section
       data-slice-type={slice.slice_type}
       data-slice-variation={slice.variation}
-      className="w-full block-space"
+      className="py-16 md:py-24"
     >
-      <div className="extra-big-container">
-        <h2 className="text-dark-blue font-bold text-center">
+      <div className="mx-auto w-[min(92%,76rem)]">
+        <h2 className="text-center text-3xl font-semibold tracking-tight md:text-4xl">
           {slice.primary.heading}
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 md:mt-8 lg:mt-12">
+        <div className="mt-8 grid grid-cols-1 gap-5 md:mt-10 md:grid-cols-3">
           {slice.primary.cards.map((card, index) => {
             return (
-              <div className="bg-slate-50 p-6 rounded-lg" key={index}>
-                <div className="w-8 h-8 rounded-full bg-sky-100 flex items-center justify-center mb-4">
-                  <Check className="h-5 w-5 text-sky-400" />
+              <article className="border border-border bg-background p-6" key={index}>
+                <div className="mb-4 flex size-8 items-center justify-center rounded-full bg-muted">
+                  <Check className="h-4 w-4 text-primary" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-3">
+                <h3 className="mb-3 text-xl font-semibold tracking-tight">
                   {card.card_heading}
                 </h3>
-                <p className="text-slate-600">{card.card_description}</p>
-              </div>
+                <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
+                  {card.card_description}
+                </p>
+              </article>
             );
           })}
         </div>
