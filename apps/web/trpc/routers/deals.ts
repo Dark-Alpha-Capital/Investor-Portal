@@ -5,14 +5,15 @@ import {
   dealInvite,
   dealInterest,
   investment,
+  sideEffectOutbox,
   user,
   vehiclePermission,
   investorClearance,
 } from "@repo/db/schema";
-import { baseProcedure, createTRPCRouter } from "../init";
+import { adminProcedure, baseProcedure, createTRPCRouter } from "../init";
 import slugify from "slugify";
 import { createDealSchema } from "@/lib/schemas/create-deal-schema";
-import { dealQueue } from "@/lib/redis";
+import { dispatchPendingOutbox } from "@/lib/outbox";
 import {
   desc,
   eq,
@@ -45,16 +46,16 @@ const parseNumericField = (value: string | undefined | null): number | null => {
   return isNaN(parsed) ? null : parsed;
 };
 
-// Queue job options - extracted as constant
-const DEAL_QUEUE_JOB_OPTIONS = {
-  removeOnComplete: {
-    age: 24 * 3600, // Keep completed jobs for 24 hours
-    count: 1000,
-  },
-  removeOnFail: {
-    age: 7 * 24 * 3600, // Keep failed jobs for 7 days
-  },
-} as const;
+const makeOutboxPayload = (
+  jobName: string,
+  jobId: string,
+  data: Record<string, unknown>
+) => ({
+  queue: "deal" as const,
+  jobName,
+  jobId,
+  data,
+});
 
 export const dealsRouter = createTRPCRouter({
   getDeals: baseProcedure.query(async ({ ctx }) => {
@@ -104,24 +105,29 @@ export const dealsRouter = createTRPCRouter({
       };
 
       try {
-        // Execute database insert and queue job in parallel
-        const [newDeal] = await Promise.all([
-          ctx.db
+        const [newDeal] = await ctx.db.transaction(async (tx) => {
+          const insertedDeals = await tx
             .insert(deal)
             .values(dealData)
-            .returning()
-            .then((r) => r[0]),
-          dealQueue.add(
-            "create-deal",
-            {
+            .returning();
+          const insertedDeal = insertedDeals[0];
+
+          await tx.insert(sideEffectOutbox).values({
+            id: randomUUID(),
+            topic: "queue",
+            dedupeKey: `deal:create:${dealId}`,
+            payload: makeOutboxPayload("create-deal", `create-deal:${dealId}`, {
               deal: {
                 name: input.name,
                 slug: slug,
               },
-            },
-            DEAL_QUEUE_JOB_OPTIONS
-          ),
-        ]);
+            }),
+          });
+
+          return [insertedDeal];
+        });
+
+        await dispatchPendingOutbox(ctx.db);
 
         return {
           success: true,
@@ -240,32 +246,41 @@ export const dealsRouter = createTRPCRouter({
       };
 
       try {
-        // Prepare parallel operations
-        const operations: Promise<unknown>[] = [
-          ctx.db
+        const [updatedDeal] = await ctx.db.transaction(async (tx) => {
+          const updatedDeals = await tx
             .update(deal)
             .set(dealUpdateData)
             .where(eq(deal.id, dealId))
-            .returning()
-            .then((r) => r[0]),
-        ];
+            .returning();
+          const nextDeal = updatedDeals[0];
 
-        // Check if deal name changed and enqueue folder rename job
-        if (existingDeal.name !== updateData.name) {
-          operations.push(
-            dealQueue.add(
-              "rename-deal",
-              {
-                oldDealName: existingDeal.name,
-                newDealName: updateData.name,
-              },
-              DEAL_QUEUE_JOB_OPTIONS
-            )
-          );
-        }
+          // Check if deal name changed and enqueue folder rename job
+          if (existingDeal.name !== updateData.name) {
+            await tx.insert(sideEffectOutbox).values({
+              id: randomUUID(),
+              topic: "queue",
+              dedupeKey: `deal:rename:${dealId}:${slugify(updateData.name, {
+                lower: true,
+                strict: true,
+              })}`,
+              payload: makeOutboxPayload(
+                "rename-deal",
+                `rename-deal:${dealId}:${slugify(updateData.name, {
+                  lower: true,
+                  strict: true,
+                })}`,
+                {
+                  oldDealName: existingDeal.name,
+                  newDealName: updateData.name,
+                }
+              ),
+            });
+          }
 
-        // Execute operations in parallel
-        const [updatedDeal] = await Promise.all(operations);
+          return [nextDeal];
+        });
+
+        await dispatchPendingOutbox(ctx.db);
 
         // Revalidate paths (non-blocking)
         revalidatePath(`/admin/deals/${dealId}`);
@@ -314,7 +329,7 @@ export const dealsRouter = createTRPCRouter({
       }
     }),
 
-  delete: baseProcedure
+  delete: adminProcedure
     .input(z.object({ dealId: z.string().min(1, "Deal ID is required") }))
     .mutation(async ({ input, ctx }) => {
       // Check if deal exists
@@ -332,22 +347,25 @@ export const dealsRouter = createTRPCRouter({
       }
 
       try {
-        // Execute delete and queue job in parallel
-        await Promise.all([
-          ctx.db.delete(deal).where(eq(deal.id, input.dealId)),
-          dealQueue.add(
-            "delete-deal",
-            {
-              dealName: existingDeal.name,
-            },
-            DEAL_QUEUE_JOB_OPTIONS
-          ),
-        ]);
+        await ctx.db.transaction(async (tx) => {
+          // Delete first to ensure state is committed before cleanup is scheduled.
+          await tx.delete(deal).where(eq(deal.id, input.dealId));
 
-        return {
-          success: true,
-          message: "Deal deleted successfully",
-        };
+          await tx.insert(sideEffectOutbox).values({
+            id: randomUUID(),
+            topic: "queue",
+            dedupeKey: `deal:delete:${input.dealId}`,
+            payload: makeOutboxPayload(
+              "delete-deal",
+              `delete-deal:${input.dealId}`,
+              {
+                dealName: existingDeal.name,
+              }
+            ),
+          });
+        });
+
+        await dispatchPendingOutbox(ctx.db);
       } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -356,6 +374,11 @@ export const dealsRouter = createTRPCRouter({
           cause: error,
         });
       }
+
+      return {
+        success: true,
+        message: "Deal deleted successfully",
+      };
     }),
 
   getById: baseProcedure
@@ -877,19 +900,12 @@ export const dealsRouter = createTRPCRouter({
         });
       }
 
-      // Verify deal exists and get existing invites in parallel
-      const [dealRecord, existingInvites] = await Promise.all([
-        ctx.db
-          .select()
-          .from(deal)
-          .where(eq(deal.id, input.dealId))
-          .limit(1)
-          .then((r) => r[0]),
-        ctx.db
-          .select()
-          .from(dealInvite)
-          .where(eq(dealInvite.dealId, input.dealId)),
-      ]);
+      // Verify deal exists
+      const [dealRecord] = await ctx.db
+        .select()
+        .from(deal)
+        .where(eq(deal.id, input.dealId))
+        .limit(1);
 
       if (!dealRecord) {
         throw new TRPCError({
@@ -925,30 +941,31 @@ export const dealsRouter = createTRPCRouter({
         });
       }
 
-      // Create invite map for quick lookup
-      const existingInviteMap = new Set(
-        existingInvites.map((invite) => invite.userId)
-      );
-
-      // Create invites for users that don't already have one
-      const newInvites = validUserIds
-        .filter((userId) => !existingInviteMap.has(userId))
-        .map((userId) => ({
+      // Insert invites with conflict-safe semantics to avoid race-condition failures
+      const inviteRows = validUserIds.map((userId) => ({
           id: randomUUID(),
           dealId: input.dealId,
           userId,
           curationNote: input.curationNote || null,
         }));
 
-      if (newInvites.length > 0) {
-        await ctx.db.insert(dealInvite).values(newInvites);
-      }
+      const insertedInvites =
+        inviteRows.length > 0
+          ? await ctx.db
+              .insert(dealInvite)
+              .values(inviteRows)
+              .onConflictDoNothing()
+              .returning({ id: dealInvite.id })
+          : [];
+
+      const addedCount = insertedInvites.length;
+      const skippedCount = validUserIds.length - addedCount;
 
       return {
         success: true,
-        message: `Added ${newInvites.length} invite(s) to deal`,
-        addedCount: newInvites.length,
-        skippedCount: validUserIds.length - newInvites.length,
+        message: `Added ${addedCount} invite(s) to deal`,
+        addedCount,
+        skippedCount,
       };
     }),
 
@@ -1365,59 +1382,22 @@ export const dealsRouter = createTRPCRouter({
         );
       }
 
-      // Check if interest already exists in parallel with access checks
-      const [existingInterest] = await Promise.all([
-        ctx.db
-          .select()
-          .from(dealInterest)
-          .where(
-            and(
-              eq(dealInterest.dealId, actualDealId),
-              eq(dealInterest.userId, session.user.id)
-            )
-          )
-          .limit(1)
-          .then((r) => r[0]),
-        ...accessChecks,
-      ]);
+      await Promise.all(accessChecks);
 
-      const updatedAt = new Date();
+      // Try insert first; if already present, update existing row.
+      const [newInterest] = await ctx.db
+        .insert(dealInterest)
+        .values({
+          id: randomUUID(),
+          dealId: actualDealId,
+          userId: session.user.id,
+          status: input.status,
+          proposedAmount: input.proposedAmount ?? null,
+        })
+        .onConflictDoNothing()
+        .returning();
 
-      if (existingInterest) {
-        // Update existing interest
-        const [updatedInterest] = await ctx.db
-          .update(dealInterest)
-          .set({
-            status: input.status,
-            proposedAmount: input.proposedAmount ?? null,
-            updatedAt,
-          })
-          .where(eq(dealInterest.id, existingInterest.id))
-          .returning();
-
-        return {
-          success: true,
-          interest: {
-            ...updatedInterest,
-            proposedAmount: updatedInterest.proposedAmount?.toString() ?? null,
-            createdAt: updatedInterest.createdAt.toISOString(),
-            updatedAt: updatedInterest.updatedAt?.toISOString() ?? null,
-          },
-          message: "Interest updated successfully",
-        };
-      } else {
-        // Create new interest
-        const [newInterest] = await ctx.db
-          .insert(dealInterest)
-          .values({
-            id: randomUUID(),
-            dealId: actualDealId,
-            userId: session.user.id,
-            status: input.status,
-            proposedAmount: input.proposedAmount ?? null,
-          })
-          .returning();
-
+      if (newInterest) {
         return {
           success: true,
           interest: {
@@ -1429,5 +1409,38 @@ export const dealsRouter = createTRPCRouter({
           message: "Interest expressed successfully",
         };
       }
+
+      const [updatedInterest] = await ctx.db
+        .update(dealInterest)
+        .set({
+          status: input.status,
+          proposedAmount: input.proposedAmount ?? null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(dealInterest.dealId, actualDealId),
+            eq(dealInterest.userId, session.user.id)
+          )
+        )
+        .returning();
+
+      if (!updatedInterest) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to persist interest",
+        });
+      }
+
+      return {
+        success: true,
+        interest: {
+          ...updatedInterest,
+          proposedAmount: updatedInterest.proposedAmount?.toString() ?? null,
+          createdAt: updatedInterest.createdAt.toISOString(),
+          updatedAt: updatedInterest.updatedAt?.toISOString() ?? null,
+        },
+        message: "Interest updated successfully",
+      };
     }),
 });

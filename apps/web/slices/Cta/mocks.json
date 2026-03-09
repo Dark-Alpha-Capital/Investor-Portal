@@ -1,0 +1,47 @@
+[
+	{
+		"__TYPE__": "SharedSliceContent",
+		"variation": "default",
+		"primary": {
+			"heading": {
+				"__TYPE__": "FieldContent",
+				"value": "surface",
+				"type": "Text"
+			},
+			"excerpt": {
+				"__TYPE__": "FieldContent",
+				"value": "tomorrow",
+				"type": "Text"
+			},
+			"primary_button_label": {
+				"__TYPE__": "FieldContent",
+				"value": "sit",
+				"type": "Text"
+			},
+			"primary_button_link": {
+				"__TYPE__": "LinkContent",
+				"key": "f17ff0a2-693a-42a3-9a30-13b65a9b30ca",
+				"value": {
+					"__TYPE__": "ExternalLink",
+					"url": "http://twitter.com",
+					"text": "principal"
+				}
+			},
+			"secondary_button_label": {
+				"__TYPE__": "FieldContent",
+				"value": "earth",
+				"type": "Text"
+			},
+			"secondary_button_link": {
+				"key": "f377aeeb-d021-4596-831f-c53085f0f0cc",
+				"__TYPE__": "LinkContent",
+				"value": {
+					"__TYPE__": "ExternalLink",
+					"url": "http://google.com",
+					"text": "congress"
+				}
+			}
+		},
+		"items": []
+	}
+]

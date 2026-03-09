@@ -1,0 +1,105 @@
+{
+  "id": "sector_expertise",
+  "type": "SharedSlice",
+  "name": "SectorExpertise",
+  "description": "SectorExpertise",
+  "variations": [
+    {
+      "id": "default",
+      "name": "Default",
+      "docURL": "...",
+      "version": "initial",
+      "description": "Default",
+      "imageUrl": "",
+      "primary": {
+        "heading": {
+          "type": "Text",
+          "config": {
+            "label": "Heading",
+            "placeholder": ""
+          }
+        },
+        "excerpt": {
+          "type": "Text",
+          "config": {
+            "label": "Excerpt",
+            "placeholder": ""
+          }
+        },
+        "target_profile_label": {
+          "type": "Text",
+          "config": {
+            "label": "Target Profile Label",
+            "placeholder": ""
+          }
+        },
+        "revenue": {
+          "type": "Text",
+          "config": {
+            "label": "Revenue",
+            "placeholder": ""
+          }
+        },
+        "ownership": {
+          "type": "Text",
+          "config": {
+            "label": "Ownership",
+            "placeholder": ""
+          }
+        },
+        "ebitda": {
+          "type": "Text",
+          "config": {
+            "label": "Ebitda",
+            "placeholder": ""
+          }
+        },
+        "geography": {
+          "type": "Text",
+          "config": {
+            "label": "Geography",
+            "placeholder": ""
+          }
+        },
+        "sector": {
+          "type": "Group",
+          "config": {
+            "label": "Sector",
+            "repeat": true,
+            "fields": {
+              "icon": {
+                "type": "Select",
+                "config": {
+                  "label": "Icon",
+                  "placeholder": "",
+                  "options": [
+                    "Manufacturing",
+                    "Business Services",
+                    "Healthcare",
+                    "Aerospace & Defense"
+                  ],
+                  "default_value": "Manufacturing"
+                }
+              },
+              "name": {
+                "type": "Text",
+                "config": {
+                  "label": "Name",
+                  "placeholder": ""
+                }
+              },
+              "description": {
+                "type": "Text",
+                "config": {
+                  "label": "Description",
+                  "placeholder": ""
+                }
+              }
+            }
+          }
+        }
+      },
+      "items": {}
+    }
+  ]
+}

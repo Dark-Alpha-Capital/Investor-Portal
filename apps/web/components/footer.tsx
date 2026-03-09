@@ -1,31 +1,26 @@
 import Link from "next/link";
 import { Mail } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ModeToggle } from "./mode-toggle";
 
 export default function Footer() {
   return (
-    <footer className="border-t">
+    <footer className="border-t border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="py-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="py-10 grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <span className="text-2xl font-bold text-foreground">PASS</span>
-              <div className="w-8 h-6 bg-primary rounded-sm flex items-center justify-center">
-                <div className="w-4 h-3 bg-background rounded-sm"></div>
-              </div>
-              <span className="text-2xl font-bold text-primary">HAT</span>
+            <div className="text-xl font-semibold tracking-tight">
+              DarkAlpha Capital
             </div>
             <p className="text-sm text-muted-foreground">
-              An affiliate of Borgman Capital LLC
+              Private-market opportunities for accredited investors.
             </p>
-            <div className="flex items-center space-x-2 text-primary">
+            <div className="flex items-center space-x-2 text-foreground">
               <Mail className="w-4 h-4" />
               <a
-                href="mailto:PassTheHat@borgmancapital.com"
+                href="mailto:info@darkalphacapital.com"
                 className="text-sm hover:underline"
               >
-                PassTheHat@borgmancapital.com
+                info@darkalphacapital.com
               </a>
             </div>
           </div>
@@ -136,7 +131,7 @@ export default function Footer() {
 
         <div className="border-t border-border py-6 flex flex-col sm:flex-row justify-between items-center">
           <p className="text-sm text-muted-foreground">
-            ©2025 Pass the Hat. All rights reserved.
+            ©2026 DarkAlpha Capital. All rights reserved.
           </p>
           <ModeToggle />
         </div>

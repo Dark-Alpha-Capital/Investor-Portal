@@ -19,27 +19,27 @@ const SideHeadingContent: FC<SideHeadingContentProps> = ({ slice }) => {
     <section
       data-slice-type={slice.slice_type}
       data-slice-variation={slice.variation}
-      className="w-full block-space"
+      className="py-16 md:py-24"
     >
-      <div className="extra-big-container">
+      <div className="mx-auto w-[min(92%,76rem)]">
         <div className="grid gap-8 lg:grid-cols-2 lg:gap-16 xl:gap-20 items-start">
           {/* Left Column - Heading */}
           <div className="space-y-4">
-            <h1 className="text-dark-blue md:text-center">
+            <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
               {slice.primary.heading}
-            </h1>
+            </h2>
           </div>
 
           {/* Right Column - Content */}
           <div className="space-y-6 lg:space-y-8">
-            <div className="prose prose-sm">
+            <div className="prose prose-slate max-w-none prose-sm prose-p:leading-relaxed">
               <PrismicRichText field={slice.primary.content} />
             </div>
 
             <div className="pt-4">
               <Button
                 size="lg"
-                className="bg-sky-400 hover:bg-sky-500 text-white font-medium px-8 py-3 rounded-lg transition-colors duration-200 group"
+                className="group"
                 asChild
               >
                 <PrismicNextLink field={slice.primary.button_link}>

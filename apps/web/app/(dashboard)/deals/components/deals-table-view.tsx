@@ -58,11 +58,11 @@ const formatStatus = (status: string) => {
 
 export function DealsTableView({ deals }: DealsTableViewProps) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border/50 bg-card">
+    <div className="overflow-hidden border-y border-border">
       <Table>
         <TableHeader>
-          <TableRow className="hover:bg-transparent border-b border-border/50">
-            <TableHead className="w-[300px] font-semibold">Deal</TableHead>
+          <TableRow className="hover:bg-transparent border-b border-border">
+            <TableHead className="w-72 font-semibold">Deal</TableHead>
             <TableHead className="font-semibold">Sector</TableHead>
             <TableHead className="font-semibold">Status</TableHead>
             <TableHead className="text-right font-semibold">Target Raise</TableHead>
@@ -72,13 +72,10 @@ export function DealsTableView({ deals }: DealsTableViewProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {deals.map((deal, index) => (
+          {deals.map((deal) => (
             <TableRow
               key={deal.id}
-              className="group border-b border-border/50 transition-colors duration-150 hover:bg-muted/30"
-              style={{
-                animation: `fadeIn 0.3s ease-out ${index * 30}ms both`,
-              }}
+              className="group border-b border-border transition-colors duration-150 hover:bg-muted/20"
             >
               <TableCell>
                 <Link
@@ -92,7 +89,7 @@ export function DealsTableView({ deals }: DealsTableViewProps) {
                     )}
                   </div>
                   {deal.teaserSummary && (
-                    <p className="mt-0.5 max-w-[280px] text-xs text-muted-foreground line-clamp-1">
+                    <p className="mt-0.5 max-w-72 text-xs text-muted-foreground line-clamp-1">
                       {deal.teaserSummary}
                     </p>
                   )}

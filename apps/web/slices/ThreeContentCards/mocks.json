@@ -46,9 +46,15 @@
 							[
 								"content",
 								{
-									"__TYPE__": "FieldContent",
-									"value": "darkness",
-									"type": "Text"
+									"__TYPE__": "StructuredTextContent",
+									"value": [
+										{
+											"type": "paragraph",
+											"content": {
+												"text": "Mollit ea amet dolor labore mollit quis cupidatat esse cupidatat. Ut qui aute duis mollit sint magna minim ipsum. Nisi adipisicing incididunt id sit Lorem."
+											}
+										}
+									]
 								}
 							]
 						]

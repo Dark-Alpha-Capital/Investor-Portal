@@ -1,5 +1,4 @@
 import { caller } from "@/trpc/server";
-import { Card, CardContent } from "@/components/ui/card";
 import { DealCard } from "./deal-card";
 
 export async function PublicDealsSection() {
@@ -8,16 +7,16 @@ export async function PublicDealsSection() {
 
   if (deals.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-12">
+      <section>
+        <div className="py-12">
           <div className="text-center text-muted-foreground">
             <p>No deals available at the moment.</p>
             <p className="text-sm mt-2">
               Check back soon for new investment opportunities.
             </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     );
   }
 

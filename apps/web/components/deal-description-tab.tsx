@@ -1,3 +1,5 @@
+import { sanitizeHtml } from "@/lib/sanitize-html";
+
 type Deal = {
   description: string | null;
   teaserSummary: string | null;
@@ -25,7 +27,7 @@ export function DescriptionTab({ deal }: { deal: Deal }) {
           </h3>
           <div
             className="prose prose-sm max-w-none dark:prose-invert"
-            dangerouslySetInnerHTML={{ __html: deal.description }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(deal.description) }}
           />
         </div>
       )}
@@ -38,4 +40,3 @@ export function DescriptionTab({ deal }: { deal: Deal }) {
     </div>
   );
 }
-

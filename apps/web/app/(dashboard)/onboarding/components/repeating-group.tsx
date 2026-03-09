@@ -2,7 +2,6 @@
 
 import type React from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -79,8 +78,8 @@ export function RepeatingGroup<T>({
       ) : (
         <div className="space-y-3">
           {items.map((item, index) => (
-            <Card key={index} className="overflow-hidden">
-              <CardHeader
+            <section key={index} className="overflow-hidden">
+              <div
                 className={cn(
                   "py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors",
                   expandedItems.has(index) && "border-b"
@@ -88,9 +87,9 @@ export function RepeatingGroup<T>({
                 onClick={() => toggleExpanded(index)}
               >
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-medium">
+                  <h3 className="text-base font-medium">
                     {getItemTitle(item, index)}
-                  </CardTitle>
+                  </h3>
                   <div className="flex items-center gap-2">
                     {items.length > minItems && (
                       <Button
@@ -113,15 +112,15 @@ export function RepeatingGroup<T>({
                     )}
                   </div>
                 </div>
-              </CardHeader>
+              </div>
               {expandedItems.has(index) && (
-                <CardContent className="pt-4">
+                <div className="pt-4">
                   {renderItem(item, index, (updatedItem) =>
                     onUpdate(index, updatedItem)
                   )}
-                </CardContent>
+                </div>
               )}
-            </Card>
+            </section>
           ))}
         </div>
       )}

@@ -7,7 +7,7 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { baseProcedure, createTRPCRouter } from "../init";
+import { adminProcedure, createTRPCRouter } from "../init";
 import {
   user,
   onboarding,
@@ -61,7 +61,7 @@ export const complianceRouter = createTRPCRouter({
   /**
    * Get investors pending compliance review
    */
-  getPendingInvestors: baseProcedure
+  getPendingInvestors: adminProcedure
     .input(
       z.object({
         page: z.number().min(1).default(1),
@@ -73,6 +73,42 @@ export const complianceRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const { page, limit, search, clearanceStatus } = input;
       const offset = (page - 1) * limit;
+
+      // Latest clearance timestamp per user
+      const latestClearanceTimestamps = ctx.db
+        .select({
+          userId: investorClearance.userId,
+          maxCreatedAt:
+            sql<(typeof investorClearance.$inferSelect)["createdAt"]>`max(${investorClearance.createdAt})`.as(
+              "max_created_at"
+            ),
+        })
+        .from(investorClearance)
+        .groupBy(investorClearance.userId)
+        .as("latest_clearance_timestamps");
+
+      // Latest clearance row per user
+      const latestClearance = ctx.db
+        .select({
+          userId: investorClearance.userId,
+          status: investorClearance.status,
+          conditions: investorClearance.conditions,
+          conditionsJson: investorClearance.conditionsJson,
+          clearedAt: investorClearance.clearedAt,
+          clearedBy: investorClearance.clearedBy,
+        })
+        .from(investorClearance)
+        .innerJoin(
+          latestClearanceTimestamps,
+          and(
+            eq(investorClearance.userId, latestClearanceTimestamps.userId),
+            eq(
+              investorClearance.createdAt,
+              latestClearanceTimestamps.maxCreatedAt
+            )
+          )
+        )
+        .as("latest_clearance");
 
       // Get users who have completed onboarding but may need clearance review
       const conditions = [
@@ -87,12 +123,30 @@ export const complianceRouter = createTRPCRouter({
         );
       }
 
+      if (clearanceStatus && clearanceStatus !== "all") {
+        if (clearanceStatus === "no_clearance") {
+          conditions.push(isNull(latestClearance.status));
+        } else {
+          const parsedClearanceStatus =
+            clearanceStatusSchema.safeParse(clearanceStatus);
+          if (parsedClearanceStatus.success) {
+            conditions.push(
+              eq(latestClearance.status, parsedClearanceStatus.data)
+            );
+          } else {
+            // Preserve previous behavior for unknown status filters (no rows).
+            conditions.push(sql`1 = 0`);
+          }
+        }
+      }
+
       const whereCondition = and(...conditions);
 
       // Get total count
       const [countResult] = await ctx.db
         .select({ count: sql<number>`count(*)::int` })
         .from(user)
+        .leftJoin(latestClearance, eq(user.id, latestClearance.userId))
         .where(whereCondition);
 
       const totalCount = countResult?.count ?? 0;
@@ -107,66 +161,63 @@ export const complianceRouter = createTRPCRouter({
           image: user.image,
           createdAt: user.createdAt,
           isOnboardingCompleted: user.isOnboardingCompleted,
+          clearanceStatus: latestClearance.status,
+          clearanceConditions: latestClearance.conditions,
+          clearanceConditionsJson: latestClearance.conditionsJson,
+          clearanceClearedAt: latestClearance.clearedAt,
+          clearanceClearedBy: latestClearance.clearedBy,
         })
         .from(user)
+        .leftJoin(latestClearance, eq(user.id, latestClearance.userId))
         .where(whereCondition)
         .orderBy(desc(user.createdAt))
         .limit(limit)
         .offset(offset);
 
-      // Get clearance status and permission count for each investor
-      const investorsWithClearance = await Promise.all(
-        investors.map(async (investor) => {
-          // Get clearance status
-          const [clearance] = await ctx.db
-            .select({
-              status: investorClearance.status,
-              conditions: investorClearance.conditions,
-              conditionsJson: investorClearance.conditionsJson,
-              clearedAt: investorClearance.clearedAt,
-              clearedBy: investorClearance.clearedBy,
-            })
-            .from(investorClearance)
-            .where(eq(investorClearance.userId, investor.id))
-            .orderBy(desc(investorClearance.createdAt))
-            .limit(1);
-
-          // Get permission count (active, non-revoked permissions)
-          const [permissionCount] = await ctx.db
-            .select({ count: sql<number>`count(*)::int` })
-            .from(vehiclePermission)
-            .where(
-              and(
-                eq(vehiclePermission.userId, investor.id),
-                isNull(vehiclePermission.revokedAt)
+      const investorIds = investors.map((investor) => investor.id);
+      const permissionCounts =
+        investorIds.length > 0
+          ? await ctx.db
+              .select({
+                userId: vehiclePermission.userId,
+                count: sql<number>`count(*)::int`,
+              })
+              .from(vehiclePermission)
+              .where(
+                and(
+                  inArray(vehiclePermission.userId, investorIds),
+                  isNull(vehiclePermission.revokedAt)
+                )
               )
-            );
+              .groupBy(vehiclePermission.userId)
+          : [];
 
-          return {
-            ...investor,
-            clearance: clearance || null,
-            dealAccessCount: permissionCount?.count ?? 0,
-          };
-        })
+      const permissionCountByUserId = new Map(
+        permissionCounts.map((row) => [row.userId, row.count])
       );
 
-      // Filter by clearance status if provided
-      let filteredInvestors = investorsWithClearance;
-      if (clearanceStatus && clearanceStatus !== "all") {
-        if (clearanceStatus === "no_clearance") {
-          filteredInvestors = investorsWithClearance.filter(
-            (inv) => !inv.clearance
-          );
-        } else {
-          filteredInvestors = investorsWithClearance.filter(
-            (inv) => inv.clearance?.status === clearanceStatus
-          );
-        }
-      }
+      const investorsWithClearance = investors.map((investor) => ({
+        id: investor.id,
+        name: investor.name,
+        email: investor.email,
+        image: investor.image,
+        createdAt: investor.createdAt,
+        isOnboardingCompleted: investor.isOnboardingCompleted,
+        clearance: investor.clearanceStatus
+          ? {
+              status: investor.clearanceStatus,
+              conditions: investor.clearanceConditions,
+              conditionsJson: investor.clearanceConditionsJson,
+              clearedAt: investor.clearanceClearedAt,
+              clearedBy: investor.clearanceClearedBy,
+            }
+          : null,
+        dealAccessCount: permissionCountByUserId.get(investor.id) ?? 0,
+      }));
 
       return {
         success: true,
-        investors: filteredInvestors,
+        investors: investorsWithClearance,
         pagination: {
           page,
           limit,
@@ -179,7 +230,7 @@ export const complianceRouter = createTRPCRouter({
   /**
    * Get a single investor's compliance details
    */
-  getInvestorDetails: baseProcedure
+  getInvestorDetails: adminProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
       // Get user details
@@ -394,7 +445,7 @@ export const complianceRouter = createTRPCRouter({
   /**
    * Set investor clearance status
    */
-  setClearance: baseProcedure
+  setClearance: adminProcedure
     .input(
       z.object({
         userId: z.string(),
@@ -536,29 +587,41 @@ export const complianceRouter = createTRPCRouter({
             };
           });
 
-        // Insert all permissions at once
+        // Insert with conflict-safe semantics to avoid duplicate-active errors
         if (permissionRecords.length > 0) {
-          await ctx.db.insert(vehiclePermission).values(permissionRecords);
+          const insertedPermissions = await ctx.db
+            .insert(vehiclePermission)
+            .values(permissionRecords)
+            .onConflictDoNothing()
+            .returning({
+              dealId: vehiclePermission.dealId,
+              canViewTeaser: vehiclePermission.canViewTeaser,
+              canViewDocuments: vehiclePermission.canViewDocuments,
+              canExpressInterest: vehiclePermission.canExpressInterest,
+              canInvest: vehiclePermission.canInvest,
+            });
 
           // Log permission grants after response is sent
-          after(async () => {
-            await Promise.all(
-              permissionRecords.map((perm) =>
-                logPermissionGrant({
-                  performedBy: session.user.id,
-                  targetUserId: input.userId,
-                  dealId: perm.dealId,
-                  permissions: {
-                    canViewTeaser: perm.canViewTeaser,
-                    canViewDocuments: perm.canViewDocuments,
-                    canExpressInterest: perm.canExpressInterest,
-                    canInvest: perm.canInvest,
-                  },
-                  notes: `Auto-granted on clearance: ${input.status}`,
-                })
-              )
-            );
-          });
+          if (insertedPermissions.length > 0) {
+            after(async () => {
+              await Promise.all(
+                insertedPermissions.map((perm) =>
+                  logPermissionGrant({
+                    performedBy: session.user.id,
+                    targetUserId: input.userId,
+                    dealId: perm.dealId,
+                    permissions: {
+                      canViewTeaser: perm.canViewTeaser,
+                      canViewDocuments: perm.canViewDocuments,
+                      canExpressInterest: perm.canExpressInterest,
+                      canInvest: perm.canInvest,
+                    },
+                    notes: `Auto-granted on clearance: ${input.status}`,
+                  })
+                )
+              );
+            });
+          }
         }
       }
 
@@ -572,7 +635,7 @@ export const complianceRouter = createTRPCRouter({
   /**
    * Grant vehicle-specific permission
    */
-  grantVehicleAccess: baseProcedure
+  grantVehicleAccess: adminProcedure
     .input(
       z.object({
         userId: z.string(),
@@ -597,27 +660,6 @@ export const complianceRouter = createTRPCRouter({
       }
       const { permissions } = input;
 
-      // Check if permission already exists
-      const [existingPermission] = await ctx.db
-        .select({ id: vehiclePermission.id })
-        .from(vehiclePermission)
-        .where(
-          and(
-            eq(vehiclePermission.userId, input.userId),
-            eq(vehiclePermission.dealId, input.dealId),
-            isNull(vehiclePermission.revokedAt)
-          )
-        )
-        .limit(1);
-
-      if (existingPermission) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message:
-            "Active permission already exists. Revoke it first to create a new one.",
-        });
-      }
-
       const permissionId = nanoid();
       const permissionData = {
         id: permissionId,
@@ -631,7 +673,19 @@ export const complianceRouter = createTRPCRouter({
         notes: input.notes || null,
       };
 
-      await ctx.db.insert(vehiclePermission).values(permissionData);
+      const [insertedPermission] = await ctx.db
+        .insert(vehiclePermission)
+        .values(permissionData)
+        .onConflictDoNothing()
+        .returning({ id: vehiclePermission.id });
+
+      if (!insertedPermission) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "Active permission already exists. No new access was granted.",
+        });
+      }
 
       // Log permission grant after response is sent
       after(async () => {
@@ -651,7 +705,7 @@ export const complianceRouter = createTRPCRouter({
 
       return {
         success: true,
-        permissionId,
+        permissionId: insertedPermission.id,
         message: "Vehicle access granted",
       };
     }),
@@ -659,7 +713,7 @@ export const complianceRouter = createTRPCRouter({
   /**
    * Revoke vehicle-specific permission
    */
-  revokeVehicleAccess: baseProcedure
+  revokeVehicleAccess: adminProcedure
     .input(
       z.object({
         userId: z.string(),
@@ -724,7 +778,7 @@ export const complianceRouter = createTRPCRouter({
   /**
    * Get audit log for a user or globally
    */
-  getAuditLog: baseProcedure
+  getAuditLog: adminProcedure
     .input(
       z.object({
         userId: z.string().optional(),
@@ -826,7 +880,7 @@ export const complianceRouter = createTRPCRouter({
    * Grant deal access to all cleared investors
    * Use this when publishing a new deal to auto-grant access
    */
-  grantDealToAllClearedInvestors: baseProcedure
+  grantDealToAllClearedInvestors: adminProcedure
     .input(
       z.object({
         dealId: z.string(),
@@ -929,12 +983,17 @@ export const complianceRouter = createTRPCRouter({
           notes: `Bulk grant for deal: ${dealRecord.name}`,
         }));
 
-      // Insert all permissions at once
+      // Insert all permissions with conflict-safe semantics for concurrent grants
+      let grantedCount = 0;
       if (permissionRecords.length > 0) {
-        await ctx.db.insert(vehiclePermission).values(permissionRecords);
+        const insertedPermissions = await ctx.db
+          .insert(vehiclePermission)
+          .values(permissionRecords)
+          .onConflictDoNothing()
+          .returning({ id: vehiclePermission.id });
+        grantedCount = insertedPermissions.length;
       }
 
-      const grantedCount = permissionRecords.length;
       const skippedCount = investorsToGrant.length - grantedCount;
 
       // Log bulk grant action after response is sent
@@ -968,7 +1027,7 @@ export const complianceRouter = createTRPCRouter({
   /**
    * Review a single document - update its status
    */
-  reviewDocument: baseProcedure
+  reviewDocument: adminProcedure
     .input(
       z.object({
         documentId: z.string(),
@@ -1057,7 +1116,7 @@ export const complianceRouter = createTRPCRouter({
   /**
    * Bulk review documents - approve/reject multiple at once
    */
-  bulkReviewDocuments: baseProcedure
+  bulkReviewDocuments: adminProcedure
     .input(
       z.object({
         documentIds: z.array(z.string()),

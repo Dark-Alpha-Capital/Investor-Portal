@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { baseProcedure, createTRPCRouter } from "../init";
+import { adminProcedure, createTRPCRouter } from "../init";
 import {
   user,
   deal,
@@ -21,7 +21,7 @@ export const adminRouter = createTRPCRouter({
   /**
    * Get paginated investors (non-admin users) with filtering
    */
-  getInvestors: baseProcedure
+  getInvestors: adminProcedure
     .input(
       z.object({
         page: z.number().min(1).default(1),
@@ -114,7 +114,7 @@ export const adminRouter = createTRPCRouter({
   /**
    * Get paginated admins with filtering
    */
-  getAdmins: baseProcedure
+  getAdmins: adminProcedure
     .input(
       z.object({
         page: z.number().min(1).default(1),
@@ -205,7 +205,7 @@ export const adminRouter = createTRPCRouter({
   /**
    * Get paginated deals for admin with filtering
    */
-  getDeals: baseProcedure
+  getDeals: adminProcedure
     .input(
       z.object({
         page: z.number().min(1).default(1),
@@ -309,7 +309,7 @@ export const adminRouter = createTRPCRouter({
   /**
    * Get admin dashboard data (investors and admins) in parallel
    */
-  getAdminDashboard: baseProcedure
+  getAdminDashboard: adminProcedure
     .input(
       z.object({
         // Investors params
@@ -499,7 +499,7 @@ export const adminRouter = createTRPCRouter({
   /**
    * Get complete deal detail with invites, interests, investments, and files
    */
-  getDealDetail: baseProcedure
+  getDealDetail: adminProcedure
     .input(
       z.object({
         dealId: z.string(),

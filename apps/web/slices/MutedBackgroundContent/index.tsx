@@ -16,15 +16,15 @@ const MutedBackgroundContent: FC<MutedBackgroundContentProps> = ({ slice }) => {
     <section
       data-slice-type={slice.slice_type}
       data-slice-variation={slice.variation}
-      className="w-full block-space"
+      className="py-16 md:py-24"
     >
-      <div className="extra-big-container">
-        <div className="max-w-4xl bg-muted rounded-lg p-6 md:p-8 lg:p-10 mx-auto">
-          <div className="prose">
+      <div className="mx-auto w-[min(92%,76rem)]">
+        <div className="mx-auto max-w-4xl border-y border-border bg-muted/35 p-6 md:p-8 lg:p-10">
+          <div className="prose prose-slate max-w-none prose-p:leading-relaxed">
             <PrismicRichText field={slice.primary.content} />
           </div>
-          <div className="mt-6 pt-4 border-t border-border">
-            <cite className="text-muted-foreground text-sm md:text-base font-medium not-italic">
+          <div className="mt-8 border-t border-border pt-4">
+            <cite className="text-sm font-medium not-italic text-muted-foreground md:text-base">
               {slice.primary.author}
             </cite>
           </div>

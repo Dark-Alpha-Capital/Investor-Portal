@@ -4,13 +4,6 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle, RefreshCw, Home, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 export default function DashboardError({
   error,
@@ -26,18 +19,18 @@ export default function DashboardError({
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-2xl">
-      <Card>
-        <CardHeader className="text-center">
+      <section>
+        <div className="text-center">
           <div className="mx-auto rounded-full bg-destructive/10 p-4 mb-4 w-fit">
             <AlertTriangle className="h-8 w-8 text-destructive" />
           </div>
-          <CardTitle className="text-2xl">Something went wrong</CardTitle>
-          <CardDescription>
+          <h3 className="text-2xl">Something went wrong</h3>
+          <p>
             An error occurred while loading this page. Please try again or
             contact support if the problem persists.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center gap-4">
+          </p>
+        </div>
+        <div className="flex flex-col items-center gap-4">
           {error.digest && (
             <p className="text-xs text-muted-foreground">
               Error ID: {error.digest}
@@ -66,8 +59,8 @@ export default function DashboardError({
               Contact Support
             </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }

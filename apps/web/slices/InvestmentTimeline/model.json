@@ -1,0 +1,18 @@
+{
+  "id": "investment_timeline",
+  "type": "SharedSlice",
+  "name": "InvestmentTimeline",
+  "description": "InvestmentTimeline",
+  "variations": [
+    {
+      "id": "default",
+      "name": "Default",
+      "docURL": "...",
+      "version": "initial",
+      "description": "Default",
+      "imageUrl": "",
+      "primary": {},
+      "items": {}
+    }
+  ]
+}

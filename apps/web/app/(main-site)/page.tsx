@@ -10,8 +10,6 @@ import { components } from "@/slices";
 import { PageSkeleton } from "@/components/skeleton/page-skeleton";
 
 export default async function Page() {
-  console.log("database url", process.env.DATABASE_URL);
-
   return (
     <Suspense fallback={<PageSkeleton />}>
       <FetchPageContent />

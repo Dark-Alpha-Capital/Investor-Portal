@@ -3,10 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently \"next dev\" \"bun run slicemachine\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "bun test",
+    "transit": "bun test",
     "slicemachine": "start-slicemachine"
   },
   "dependencies": {
@@ -85,6 +87,7 @@
     "zod": "^4.2.1"
   },
   "devDependencies": {
+    "concurrently": "^9.1.2",
     "@repo/typescript-config": "*",
     "@slicemachine/adapter-next": "^0.3.77",
     "@tailwindcss/postcss": "^4",

@@ -17,6 +17,27 @@
         "fieldset": "Slice Zone",
         "config": {
           "choices": {
+            "value_creation_playbook": {
+              "type": "SharedSlice"
+            },
+            "investment_timeline": {
+              "type": "SharedSlice"
+            },
+            "hero_with_quote": {
+              "type": "SharedSlice"
+            },
+            "cta": {
+              "type": "SharedSlice"
+            },
+            "sector_expertise": {
+              "type": "SharedSlice"
+            },
+            "step_journey": {
+              "type": "SharedSlice"
+            },
+            "hero": {
+              "type": "SharedSlice"
+            },
             "updated_hero_section": {
               "type": "SharedSlice"
             },

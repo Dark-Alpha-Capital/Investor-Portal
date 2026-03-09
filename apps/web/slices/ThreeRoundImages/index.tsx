@@ -17,29 +17,30 @@ const ThreeRoundImages: FC<ThreeRoundImagesProps> = ({ slice }) => {
     <section
       data-slice-type={slice.slice_type}
       data-slice-variation={slice.variation}
-      className="w-full block-space"
+      className="py-16 md:py-24"
     >
-      <div className="big-container">
-        <div className="flex flex-col items-center text-center ">
-          <h1 className="text-foreground font-bold text-center">
+      <div className="mx-auto w-[min(92%,72rem)]">
+        <div className="flex flex-col items-center text-center">
+          <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
             {slice.primary.heading}
-          </h1>
+          </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 lg:gap-16 mt-16 w-full max-w-4xl">
+          <div className="mt-12 grid w-full max-w-5xl grid-cols-1 gap-8 md:grid-cols-3 md:gap-10">
             {slice.primary.cards.map((card, index) => {
               return (
                 <div
-                  className="flex flex-col items-center space-y-4"
+                  className="flex flex-col items-center gap-4 border border-border bg-background p-5"
                   key={index}
                 >
-                  <div className="relative w-24 h-24 md:w-32 md:h-32 lg:w-64 lg:h-64 rounded-full overflow-hidden">
+                  <div className="relative aspect-square w-36 overflow-hidden rounded-full sm:w-40 md:w-44">
                     <PrismicNextImage
                       field={card.card_image}
                       fill
                       className="object-cover"
+                      sizes="(max-width: 48em) 40vw, 18vw"
                     />
                   </div>
-                  <h3 className="text-lg md:text-xl font-semibold text-muted-foreground tracking-wide">
+                  <h3 className="text-lg font-medium tracking-wide text-foreground md:text-xl">
                     {card.card_title}
                   </h3>
                 </div>

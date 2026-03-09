@@ -940,7 +940,7 @@ export function OnboardingFlow({
     // In edit mode, show a different completion screen
     if (editMode) {
       return (
-        <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
           <div className="max-w-lg mx-auto text-center space-y-6">
             <div className="p-4 rounded-full bg-green-100 dark:bg-green-900/30 w-fit mx-auto">
               <svg
@@ -975,7 +975,7 @@ export function OnboardingFlow({
 
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-muted-foreground">Loading...</p>
         </div>
@@ -984,7 +984,7 @@ export function OnboardingFlow({
   }
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex justify-between items-start gap-4">

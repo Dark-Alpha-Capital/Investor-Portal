@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Lock, ArrowRight } from "lucide-react";
 
@@ -9,9 +8,9 @@ export function OnboardingRequiredScreen() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
-        <Card className="p-8">
+        <section className="p-8">
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
               <Lock className="w-8 h-8 text-muted-foreground" />
@@ -64,7 +63,7 @@ export function OnboardingRequiredScreen() {
               <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
-        </Card>
+        </section>
       </div>
     </div>
   );

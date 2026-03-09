@@ -1,11 +1,4 @@
 import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShieldX, ArrowLeft, AlertTriangle, CheckCircle2 } from "lucide-react";
@@ -26,21 +19,21 @@ export function DealAccessDenied({
 
   return (
     <div className="space-y-6">
-      <Card className="border-destructive/50">
-        <CardHeader>
+      <section className="border-destructive/50">
+        <div>
           <div className="flex items-center gap-3">
             <div className="rounded-full bg-destructive/10 p-2">
               <ShieldX className="h-6 w-6 text-destructive" />
             </div>
             <div>
-              <CardTitle className="text-xl">Access Denied</CardTitle>
-              <CardDescription>
+              <h3 className="text-xl">Access Denied</h3>
+              <p>
                 You don't have permission to view this deal
-              </CardDescription>
+              </p>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        </div>
+        <div className="space-y-4">
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Deal Not Accessible</AlertTitle>
@@ -107,8 +100,8 @@ export function DealAccessDenied({
               <Link href="/dashboard">Go to Dashboard</Link>
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }

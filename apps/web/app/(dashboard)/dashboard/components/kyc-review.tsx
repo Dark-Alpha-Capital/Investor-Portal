@@ -1,11 +1,10 @@
-import { Card } from "@/components/ui/card";
 import { Clock, CheckCircle2 } from "lucide-react";
 
 export function KycReviewScreen() {
   return (
-    <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
-        <Card className="p-8">
+        <section className="p-8">
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
               <Clock className="w-8 h-8 text-muted-foreground" />
@@ -56,7 +55,7 @@ export function KycReviewScreen() {
               verification is complete.
             </p>
           </div>
-        </Card>
+        </section>
       </div>
     </div>
   );

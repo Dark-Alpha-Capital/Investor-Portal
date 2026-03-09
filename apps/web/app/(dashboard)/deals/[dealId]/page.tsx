@@ -124,9 +124,9 @@ async function FetchDealDetail({
 
 export default async function DealDetailPage({ params }: PageProps) {
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-6">
+    <div className="min-h-screen">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="mb-6 border-b border-border pb-5">
           <Link href="/deals">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="mr-2 h-4 w-4" />

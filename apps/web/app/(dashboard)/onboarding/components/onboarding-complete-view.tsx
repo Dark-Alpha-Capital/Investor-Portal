@@ -1,12 +1,5 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -49,19 +42,19 @@ export function OnboardingCompleteView({
   return (
     <div className="container mx-auto py-8 px-4 max-w-3xl space-y-6">
       {/* Status Card */}
-      <Card className="border-green-200 dark:border-green-900">
-        <CardHeader className="space-y-4">
+      <section className="border-green-200 dark:border-green-900">
+        <div className="space-y-4">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-full bg-green-100 dark:bg-green-900/30">
                 <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <CardTitle className="text-xl">Onboarding Complete</CardTitle>
-                <CardDescription className="mt-1">
+                <h3 className="text-xl">Onboarding Complete</h3>
+                <p className="mt-1">
                   {onboardingData.organizationName || "Your profile"} has been
                   submitted
-                </CardDescription>
+                </p>
               </div>
             </div>
             {editCount > 0 && (
@@ -70,8 +63,8 @@ export function OnboardingCompleteView({
               </Badge>
             )}
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        </div>
+        <div className="space-y-4">
           {/* Submission Info */}
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
             {onboardingData.submittedAt && (
@@ -121,22 +114,22 @@ export function OnboardingCompleteView({
               support if you need to make changes.
             </p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* Edit History Card */}
       {editHistory.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+        <section>
+          <div>
+            <h3 className="text-lg flex items-center gap-2">
               <History className="h-5 w-5" />
               Recent Edit History
-            </CardTitle>
-            <CardDescription>
+            </h3>
+            <p>
               Your most recent changes to the onboarding form
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            </p>
+          </div>
+          <div>
             <ScrollArea className="h-[250px] pr-4">
               <div className="space-y-3">
                 {editHistory.map((entry) => (
@@ -172,8 +165,8 @@ export function OnboardingCompleteView({
                 Showing the 10 most recent changes
               </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
     </div>
   );

@@ -1,0 +1,78 @@
+[
+	{
+		"__TYPE__": "SharedSliceContent",
+		"variation": "default",
+		"primary": {
+			"heading": {
+				"__TYPE__": "FieldContent",
+				"value": "then",
+				"type": "Text"
+			},
+			"excerpt": {
+				"__TYPE__": "FieldContent",
+				"value": "future",
+				"type": "Text"
+			},
+			"target_profile_label": {
+				"__TYPE__": "FieldContent",
+				"value": "children",
+				"type": "Text"
+			},
+			"revenue": {
+				"__TYPE__": "FieldContent",
+				"value": "yesterday",
+				"type": "Text"
+			},
+			"ebitda": {
+				"__TYPE__": "FieldContent",
+				"value": "brown",
+				"type": "Text"
+			},
+			"geography": {
+				"__TYPE__": "FieldContent",
+				"value": "street",
+				"type": "Text"
+			},
+			"sector": {
+				"__TYPE__": "GroupContentType",
+				"value": [
+					{
+						"__TYPE__": "GroupItemContent",
+						"value": [
+							[
+								"icon",
+								{
+									"__TYPE__": "FieldContent",
+									"value": "Manufacturing",
+									"type": "Select"
+								}
+							],
+							[
+								"name",
+								{
+									"__TYPE__": "FieldContent",
+									"value": "raise",
+									"type": "Text"
+								}
+							],
+							[
+								"description",
+								{
+									"__TYPE__": "FieldContent",
+									"value": "grabbed",
+									"type": "Text"
+								}
+							]
+						]
+					}
+				]
+			},
+			"ownership": {
+				"__TYPE__": "FieldContent",
+				"value": "nuts",
+				"type": "Text"
+			}
+		},
+		"items": []
+	}
+]

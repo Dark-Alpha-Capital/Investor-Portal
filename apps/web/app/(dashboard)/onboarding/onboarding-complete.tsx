@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ArrowRight, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 
 export function OnboardingComplete() {
   const router = useRouter();
@@ -17,8 +16,8 @@ export function OnboardingComplete() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center py-8 px-4 sm:px-6 lg:px-8">
-      <Card className="max-w-lg w-full p-8 text-center">
+    <div className="min-h-screen flex items-center justify-center py-8 px-4 sm:px-6 lg:px-8">
+      <section className="max-w-lg w-full p-8 text-center">
         <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
           <CheckCircle2 className="w-8 h-8 text-primary" />
         </div>
@@ -67,7 +66,7 @@ export function OnboardingComplete() {
             {"Back to Main Site"}
           </Button>
         </div>
-      </Card>
+      </section>
     </div>
   );
 }

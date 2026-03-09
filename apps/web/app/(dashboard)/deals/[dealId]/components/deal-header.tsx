@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 import { Sparkles } from "lucide-react";
 
 type Deal = {
@@ -69,7 +70,7 @@ export function DealHeader({ deal, curationNote }: DealHeaderProps) {
         {deal.description && (
           <div
             className="prose prose-sm max-w-none dark:prose-invert"
-            dangerouslySetInnerHTML={{ __html: deal.description }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(deal.description) }}
           />
         )}
       </div>
