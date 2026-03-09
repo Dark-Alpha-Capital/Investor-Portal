@@ -2,13 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -256,22 +249,22 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
 
   if (!deal) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Deal Not Found</CardTitle>
-          <CardDescription>
+      <section>
+        <div>
+          <h3>Deal Not Found</h3>
+          <p>
             The deal you're looking for doesn't exist or you don't have access
             to it.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+          </p>
+        </div>
+      </section>
     );
   }
 
   return (
     <div className="space-y-6">
       {/* Header Card */}
-      <Card>
+      <section>
         {deal.coverImageUrl && (
           <div className="relative w-full h-64 md:h-96 overflow-hidden rounded-t-xl">
             <img
@@ -281,11 +274,11 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
             />
           </div>
         )}
-        <CardHeader>
+        <div>
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-2 flex-1">
               <div className="flex items-center gap-3 flex-wrap">
-                <CardTitle className="text-3xl">{deal.name}</CardTitle>
+                <h3 className="text-3xl">{deal.name}</h3>
                 <Badge
                   variant={(statusColors[deal.status] as any) || "secondary"}
                 >
@@ -293,9 +286,9 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                 </Badge>
               </div>
               {deal.teaserSummary && (
-                <CardDescription className="text-base">
+                <p className="text-base">
                   {deal.teaserSummary}
-                </CardDescription>
+                </p>
               )}
               {curationNote && (
                 <div className="mt-3 p-3 bg-muted rounded-md border-l-4 border-primary">
@@ -312,23 +305,23 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
               )}
             </div>
           </div>
-        </CardHeader>
+        </div>
         {deal.description && (
-          <CardContent>
+          <div>
             <p className="text-muted-foreground whitespace-pre-wrap">
               {deal.description}
             </p>
-          </CardContent>
+          </div>
         )}
-      </Card>
+      </section>
 
       {/* User Status Card */}
       {(userInterest || userInvestment) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Status</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <section>
+          <div>
+            <h3>Your Status</h3>
+          </div>
+          <div className="space-y-4">
             {userInvestment && (
               <div className="p-4 bg-primary/10 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
@@ -382,14 +375,14 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
 
       {/* Action Buttons - Show when no interest or when user wants to update */}
       {!userInvestment && (
-        <Card>
-          <CardContent className="pt-6">
+        <section>
+          <div className="pt-6">
             {!userInterest ? (
               // Initial interest buttons
               <div className="flex flex-col sm:flex-row gap-3">
@@ -580,21 +573,21 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
 
       {/* Deal Information Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Basic Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <section>
+          <div>
+            <h3 className="flex items-center gap-2">
               <FileText className="w-5 h-5" />
               Basic Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </h3>
+          </div>
+          <div className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground">Deal Type</p>
               <p className="font-medium">{deal.dealType || "-"}</p>
@@ -607,18 +600,18 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                 {deal.status.replace(/_/g, " ")}
               </Badge>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
         {/* Categorization */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <section>
+          <div>
+            <h3 className="flex items-center gap-2">
               <Building2 className="w-5 h-5" />
               Categorization
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </h3>
+          </div>
+          <div className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground">Sector</p>
               <p className="font-medium">{deal.sector || "-"}</p>
@@ -627,18 +620,18 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
               <p className="text-sm text-muted-foreground">Geography</p>
               <p className="font-medium">{deal.geography || "-"}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
         {/* Financial Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <section>
+          <div>
+            <h3 className="flex items-center gap-2">
               <DollarSign className="w-5 h-5" />
               Financial Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </h3>
+          </div>
+          <div className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground">Target Raise</p>
               <p className="font-medium text-lg">
@@ -667,18 +660,18 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                   : "-"}
               </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
         {/* Important Dates */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <section>
+          <div>
+            <h3 className="flex items-center gap-2">
               <Calendar className="w-5 h-5" />
               Important Dates
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </h3>
+          </div>
+          <div className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground">Launch Date</p>
               <p className="font-medium">{formatDate(deal.launchDate)}</p>
@@ -687,8 +680,8 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
               <p className="text-sm text-muted-foreground">Close Date</p>
               <p className="font-medium">{formatDate(deal.closeDate)}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </div>
     </div>
   );

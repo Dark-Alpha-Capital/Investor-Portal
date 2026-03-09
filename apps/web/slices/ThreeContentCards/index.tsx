@@ -2,6 +2,7 @@ import { FC } from "react";
 import { Content } from "@prismicio/client";
 import { SliceComponentProps } from "@prismicio/react";
 import { PrismicNextImage } from "@prismicio/next";
+import { PrismicRichText } from "@prismicio/react";
 
 /**
  * Props for `ThreeContentCards`.
@@ -34,7 +35,10 @@ const ThreeContentCards: FC<ThreeContentCardsProps> = ({ slice }) => {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {slice.primary.cards.map((card, index) => {
             return (
-              <article className="flex flex-col border border-border bg-background p-5" key={index}>
+              <article
+                className="flex flex-col border border-border bg-background p-5"
+                key={index}
+              >
                 <div className="mb-5 overflow-hidden border border-border">
                   <PrismicNextImage
                     field={card.card_image}
@@ -45,9 +49,10 @@ const ThreeContentCards: FC<ThreeContentCardsProps> = ({ slice }) => {
                 <h3 className="mb-3 text-xl font-semibold tracking-tight">
                   {card.heading}
                 </h3>
-                <p className="mb-2 flex-grow text-sm leading-relaxed text-muted-foreground md:text-base">
-                  {card.content}
-                </p>
+
+                <div className="prose dark:prose-invert mt-4 max-w-none text-left prose-sm prose-p:leading-relaxed">
+                  <PrismicRichText field={card.content} />
+                </div>
               </article>
             );
           })}

@@ -8,13 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -230,14 +223,14 @@ export function EditOnboardingProfileClient({
       >
         {/* Section 1: Contact Information */}
         <AccordionItem value="contact">
-          <Card>
+          <section>
             <AccordionTrigger className="px-6 hover:no-underline">
-              <CardHeader className="p-0">
-                <CardTitle className="text-lg">Contact Information</CardTitle>
-              </CardHeader>
+              <div className="p-0">
+                <h3 className="text-lg">Contact Information</h3>
+              </div>
             </AccordionTrigger>
             <AccordionContent>
-              <CardContent className="grid gap-4 pt-4">
+              <div className="grid gap-4 pt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="organizationName">Organization Name</Label>
@@ -313,23 +306,23 @@ export function EditOnboardingProfileClient({
                     />
                   </div>
                 </div>
-              </CardContent>
+              </div>
             </AccordionContent>
-          </Card>
+          </section>
         </AccordionItem>
 
         {/* Section 2: Accreditation */}
         <AccordionItem value="accreditation">
-          <Card>
+          <section>
             <AccordionTrigger className="px-6 hover:no-underline">
-              <CardHeader className="p-0">
-                <CardTitle className="text-lg">
+              <div className="p-0">
+                <h3 className="text-lg">
                   Accreditation & Status
-                </CardTitle>
-              </CardHeader>
+                </h3>
+              </div>
             </AccordionTrigger>
             <AccordionContent>
-              <CardContent className="grid gap-4 pt-4">
+              <div className="grid gap-4 pt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="investorType">Investor Type</Label>
@@ -384,23 +377,23 @@ export function EditOnboardingProfileClient({
                     />
                   </div>
                 </div>
-              </CardContent>
+              </div>
             </AccordionContent>
-          </Card>
+          </section>
         </AccordionItem>
 
         {/* Section 3: Investment Preferences */}
         <AccordionItem value="investment">
-          <Card>
+          <section>
             <AccordionTrigger className="px-6 hover:no-underline">
-              <CardHeader className="p-0">
-                <CardTitle className="text-lg">
+              <div className="p-0">
+                <h3 className="text-lg">
                   Investment Preferences
-                </CardTitle>
-              </CardHeader>
+                </h3>
+              </div>
             </AccordionTrigger>
             <AccordionContent>
-              <CardContent className="grid gap-4 pt-4">
+              <div className="grid gap-4 pt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="equityCheckSize">Equity Check Size</Label>
@@ -478,23 +471,23 @@ export function EditOnboardingProfileClient({
                     disabled={!isEditable}
                   />
                 </div>
-              </CardContent>
+              </div>
             </AccordionContent>
-          </Card>
+          </section>
         </AccordionItem>
 
         {/* Section 4: Compliance */}
         <AccordionItem value="compliance">
-          <Card>
+          <section>
             <AccordionTrigger className="px-6 hover:no-underline">
-              <CardHeader className="p-0">
-                <CardTitle className="text-lg">
+              <div className="p-0">
+                <h3 className="text-lg">
                   Compliance Information
-                </CardTitle>
-              </CardHeader>
+                </h3>
+              </div>
             </AccordionTrigger>
             <AccordionContent>
-              <CardContent className="grid gap-4 pt-4">
+              <div className="grid gap-4 pt-4">
                 <div className="space-y-2">
                   <Label htmlFor="legalEntityType">Legal Entity Type</Label>
                   <Select
@@ -530,25 +523,25 @@ export function EditOnboardingProfileClient({
                     placeholder="Describe how your wealth was acquired"
                   />
                 </div>
-              </CardContent>
+              </div>
             </AccordionContent>
-          </Card>
+          </section>
         </AccordionItem>
       </Accordion>
 
       {/* Edit History */}
       {editHistory.length > 0 && (
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+        <section className="mt-8">
+          <div>
+            <h3 className="text-lg flex items-center gap-2">
               <History className="h-5 w-5" />
               Edit History
-            </CardTitle>
-            <CardDescription>
+            </h3>
+            <p>
               Recent changes you&apos;ve made to your onboarding information
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            </p>
+          </div>
+          <div>
             <div className="space-y-3 max-h-64 overflow-y-auto">
               {editHistory.slice(0, 20).map((entry) => (
                 <div
@@ -575,8 +568,8 @@ export function EditOnboardingProfileClient({
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
 
       {/* Save Button (sticky footer) */}

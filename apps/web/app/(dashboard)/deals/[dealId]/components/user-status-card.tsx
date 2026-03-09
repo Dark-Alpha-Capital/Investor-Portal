@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2, Shield, FileText, DollarSign, Eye } from "lucide-react";
 
 type UserInterest = {
@@ -71,11 +70,11 @@ export function UserStatusCard({
   permissions,
 }: UserStatusCardProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Your Status</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <section>
+      <div>
+        <h3>Your Status</h3>
+      </div>
+      <div className="space-y-4">
         {/* Permission badges */}
         <div className="flex flex-wrap gap-2">
           <div
@@ -173,7 +172,7 @@ export function UserStatusCard({
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

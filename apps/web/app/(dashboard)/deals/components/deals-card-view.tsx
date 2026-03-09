@@ -51,7 +51,7 @@ const formatStatus = (status: string) => {
 function DealCardItem({ deal }: { deal: Deal }) {
   return (
     <Link href={`/deals/${deal.id}`} className="block group">
-      <article className="h-full overflow-hidden rounded-lg border border-border/50 bg-card transition-all duration-200 hover:border-border hover:shadow-md">
+      <article className="h-full overflow-hidden rounded-lg border border-border/50 transition-all duration-200 hover:border-border">
         {deal.coverImageUrl && (
           <div className="relative w-full h-40 overflow-hidden bg-muted">
             <img

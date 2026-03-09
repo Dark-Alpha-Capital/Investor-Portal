@@ -110,7 +110,7 @@ export function JobProgressTracker() {
       {Array.from(jobs.values()).map((job) => (
         <div
           key={job.jobId}
-          className="border rounded-lg p-4 bg-card space-y-3"
+          className="space-y-3 rounded-lg border p-4"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

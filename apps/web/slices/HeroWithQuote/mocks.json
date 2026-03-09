@@ -1,0 +1,73 @@
+[
+	{
+		"__TYPE__": "SharedSliceContent",
+		"variation": "default",
+		"primary": {
+			"heading": {
+				"__TYPE__": "FieldContent",
+				"value": "caught",
+				"type": "Text"
+			},
+			"intro": {
+				"__TYPE__": "FieldContent",
+				"value": "contrast",
+				"type": "Text"
+			},
+			"body": {
+				"__TYPE__": "FieldContent",
+				"value": "everyone",
+				"type": "Text"
+			},
+			"quote": {
+				"__TYPE__": "FieldContent",
+				"value": "independent",
+				"type": "Text"
+			},
+			"author_name": {
+				"__TYPE__": "FieldContent",
+				"value": "myself",
+				"type": "Text"
+			},
+			"author_title": {
+				"__TYPE__": "FieldContent",
+				"value": "dark",
+				"type": "Text"
+			},
+			"features": {
+				"__TYPE__": "GroupContentType",
+				"value": [
+					{
+						"__TYPE__": "GroupItemContent",
+						"value": [
+							[
+								"title",
+								{
+									"__TYPE__": "FieldContent",
+									"value": "process",
+									"type": "Text"
+								}
+							],
+							[
+								"description",
+								{
+									"__TYPE__": "FieldContent",
+									"value": "surrounded",
+									"type": "Text"
+								}
+							],
+							[
+								"icon",
+								{
+									"__TYPE__": "FieldContent",
+									"value": "Focused Strategy",
+									"type": "Select"
+								}
+							]
+						]
+					}
+				]
+			}
+		},
+		"items": []
+	}
+]

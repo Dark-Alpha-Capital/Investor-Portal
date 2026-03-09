@@ -11,13 +11,6 @@ import {
 import { OnboardingFlow } from "./onboarding-flow";
 import { OnboardingSkeleton } from "@/components/skeleton/onboarding-skeleton";
 import { OnboardingCompleteView } from "./components/onboarding-complete-view";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ShieldX } from "lucide-react";
 
@@ -56,23 +49,23 @@ async function OnboardingContentWrapper() {
   if (isAdmin) {
     return (
       <div className="container mx-auto py-8 px-4 max-w-2xl">
-        <Card className="text-center">
-          <CardHeader className="space-y-4">
+        <section className="text-center">
+          <div className="space-y-4">
             <div className="flex justify-center">
               <div className="p-3 rounded-full bg-muted">
                 <ShieldX className="h-6 w-6 text-muted-foreground" />
               </div>
             </div>
             <div>
-              <CardTitle className="text-2xl">
+              <h3 className="text-2xl">
                 Admin Access Restricted
-              </CardTitle>
-              <CardDescription className="mt-2">
+              </h3>
+              <p className="mt-2">
                 Administrators cannot access the onboarding form
-              </CardDescription>
+              </p>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
+          </div>
+          <div className="space-y-6">
             <p className="text-sm text-muted-foreground">
               As an administrator, you do not have access to the investor
               onboarding process. Please use the admin dashboard to manage users
@@ -86,8 +79,8 @@ async function OnboardingContentWrapper() {
                 <Link href="/dashboard">Go to Dashboard</Link>
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </div>
     );
   }

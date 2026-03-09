@@ -1,12 +1,5 @@
 "use client";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -70,21 +63,21 @@ export function ClearanceStatusCard({
   // If onboarding not completed, show onboarding prompt
   if (!isOnboardingCompleted) {
     return (
-      <Card className="border-l-4 border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/10 dark:border-amber-800/50">
-        <CardHeader className="pb-4">
+      <section className="border-l-4 border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/10 dark:border-amber-800/50">
+        <div className="pb-4">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-950/30">
               <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div className="space-y-1 flex-1">
-              <CardTitle className="text-lg font-semibold">Complete Your Onboarding</CardTitle>
-              <CardDescription className="text-sm">
+              <h3 className="text-lg font-semibold">Complete Your Onboarding</h3>
+              <p className="text-sm">
                 Finish your investor profile to access deal opportunities
-              </CardDescription>
+              </p>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="pt-0">
+        </div>
+        <div className="pt-0">
           <p className="text-sm text-muted-foreground mb-5">
             Complete the onboarding process to gain access to the deal
             marketplace and investment opportunities.
@@ -95,8 +88,8 @@ export function ClearanceStatusCard({
               <ExternalLink className="ml-2 h-4 w-4" />
             </Link>
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     );
   }
 
@@ -106,22 +99,22 @@ export function ClearanceStatusCard({
   const StatusIcon = config.icon;
 
   return (
-    <Card className={`relative overflow-hidden border-l-4 border-border/50 ${config.bgColor}`} style={{ borderLeftColor: "currentColor" }}>
-      <CardHeader className="pb-4">
+    <section className={`relative overflow-hidden border-l-4 border-border/50 ${config.bgColor}`} style={{ borderLeftColor: "currentColor" }}>
+      <div className="pb-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${config.bgColor}`}>
               <StatusIcon className={`h-5 w-5 ${config.color}`} />
             </div>
             <div className="space-y-1">
-              <CardTitle className="text-lg font-semibold">Clearance Status</CardTitle>
-              <CardDescription className="text-sm">{config.description}</CardDescription>
+              <h3 className="text-lg font-semibold">Clearance Status</h3>
+              <p className="text-sm">{config.description}</p>
             </div>
           </div>
           <Badge variant={config.variant} className="shrink-0">{config.label}</Badge>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4 pt-0">
+      </div>
+      <div className="space-y-4 pt-0">
         {/* Status-specific content */}
         {currentStatus === "pending" && (
           <Alert>
@@ -205,7 +198,7 @@ export function ClearanceStatusCard({
             </ul>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

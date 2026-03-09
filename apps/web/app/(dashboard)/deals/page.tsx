@@ -100,11 +100,11 @@ async function DealsContent({ searchParams }: { searchParams: SearchParams }) {
  */
 const DealsPage = ({ searchParams }: { searchParams: SearchParams }) => {
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="min-h-screen">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         {/* Static shell - prerendered */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-semibold tracking-tight mb-2">
+        <div className="mb-8 border-b border-border pb-6">
+          <h1 className="mb-2 text-3xl font-semibold tracking-tight">
             Deal Marketplace
           </h1>
           <p className="text-muted-foreground text-base">

@@ -1,4 +1,11 @@
-import { Home, Shield, User, Briefcase, UserCheck } from "lucide-react";
+import {
+  Home,
+  Shield,
+  User,
+  Briefcase,
+  UserCheck,
+  ChartBar,
+} from "lucide-react";
 
 import {
   SidebarGroup,
@@ -16,9 +23,15 @@ export function DashboardNavLinks({ session }: { session: Session }) {
   // Base menu items for all users
   const baseItems = [
     {
+      title: "Home",
+      url: "/",
+      icon: Home,
+    },
+
+    {
       title: "Dashboard",
       url: "/dashboard",
-      icon: Home,
+      icon: ChartBar,
     },
     {
       title: "Onboarding",
@@ -51,32 +64,53 @@ export function DashboardNavLinks({ session }: { session: Session }) {
     },
   ];
 
-  // Combine items based on user role
-  const items = isAdmin ? [...baseItems, ...adminItems] : baseItems;
+  const NavItem = ({
+    item,
+  }: {
+    item: (typeof baseItems)[number] | (typeof adminItems)[number];
+  }) => (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        asChild
+        tooltip={item.title}
+        className="group relative transition-colors duration-150 rounded-sm"
+      >
+        <a href={item.url}>
+          <item.icon className="h-4 w-4" />
+          <span className="font-medium">{item.title}</span>
+        </a>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-        Navigation
-      </SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu className="space-y-0.5">
-          {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton
-                asChild
-                tooltip={item.title}
-                className="group relative transition-colors duration-150 rounded-sm"
-              >
-                <a href={item.url}>
-                  <item.icon className="h-4 w-4" />
-                  <span className="font-medium">{item.title}</span>
-                </a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+    <>
+      <SidebarGroup>
+        <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          Main
+        </SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu className="space-y-0.5">
+            {baseItems.map((item) => (
+              <NavItem key={item.title} item={item} />
+            ))}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+      {isAdmin && (
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Admin
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="space-y-0.5">
+              {adminItems.map((item) => (
+                <NavItem key={item.title} item={item} />
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      )}
+    </>
   );
 }

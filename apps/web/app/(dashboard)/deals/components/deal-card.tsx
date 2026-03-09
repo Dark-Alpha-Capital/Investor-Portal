@@ -1,11 +1,4 @@
 import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, DollarSign, Target } from "lucide-react";
 
@@ -62,7 +55,7 @@ export function DealCard({ deal }: DealCardProps) {
 
   return (
     <Link href={dealUrl} className="block h-full">
-      <Card className="group h-full cursor-pointer border-border/50 bg-card transition-all duration-200 hover:border-border hover:shadow-lg">
+      <section className="group h-full cursor-pointer border-border/50 transition-all duration-200 hover:border-border">
         {deal.coverImageUrl && (
           <div className="relative w-full h-48 overflow-hidden rounded-t-lg">
             <img
@@ -80,11 +73,11 @@ export function DealCard({ deal }: DealCardProps) {
             </div>
           </div>
         )}
-        <CardHeader className={deal.coverImageUrl ? "" : "pb-3"}>
+        <div className={deal.coverImageUrl ? "" : "pb-3"}>
           <div className="flex items-start justify-between gap-3">
-            <CardTitle className="text-xl line-clamp-2 font-semibold group-hover:text-primary transition-colors flex-1">
+            <h3 className="text-xl line-clamp-2 font-semibold group-hover:text-primary transition-colors flex-1">
               {deal.name}
-            </CardTitle>
+            </h3>
             {!deal.coverImageUrl && (
               <Badge
                 variant={(statusColors[deal.status] as any) || "secondary"}
@@ -95,9 +88,9 @@ export function DealCard({ deal }: DealCardProps) {
             )}
           </div>
           {deal.teaserSummary && (
-            <CardDescription className="line-clamp-2 text-sm mt-2">
+            <p className="line-clamp-2 text-sm mt-2">
               {deal.teaserSummary}
-            </CardDescription>
+            </p>
           )}
           {deal.curationNote && (
             <div className="mt-3 rounded-lg border border-border/50 bg-muted/50 p-3">
@@ -109,8 +102,8 @@ export function DealCard({ deal }: DealCardProps) {
               </p>
             </div>
           )}
-        </CardHeader>
-        <CardContent className="space-y-4">
+        </div>
+        <div className="space-y-4">
           {/* Sector and Geography */}
           {(deal.sector || deal.geography) && (
             <div className="flex flex-wrap gap-2">
@@ -174,8 +167,8 @@ export function DealCard({ deal }: DealCardProps) {
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </Link>
   );
 }

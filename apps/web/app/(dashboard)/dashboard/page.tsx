@@ -13,20 +13,10 @@ import { KycReviewScreen } from "./components/kyc-review";
 import { KycPendingDocsScreen } from "./components/kyc-pending-docs";
 import { KycRejectedScreen } from "./components/kyc-rejected";
 import { OnboardingRequiredScreen } from "./components/onboarding-required";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, TrendingUp, FileText, Pencil } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ClearanceStatusCard } from "./components/clearance-status-card";
-
-const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-};
+import { formatCurrency } from "@/lib/utils";
 
 /**
  * Dashboard Main Presentational Component
@@ -41,15 +31,23 @@ function DashboardMain({
   clearanceStatus: ClearanceStatus | null;
   clearanceConditions: string[] | null;
 }) {
+  const clearanceLabel =
+    clearanceStatus === "cleared"
+      ? "Cleared"
+      : clearanceStatus === "cleared_with_conditions"
+        ? "Cleared with Conditions"
+        : clearanceStatus === "pending"
+          ? "Under Review"
+          : clearanceStatus === "rejected"
+            ? "Rejected"
+            : "Pending";
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Header Section */}
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-h-screen">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+        <header className="mb-8 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight mb-2">
-              Dashboard
-            </h1>
+            <h1 className="mb-2 text-3xl font-semibold tracking-tight">Dashboard</h1>
             <p className="text-muted-foreground text-base">
               Overview of your investment portfolio and activity
             </p>
@@ -62,97 +60,62 @@ function DashboardMain({
               </Button>
             </Link>
           </div>
-        </div>
+        </header>
 
-        {/* Clearance Status Card - Full Width */}
-        <div className="mb-8">
-          <ClearanceStatusCard
-            status={clearanceStatus}
-            conditions={clearanceConditions}
-            isOnboardingCompleted={true}
-          />
-        </div>
+        <section className="mb-10 border-y border-border py-4" aria-label="Clearance status">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p className="text-sm font-medium text-muted-foreground">Clearance Status</p>
+            <p className="text-sm font-semibold text-foreground">{clearanceLabel}</p>
+          </div>
+          {clearanceConditions && clearanceConditions.length > 0 && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Conditions: {clearanceConditions.join(", ")}
+            </p>
+          )}
+        </section>
 
-        {/* Portfolio Metrics Grid */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card className="group relative overflow-hidden border-border">
-            <CardContent className="p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <DollarSign className="h-5 w-5" />
-                  </div>
-                  <h3 className="text-sm font-medium text-muted-foreground">
-                    Capital Committed
-                  </h3>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-3xl font-bold tracking-tight">
-                  {formatCurrency(portfolioData.portfolio.capitalCommitted)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Total amount signed for
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        <section className="mb-10 border-y border-border py-2" aria-label="Portfolio metrics">
+          <dl className="grid gap-0 md:grid-cols-3 md:divide-x md:divide-border">
+            <div className="space-y-2 py-5 md:px-6">
+              <dt className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <DollarSign className="h-4 w-4" />
+                Capital Committed
+              </dt>
+              <dd className="text-3xl font-semibold tracking-tight">
+                {formatCurrency(portfolioData.portfolio.capitalCommitted)}
+              </dd>
+              <p className="text-xs text-muted-foreground">Total amount signed for</p>
+            </div>
 
-          <Card className="group relative overflow-hidden border-border">
-            <CardContent className="p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                    <DollarSign className="h-5 w-5" />
-                  </div>
-                  <h3 className="text-sm font-medium text-muted-foreground">
-                    Capital Deployed
-                  </h3>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-3xl font-bold tracking-tight">
-                  {formatCurrency(portfolioData.portfolio.capitalDeployed)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Total amount wired
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            <div className="space-y-2 border-t border-border py-5 md:border-t-0 md:px-6">
+              <dt className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <DollarSign className="h-4 w-4" />
+                Capital Deployed
+              </dt>
+              <dd className="text-3xl font-semibold tracking-tight">
+                {formatCurrency(portfolioData.portfolio.capitalDeployed)}
+              </dd>
+              <p className="text-xs text-muted-foreground">Total amount wired</p>
+            </div>
 
-          <Card className="group relative overflow-hidden border-border sm:col-span-2 lg:col-span-1">
-            <CardContent className="p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10 text-green-600 dark:text-green-400">
-                    <TrendingUp className="h-5 w-5" />
-                  </div>
-                  <h3 className="text-sm font-medium text-muted-foreground">
-                    Current Value
-                  </h3>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-3xl font-bold tracking-tight">
-                  {formatCurrency(portfolioData.portfolio.currentValue)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Net asset value (NAV)
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            <div className="space-y-2 border-t border-border py-5 md:border-t-0 md:px-6">
+              <dt className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <TrendingUp className="h-4 w-4" />
+                Current Value
+              </dt>
+              <dd className="text-3xl font-semibold tracking-tight">
+                {formatCurrency(portfolioData.portfolio.currentValue)}
+              </dd>
+              <p className="text-xs text-muted-foreground">Net asset value (NAV)</p>
+            </div>
+          </dl>
+        </section>
 
-        {/* Investments List */}
-        <Card className="border-border">
-          <CardHeader className="border-b border-border pb-4">
+        <section aria-label="Investments">
+          <div className="mb-4 flex items-center justify-between border-b border-border pb-4">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-xl font-semibold">
-                  Your Investments
-                </CardTitle>
+                <h2 className="text-xl font-semibold">Your Investments</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {portfolioData.investments.length}{" "}
                   {portfolioData.investments.length === 1
@@ -168,86 +131,67 @@ function DashboardMain({
                 </Link>
               )}
             </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            {portfolioData.investments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                  <FileText className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="mb-2 text-lg font-semibold">
-                  No investments yet
-                </h3>
-                <p className="mb-6 text-sm text-muted-foreground max-w-sm">
-                  Start building your portfolio by exploring available
-                  investment opportunities
-                </p>
-                <Link href="/deals">
-                  <Button>Browse Investment Opportunities</Button>
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {portfolioData.investments.map((investment) => (
-                  <Link
-                    key={investment.id}
-                    href={`/deals/${investment.dealId}`}
-                    className="block"
-                  >
-                    <div className="group flex items-center justify-between border border-border p-5 transition-colors duration-150 hover:bg-muted/20">
-                      <div className="flex-1 space-y-2">
-                        <h4 className="font-semibold text-base group-hover:text-primary transition-colors">
-                          {investment.dealName}
-                        </h4>
-                        <div className="flex flex-wrap gap-4 text-sm">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-muted-foreground">
-                              Committed:
+          </div>
+
+          {portfolioData.investments.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <FileText className="mb-4 h-8 w-8 text-muted-foreground" />
+              <h3 className="mb-2 text-lg font-semibold">No investments yet</h3>
+              <p className="mb-6 max-w-sm text-sm text-muted-foreground">
+                Start building your portfolio by exploring available investment
+                opportunities
+              </p>
+              <Link href="/deals">
+                <Button>Browse Investment Opportunities</Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {portfolioData.investments.map((investment) => (
+                <Link
+                  key={investment.id}
+                  href={`/deals/${investment.dealId}`}
+                  className="group block py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex-1 space-y-2">
+                      <h3 className="text-base font-semibold transition-colors group-hover:text-primary">
+                        {investment.dealName}
+                      </h3>
+                      <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                        <p className="text-muted-foreground">
+                          Committed:{" "}
+                          <span className="font-medium text-foreground">
+                            {formatCurrency(parseFloat(investment.committedAmount))}
+                          </span>
+                        </p>
+                        <p className="text-muted-foreground">
+                          Deployed:{" "}
+                          <span className="font-medium text-foreground">
+                            {formatCurrency(
+                              parseFloat(investment.fundedAmount || "0"),
+                            )}
+                          </span>
+                        </p>
+                        {investment.currentValue && (
+                          <p className="text-muted-foreground">
+                            Value:{" "}
+                            <span className="font-medium text-foreground">
+                              {formatCurrency(parseFloat(investment.currentValue))}
                             </span>
-                            <span className="font-medium">
-                              {formatCurrency(
-                                parseFloat(investment.committedAmount),
-                              )}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-muted-foreground">
-                              Deployed:
-                            </span>
-                            <span className="font-medium">
-                              {formatCurrency(
-                                parseFloat(investment.fundedAmount || "0"),
-                              )}
-                            </span>
-                          </div>
-                          {investment.currentValue && (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-muted-foreground">
-                                Value:
-                              </span>
-                              <span className="font-medium text-green-600 dark:text-green-400">
-                                {formatCurrency(
-                                  parseFloat(investment.currentValue),
-                                )}
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                          </p>
+                        )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="ml-4 opacity-0 transition-opacity group-hover:opacity-100"
-                      >
-                        View Deal
-                      </Button>
                     </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    <Button variant="ghost" size="sm" className="w-fit">
+                      View Deal
+                    </Button>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

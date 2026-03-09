@@ -1,0 +1,52 @@
+[
+	{
+		"__TYPE__": "SharedSliceContent",
+		"variation": "default",
+		"primary": {
+			"tag": {
+				"__TYPE__": "FieldContent",
+				"value": "castle",
+				"type": "Text"
+			},
+			"heading": {
+				"__TYPE__": "FieldContent",
+				"value": "article",
+				"type": "Text"
+			},
+			"excerpt": {
+				"__TYPE__": "FieldContent",
+				"value": "grass",
+				"type": "Text"
+			},
+			"primary_button_label": {
+				"__TYPE__": "FieldContent",
+				"value": "begun",
+				"type": "Text"
+			},
+			"primary_button_link": {
+				"key": "c4c726bf-9dab-4790-ac57-6a22d4a86f0e",
+				"__TYPE__": "LinkContent",
+				"value": {
+					"__TYPE__": "ExternalLink",
+					"url": "http://google.com",
+					"text": "owner"
+				}
+			},
+			"secondary_button_label": {
+				"__TYPE__": "FieldContent",
+				"value": "sense",
+				"type": "Text"
+			},
+			"secondary_button_link": {
+				"__TYPE__": "LinkContent",
+				"key": "08ba956d-bdcf-4262-860f-f8779600c788",
+				"value": {
+					"__TYPE__": "ExternalLink",
+					"url": "http://google.com",
+					"text": "chamber"
+				}
+			}
+		},
+		"items": []
+	}
+]
