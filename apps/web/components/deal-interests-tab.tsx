@@ -1,10 +1,3 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -64,17 +57,17 @@ const formatDate = (dateString: string | null | undefined): string => {
 export function InterestsTab({ interests }: { interests: Interest[] }) {
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <section className="flex flex-col gap-5 border-y border-border py-5">
+      <header className="space-y-1.5">
+        <h2 className="flex items-center gap-2 text-base font-semibold leading-none">
           <Target className="h-5 w-5" />
           Interested Investors
-        </CardTitle>
-        <CardDescription>
+        </h2>
+        <p className="text-sm text-muted-foreground">
           Investors who have expressed interest in this deal
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+        </p>
+      </header>
+      <div>
         {interests.length === 0 ? (
           <div className="text-center py-12">
             <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-50" />
@@ -135,8 +128,8 @@ export function InterestsTab({ interests }: { interests: Interest[] }) {
             </Table>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 

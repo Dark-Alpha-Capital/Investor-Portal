@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { Content } from "@prismicio/client";
 import { SliceComponentProps } from "@prismicio/react";
-import { PrismicNextLink } from "@prismicio/next";
+import { PrismicLink } from "@prismicio/react";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -38,9 +38,9 @@ const Cta: FC<CtaProps> = ({ slice }) => {
                     className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2 h-12 px-6"
                     asChild
                   >
-                    <PrismicNextLink field={slice.primary.primary_button_link}>
+                    <PrismicLink field={slice.primary.primary_button_link}>
                       {slice.primary.primary_button_label}
-                    </PrismicNextLink>
+                    </PrismicLink>
                   </Button>
                 )}
                 {slice.primary.secondary_button_label && (
@@ -50,11 +50,11 @@ const Cta: FC<CtaProps> = ({ slice }) => {
                     className="gap-2 h-12 px-6 border-border hover:bg-card"
                     asChild
                   >
-                    <PrismicNextLink
+                    <PrismicLink
                       field={slice.primary.secondary_button_link}
                     >
                       {slice.primary.secondary_button_label}
-                    </PrismicNextLink>
+                    </PrismicLink>
                   </Button>
                 )}
               </div>

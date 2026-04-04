@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { Content } from "@prismicio/client";
 import { SliceComponentProps } from "@prismicio/react";
-import { PrismicNextImage } from "@prismicio/next";
+import { PrismicImage } from "@prismicio/react";
 
 /**
  * Props for `ThreeRoundImages`.
@@ -33,9 +33,8 @@ const ThreeRoundImages: FC<ThreeRoundImagesProps> = ({ slice }) => {
                   key={index}
                 >
                   <div className="relative aspect-square w-36 overflow-hidden rounded-full sm:w-40 md:w-44">
-                    <PrismicNextImage
+                    <PrismicImage
                       field={card.card_image}
-                      fill
                       className="object-cover"
                       sizes="(max-width: 48em) 40vw, 18vw"
                     />

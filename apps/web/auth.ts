@@ -1,9 +1,10 @@
+import "@tanstack/react-start/server-only";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@repo/db";
 import { user } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
-import { nextCookies } from "better-auth/next-js";
+import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { createAuthMiddleware } from "better-auth/api";
 import { admin, customSession } from "better-auth/plugins";
 import { sendEmailDirect } from "@repo/mail";
@@ -172,7 +173,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
   },
 
   plugins: [
-    nextCookies(),
+    tanstackStartCookies(),
     admin(),
     customSession(async ({ user, session }) => {
       // Include the role field from the user object

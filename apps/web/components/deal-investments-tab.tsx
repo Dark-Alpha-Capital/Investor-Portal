@@ -1,4 +1,3 @@
-"use client";
 
 import { InvestmentManagement } from "./deal-investment-management";
 import { useRouter } from "next/navigation";

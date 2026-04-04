@@ -40,7 +40,7 @@ import {
   logPermissionGrant,
   logPermissionRevoke,
 } from "@/lib/audit";
-import { authSession } from "@/app/(auth)/auth";
+import { authSession } from "@/lib/auth-session-from-request";
 
 // Clearance status types
 const clearanceStatusSchema = z.enum([

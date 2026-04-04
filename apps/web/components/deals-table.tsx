@@ -1,4 +1,3 @@
-"use client";
 
 import React, { useEffect, useState, useCallback, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -560,8 +559,7 @@ export function DealsTable({ initialData }: DealsTableProps) {
   const page = parseInt(searchParams.get("dealsPage") || "1", 10);
   const search = searchParams.get("dealsSearch") || "";
 
-  // Use server-fetched cached data directly
-  // Data is fetched with `use cache` in getDealsCached and passed down
+  // Initial page data from route loader (server function); client handles pagination UX
   const deals = initialData?.deals ?? [];
   const pagination = initialData?.pagination;
 

@@ -23,7 +23,6 @@
         "NEXTCLOUD_URL",
         "NEXTCLOUD_USER",
         "NEXTCLOUD_PASSWORD",
-        "REDIS_URL",
         "RESEND_API_KEY"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],

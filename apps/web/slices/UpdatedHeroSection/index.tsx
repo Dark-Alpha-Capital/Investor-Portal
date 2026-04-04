@@ -1,7 +1,11 @@
 import { FC } from "react";
 import { Content } from "@prismicio/client";
-import { PrismicRichText, SliceComponentProps } from "@prismicio/react";
-import { PrismicNextImage, PrismicNextLink } from "@prismicio/next";
+import {
+  PrismicImage,
+  PrismicLink,
+  PrismicRichText,
+  SliceComponentProps,
+} from "@prismicio/react";
 import { ArrowRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -22,10 +26,9 @@ const UpdatedHeroSection: FC<UpdatedHeroSectionProps> = ({ slice }) => {
       className="py-16 md:py-24"
     >
       <div className="relative min-h-[56vh] overflow-hidden">
-        <PrismicNextImage
+        <PrismicImage
           field={slice.primary.background_image}
           className="absolute inset-0 z-0 h-full w-full object-cover"
-          fill
           sizes="100vw"
         />
         <div className="absolute inset-0 bg-slate-950/35" />
@@ -52,15 +55,11 @@ const UpdatedHeroSection: FC<UpdatedHeroSectionProps> = ({ slice }) => {
                 <div className="prose prose-slate max-w-none prose-sm prose-p:leading-relaxed">
                   <PrismicRichText field={slice.primary.content} />
                 </div>
-                <Button
-                  size="lg"
-                  className="mt-2 w-full sm:w-auto"
-                  asChild
-                >
-                  <PrismicNextLink field={slice.primary.button_link}>
+                <Button size="lg" className="mt-2 w-full sm:w-auto" asChild>
+                  <PrismicLink field={slice.primary.button_link}>
                     {slice.primary.button_link.text}
                     <ArrowRightIcon className="ml-2 size-4" />
-                  </PrismicNextLink>
+                  </PrismicLink>
                 </Button>
               </div>
             </div>

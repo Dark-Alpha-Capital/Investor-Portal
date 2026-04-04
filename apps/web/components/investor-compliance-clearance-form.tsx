@@ -1,4 +1,3 @@
-"use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -21,13 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTRPC } from "@/trpc/client";
@@ -288,15 +280,14 @@ export function ClearanceForm({
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Set Clearance Status</CardTitle>
-        <CardDescription>
-          Review the investor&apos;s KYC information and set their clearance
-          status
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <section className="flex flex-col gap-5 border-y border-border py-5">
+      <header className="space-y-1.5">
+        <h2 className="text-base font-semibold leading-none">Set Clearance Status</h2>
+        <p className="text-sm text-muted-foreground">
+          Review the investor&apos;s KYC information and set their clearance status
+        </p>
+      </header>
+      <div className="space-y-6">
         {/* KYC Incomplete Warning */}
         {!isOnboardingCompleted && (
           <Alert className="bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800">
@@ -502,7 +493,7 @@ export function ClearanceForm({
             Update Clearance
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

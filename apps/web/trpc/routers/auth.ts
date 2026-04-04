@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { baseProcedure, createTRPCRouter } from "../init";
 import { user } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
-import { authSession } from "@/app/(auth)/auth";
+import { authSession } from "@/lib/auth-session-from-request";
 
 export const authRouter = createTRPCRouter({
   /**

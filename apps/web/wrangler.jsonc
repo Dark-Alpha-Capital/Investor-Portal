@@ -1,0 +1,40 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dac-investor-portal",
+  "main": "./cloudflare-worker.ts",
+  "compatibility_date": "2025-09-02",
+  "compatibility_flags": ["nodejs_compat"],
+  "workflows": [
+    {
+      "name": "onboarding-kyc-upload",
+      "binding": "ONBOARDING_KYC_WORKFLOW",
+      "class_name": "OnboardingKycWorkflow"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "OUTBOUND_EMAIL_QUEUE",
+        "queue": "dac-outbound-email"
+      },
+      {
+        "binding": "DEAL_FOLDER_QUEUE",
+        "queue": "dac-deal-folder-sync"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "dac-outbound-email",
+        "max_batch_size": 10,
+        "max_retries": 10,
+        "retry_delay": 30
+      },
+      {
+        "queue": "dac-deal-folder-sync",
+        "max_batch_size": 5,
+        "max_retries": 10,
+        "retry_delay": 30
+      }
+    ]
+  }
+}

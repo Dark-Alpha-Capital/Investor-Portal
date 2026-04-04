@@ -13,22 +13,19 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "next/dynamic": ["./compat/next-dynamic.tsx"],
+      "next": ["./compat/next.ts"],
+      "next/link": ["./compat/next-link.tsx"],
+      "next/navigation": ["./compat/next-navigation.ts"],
+      "next/image": ["./compat/next-image.tsx"],
+      "next/server": ["./compat/next-server.ts"],
+      "next/headers": ["./compat/next-headers.ts"],
+      "next/cache": ["./compat/next-cache.ts"],
+      "next/font/google": ["./compat/next-font-google.ts"]
     }
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
-  ],
+  "include": ["**/*.ts", "**/*.tsx", "**/*.mts"],
   "exclude": ["node_modules"]
 }

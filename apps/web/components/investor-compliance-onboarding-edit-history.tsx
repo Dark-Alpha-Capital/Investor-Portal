@@ -1,14 +1,6 @@
-"use client";
 
 import { format } from "date-fns";
 import { History, Pencil, ArrowRight, AlertCircle } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -67,21 +59,23 @@ export function OnboardingEditHistory({
 }: OnboardingEditHistoryProps) {
   if (editHistory.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
+      <section className="flex flex-col gap-5 border-y border-border py-5">
+        <header className="space-y-1.5">
+          <h2 className="flex items-center gap-2 text-lg font-semibold leading-none">
             <History className="h-5 w-5" />
             Investor Edit History
-          </CardTitle>
-          <CardDescription>No edits have been made to the onboarding</CardDescription>
-        </CardHeader>
-        <CardContent>
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            No edits have been made to the onboarding
+          </p>
+        </header>
+        <div>
           <div className="text-center py-8 text-muted-foreground">
             <Pencil className="h-12 w-12 mx-auto mb-3 opacity-50" />
             <p>The investor has not made any changes to their onboarding after submission</p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     );
   }
 
@@ -89,17 +83,17 @@ export function OnboardingEditHistory({
   const totalEdits = parseInt(editCount || "0", 10);
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-lg flex items-center gap-2">
+    <section className="flex flex-col gap-5 border-y border-border py-5">
+      <header>
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <h2 className="flex items-center gap-2 text-lg font-semibold leading-none">
               <History className="h-5 w-5" />
               Investor Edit History
-            </CardTitle>
-            <CardDescription>
+            </h2>
+            <p className="text-sm text-muted-foreground">
               {editHistory.length} field change(s) across {totalEdits} edit session(s)
-            </CardDescription>
+            </p>
           </div>
           {lastEditedAt && (
             <div className="text-right text-sm text-muted-foreground">
@@ -110,8 +104,8 @@ export function OnboardingEditHistory({
             </div>
           )}
         </div>
-      </CardHeader>
-      <CardContent>
+      </header>
+      <div>
         {/* Alert banner */}
         <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-4 mb-4 flex items-start gap-3">
           <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -193,7 +187,7 @@ export function OnboardingEditHistory({
             ))}
           </div>
         </ScrollArea>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

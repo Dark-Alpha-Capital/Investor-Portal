@@ -1,4 +1,3 @@
-"use client";
 
 import { FC, useState } from "react";
 import { Content } from "@prismicio/client";
@@ -9,7 +8,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Minus, Plus } from "lucide-react";
-import { PrismicNextImage } from "@prismicio/next";
+import { PrismicImage } from "@prismicio/react";
 
 /**
  * Props for `ImageHeadingToggle`.
@@ -41,9 +40,8 @@ const ImageHeadingToggle: FC<ImageHeadingToggleProps> = ({ slice }) => {
         {/* Left side - Image */}
         <div className="order-2 lg:order-1">
           <div className="relative aspect-[4/3] w-full overflow-hidden border border-border bg-muted">
-            <PrismicNextImage
+            <PrismicImage
               field={slice.primary.featured_image}
-              fill
               className="object-cover"
               sizes="(max-width: 64em) 92vw, 46vw"
             />

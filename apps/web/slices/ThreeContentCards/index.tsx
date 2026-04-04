@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { Content } from "@prismicio/client";
 import { SliceComponentProps } from "@prismicio/react";
-import { PrismicNextImage } from "@prismicio/next";
+import { PrismicImage } from "@prismicio/react";
 import { PrismicRichText } from "@prismicio/react";
 
 /**
@@ -40,7 +40,7 @@ const ThreeContentCards: FC<ThreeContentCardsProps> = ({ slice }) => {
                 key={index}
               >
                 <div className="mb-5 overflow-hidden border border-border">
-                  <PrismicNextImage
+                  <PrismicImage
                     field={card.card_image}
                     className="h-56 w-full object-cover sm:h-64"
                     sizes="(max-width: 48em) 92vw, (max-width: 64em) 46vw, 30vw"

@@ -1,4 +1,3 @@
-"use client";
 
 import { ChevronUp } from "lucide-react";
 import Image from "next/image";
@@ -18,10 +17,14 @@ import {
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { useTheme } from "next-themes";
-import type { Session } from "@/app/(auth)/auth";
+import type { Session } from "@/lib/session-types";
 
 export function SidebarUserNav({ session }: { session: Session }) {
   const router = useRouter();
+
+  if (!session?.user) {
+    return null;
+  }
   const { theme, setTheme } = useTheme();
 
   const handleLogout = async () => {
