@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { fetchAdminDealDetailData } from "@/lib/server-fns/admin-route-data";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Users, Edit } from "lucide-react";
@@ -19,9 +19,6 @@ export const Route = createFileRoute(
     const r = await fetchAdminDealDetailData({
       data: { dealId: params.dealId },
     });
-    if (r.tag === "redirect") {
-      throw redirect({ to: r.to });
-    }
     if (r.tag === "not_found") {
       throw notFound();
     }

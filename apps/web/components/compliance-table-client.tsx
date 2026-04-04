@@ -228,7 +228,7 @@ export function ComplianceTableClient({
       }
     }
     return items;
-  }, [pagination.page, pagination.totalPages]);
+  }, [pagination]);
 
   return (
     <div className="space-y-4">

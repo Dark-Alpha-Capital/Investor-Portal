@@ -119,9 +119,6 @@ export const Route = createFileRoute("/(dashboard)/deals/$dealId/")({
     if (r.tag === "not_found") {
       throw notFound();
     }
-    if (r.tag === "server_error") {
-      throw new Error("Failed to fetch deal");
-    }
     return r.data;
   },
   component: DealDetailRoutePage,

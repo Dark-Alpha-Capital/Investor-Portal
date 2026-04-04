@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { fetchAdminDealsListData } from "@/lib/server-fns/admin-route-data";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -13,9 +13,6 @@ export const Route = createFileRoute("/(dashboard)/(admin)/admin/deals/")({
     const r = await fetchAdminDealsListData({
       data: { search: location.search },
     });
-    if (r.tag === "redirect") {
-      throw redirect({ to: r.to });
-    }
     return { initialData: r.initialData };
   },
   component: AdminDealsRoutePage,

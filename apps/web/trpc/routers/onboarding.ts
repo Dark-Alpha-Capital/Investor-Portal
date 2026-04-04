@@ -179,19 +179,19 @@ const investorDataSchema = z.object({
   electronicSignatureDate: z.string().optional(),
 });
 
-// Schema for file uploads
-const fileSchema = z.object({
-  documentType: z.string(),
-  name: z.string(),
-  type: z.string(),
-  size: z.number(),
-  buffer: z.string(), // base64 encoded
+/** File uploads for onboarding submit (tRPC + HTTP proxy). */
+export const onboardingSubmitFileSchema = z.object({
+  documentType: z.string().min(1).max(128),
+  name: z.string().min(1).max(512),
+  type: z.string().max(256),
+  size: z.number().int().positive().max(25 * 1024 * 1024),
+  buffer: z.string().min(1).max(40_000_000),
 });
 
-// Main onboarding submit schema
-const onboardingSubmitSchema = z.object({
+/** Main onboarding submit body (shared with `/api/onboarding/submit`). */
+export const onboardingSubmitSchema = z.object({
   investorData: investorDataSchema,
-  files: z.array(fileSchema),
+  files: z.array(onboardingSubmitFileSchema).max(50),
 });
 
 // Helper functions hoisted outside mutation for better performance

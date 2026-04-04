@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { fetchAdminHomePageData } from "@/lib/server-fns/admin-route-data";
 import { AdminDashboardTabs } from "@/components/admin-dashboard-tabs";
 import type { AdminHomeOk } from "@/lib/server-fns/admin-route-data";
@@ -8,9 +8,6 @@ export const Route = createFileRoute("/(dashboard)/(admin)/admin/")({
     const r = await fetchAdminHomePageData({
       data: { search: location.search },
     });
-    if (r.tag === "redirect") {
-      throw redirect({ to: r.to });
-    }
     return { dashboard: r.dashboard };
   },
   component: AdminDashboardRoutePage,

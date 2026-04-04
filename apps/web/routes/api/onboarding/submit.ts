@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { authSession } from "@/lib/auth-session-from-request";
+import { onboardingSubmitSchema } from "@/trpc/routers/onboarding";
 
 const SERVER_URL = process.env.SERVER_URL || "http://localhost:8080";
 
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/api/onboarding/submit")({
           const userId = session.user.id;
           const formData = await request.formData();
 
-          let investorData: Record<string, unknown> | null = null;
+          let investorData: unknown = null;
           const filesToProcess: Array<{
             documentType: string;
             name: string;
@@ -70,7 +71,7 @@ export const Route = createFileRoute("/api/onboarding/submit")({
             }
           }
 
-          if (!investorData) {
+          if (investorData === null || typeof investorData !== "object") {
             return Response.json(
               {
                 success: false,
@@ -81,6 +82,25 @@ export const Route = createFileRoute("/api/onboarding/submit")({
             );
           }
 
+          const validated = onboardingSubmitSchema.safeParse({
+            investorData,
+            files: filesToProcess,
+          });
+          if (!validated.success) {
+            return Response.json(
+              {
+                success: false,
+                error: "Validation failed",
+                message: "Onboarding payload failed validation",
+                issues: validated.error.flatten(),
+              },
+              { status: 400 },
+            );
+          }
+
+          const { investorData: investorPayload, files: filesPayload } =
+            validated.data;
+
           const serverResponse = await fetch(
             `${SERVER_URL}/api/onboarding/submit`,
             {
@@ -90,8 +110,8 @@ export const Route = createFileRoute("/api/onboarding/submit")({
               },
               body: JSON.stringify({
                 userId,
-                investorData,
-                files: filesToProcess,
+                investorData: investorPayload,
+                files: filesPayload,
               }),
             },
           );
@@ -114,10 +134,7 @@ export const Route = createFileRoute("/api/onboarding/submit")({
             {
               success: false,
               error: "Failed to process submission",
-              message:
-                error instanceof Error
-                  ? error.message
-                  : "Unknown error occurred",
+              message: "An unexpected error occurred. Please try again later.",
             },
             { status: 500 },
           );

@@ -426,7 +426,7 @@ export function InvestorsTableClient({
     }
 
     return pages;
-  }, [pagination.totalPages, currentPage]);
+  }, [pagination, currentPage]);
 
   // Build page URL
   const getPageUrl = (page: number) => {

@@ -1,14 +1,6 @@
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import {
-  Menu,
-  X,
-  Loader2,
-  LogOut,
-  User,
-  Shield,
-} from "lucide-react";
+import { Menu, X, Loader2, LogOut, User, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
@@ -220,13 +212,13 @@ export default function Header() {
           onClick={() => setIsMobileMenuOpen(false)}
         />
 
-          <div
-            className={cn(
-              "fixed inset-y-0 left-0 w-full sm:w-3/4 max-w-md bg-background border-r border-border transform transition-transform duration-200 ease-out",
-              isMobileMenuOpen ? "translate-x-0" : "-translate-x-full",
-            )}
-          >
-            <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between">
+        <div
+          className={cn(
+            "fixed inset-y-0 left-0 w-full sm:w-3/4 max-w-md bg-background border-r border-border transform transition-transform duration-200 ease-out",
+            isMobileMenuOpen ? "translate-x-0" : "-translate-x-full",
+          )}
+        >
+          <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between">
             <div className="flex items-center">
               <Link href="/" className="text-lg font-semibold tracking-tight">
                 DAC INVESTORS
@@ -336,7 +328,6 @@ export default function Header() {
                 </Link>
               )}
             </div>
-
           </nav>
         </div>
       </div>

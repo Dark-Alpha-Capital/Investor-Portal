@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { fetchComplianceInvestorData } from "@/lib/server-fns/admin-route-data";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -21,9 +21,6 @@ export const Route = createFileRoute(
     const r = await fetchComplianceInvestorData({
       data: { investorId: params.id },
     });
-    if (r.tag === "redirect") {
-      throw redirect({ to: r.to });
-    }
     if (r.tag === "not_found") {
       throw notFound();
     }
@@ -52,8 +49,14 @@ function InvestorComplianceInner({
 }: {
   data: ComplianceInvestorLoaderData;
 }) {
-  const { investorId, investor, onboarding, permissions, auditLog, availableDeals } =
-    data;
+  const {
+    investorId,
+    investor,
+    onboarding,
+    permissions,
+    auditLog,
+    availableDeals,
+  } = data;
 
   const onboardingForComponent = onboarding as Record<string, unknown>;
   const auditLogForComponent = auditLog;
@@ -82,7 +85,9 @@ function InvestorComplianceInner({
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  const editHistory = onboardingForComponent?.editHistory as unknown[] | undefined;
+  const editHistory = onboardingForComponent?.editHistory as
+    | unknown[]
+    | undefined;
 
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
@@ -149,9 +154,7 @@ function InvestorComplianceInner({
 
           <TabsContent value="documents">
             <DocumentReview
-              documents={
-                (onboardingForComponent?.documents as unknown[]) || []
-              }
+              documents={(onboardingForComponent?.documents as unknown[]) || []}
               investorId={investorId}
             />
           </TabsContent>
@@ -170,8 +173,7 @@ function InvestorComplianceInner({
                 (onboardingForComponent?.editHistory as unknown[]) || []
               }
               lastEditedAt={
-                (onboardingForComponent?.lastEditedAt as string | null) ||
-                null
+                (onboardingForComponent?.lastEditedAt as string | null) || null
               }
               editCount={
                 (onboardingForComponent?.editCount as number | null) || null

@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { fetchComplianceListData } from "@/lib/server-fns/admin-route-data";
 import { ShieldCheck, Lock, Building2, Info } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -13,9 +13,6 @@ export const Route = createFileRoute("/(dashboard)/(admin)/admin/compliance/")({
     const r = await fetchComplianceListData({
       data: { search: location.search },
     });
-    if (r.tag === "redirect") {
-      throw redirect({ to: r.to });
-    }
     return {
       initialData: r.initialData,
       clearanceStatus: r.clearanceStatus,

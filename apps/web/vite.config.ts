@@ -14,9 +14,21 @@ export default defineConfig({
     cloudflare({ viteEnvironment: { name: 'ssr' } }),
     tsConfigPaths(),
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      // App lives at apps/web root (no src/); defaults assume src/
+      srcDirectory: ".",
+    }),
     react(),
-    nitro(),
+    nitro({
+      rollupConfig: {
+        external: [
+          "cloudflare:workers",
+          "cloudflare:workflows",
+          "cloudflare:sockets",
+          "cloudflare:email",
+        ],
+      },
+    }),
   ],
   resolve: {
     alias: {

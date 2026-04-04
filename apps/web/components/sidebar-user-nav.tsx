@@ -21,11 +21,11 @@ import type { Session } from "@/lib/session-types";
 
 export function SidebarUserNav({ session }: { session: Session }) {
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
 
   if (!session?.user) {
     return null;
   }
-  const { theme, setTheme } = useTheme();
 
   const handleLogout = async () => {
     await authClient.signOut({

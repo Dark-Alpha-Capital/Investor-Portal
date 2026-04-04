@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { fetchAdminDealCurateData } from "@/lib/server-fns/admin-route-data";
 import BackButton from "@/components/back-button";
 import { DealCurationTabs } from "@/components/deal-curation-tabs";
@@ -17,9 +17,6 @@ export const Route = createFileRoute(
     const r = await fetchAdminDealCurateData({
       data: { dealId: params.dealId },
     });
-    if (r.tag === "redirect") {
-      throw redirect({ to: r.to });
-    }
     return {
       dealId: params.dealId,
       investors: r.investors,

@@ -11,9 +11,6 @@ export const Route = createFileRoute(
     const r = await fetchAdminDealEditData({
       data: { dealId: params.dealId },
     });
-    if (r.tag === "redirect") {
-      throw redirect({ to: r.to });
-    }
     if (r.tag === "missing") {
       throw redirect({ to: "/admin/deals" });
     }
