@@ -12,7 +12,7 @@ export const fetchHomepage = createServerFn({ method: "GET" }).handler(async () 
 });
 
 export const fetchPrismicPageByUid = createServerFn({ method: "GET" })
-  .inputValidator((d) => prismicUidInputSchema.parse(d))
+  .validator((d) => prismicUidInputSchema.parse(d))
   .handler(async ({ data }) => {
     try {
       return await impl.runFetchPrismicPageByUid(data);

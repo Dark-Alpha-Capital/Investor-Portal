@@ -14,9 +14,9 @@ export const fetchDashboardRouteData = createServerFn({ method: "GET" }).handler
 );
 
 export const fetchMarketplaceDealsRouteData = createServerFn({ method: "GET" })
-  .inputValidator((input) => routeSearchStringSchema.parse(input))
+  .validator((input) => routeSearchStringSchema.parse(input))
   .handler(({ data }) => impl.runFetchMarketplaceDealsRouteData(data));
 
 export const fetchDealDetailRouteData = createServerFn({ method: "GET" })
-  .inputValidator((input) => dealIdInputSchema.parse(input))
+  .validator((input) => dealIdInputSchema.parse(input))
   .handler(({ data }) => impl.runFetchDealDetailRouteData(data));

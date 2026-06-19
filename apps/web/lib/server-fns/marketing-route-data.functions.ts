@@ -6,11 +6,11 @@ import {
 import * as impl from "./marketing-route-data.server";
 
 export const fetchSectorPagePayload = createServerFn({ method: "GET" })
-  .inputValidator((input) => sectorPageInputSchema.parse(input))
+  .validator((input) => sectorPageInputSchema.parse(input))
   .handler(({ data }) => impl.runFetchSectorPagePayload(data));
 
 export const fetchInvestmentTypePagePayload = createServerFn({
   method: "GET",
 })
-  .inputValidator((input) => investmentTypePageInputSchema.parse(input))
+  .validator((input) => investmentTypePageInputSchema.parse(input))
   .handler(({ data }) => impl.runFetchInvestmentTypePagePayload(data));
