@@ -1,4 +1,4 @@
-import type { MetadataRoute } from "next";
+import type { MetadataRoute } from "@/types/metadata";
 import { siteConfig } from "@/lib/seo";
 
 export default function robots(): MetadataRoute.Robots {
@@ -31,7 +31,6 @@ export default function robots(): MetadataRoute.Robots {
           "/reset-password",
           "/verify-email",
           "/api/",
-          "/_next/",
           "/slice-simulator",
         ],
       },

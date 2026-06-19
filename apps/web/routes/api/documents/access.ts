@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { db } from "@repo/db";
 import { onboardingDocument, onboarding } from "@repo/db/schema";
-import { getSignedUrl } from "@/lib/storage";
+import { createNextcloudClientFromEnv, fileExists } from "@repo/nextcloud";
 import { eq } from "drizzle-orm";
 import { authSession } from "@/lib/auth-session-from-request";
 
@@ -51,6 +51,7 @@ export const Route = createFileRoute("/api/documents/access")({
           const [document] = await db
             .select({
               id: onboardingDocument.id,
+              filePath: onboardingDocument.filePath,
               fileUrl: onboardingDocument.fileUrl,
               fileName: onboardingDocument.fileName,
               fileType: onboardingDocument.fileType,
@@ -60,12 +61,12 @@ export const Route = createFileRoute("/api/documents/access")({
             .where(eq(onboardingDocument.id, documentId))
             .limit(1);
 
-          if (!document || !document.fileUrl) {
+          if (!document || !document.filePath) {
             return Response.json(
               {
                 success: false,
                 error: "Not Found",
-                message: "Document not found or file URL is missing",
+                message: "Document not found or Nextcloud file path is missing",
               },
               { status: 404 },
             );
@@ -91,22 +92,22 @@ export const Route = createFileRoute("/api/documents/access")({
             );
           }
 
-          const signedUrl = await getSignedUrl(document.fileUrl, 15);
-
-          if (!signedUrl) {
+          const client = createNextcloudClientFromEnv();
+          const exists = await fileExists(client, document.filePath);
+          if (!exists) {
             return Response.json(
               {
                 success: false,
-                error: "Internal Server Error",
-                message: "Failed to generate signed URL",
+                error: "Not Found",
+                message: "File not found in Nextcloud",
               },
-              { status: 500 },
+              { status: 404 },
             );
           }
 
           return Response.json({
             success: true,
-            signedUrl,
+            signedUrl: client.getFileDownloadLink(document.filePath),
             fileName: document.fileName,
             fileType: document.fileType,
             expiresIn: 15,

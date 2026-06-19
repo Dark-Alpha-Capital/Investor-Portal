@@ -1,5 +1,5 @@
 
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "@/hooks/use-app-navigation";
 import { useCallback, useState, useTransition, memo, useMemo } from "react";
 import {
   LayoutGrid,

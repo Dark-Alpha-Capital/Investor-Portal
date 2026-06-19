@@ -13,7 +13,7 @@
 # Testing
 /coverage
 
-# Next.js (compat / legacy paths)
+# Legacy build output
 /.next/
 /out/
 
@@ -45,4 +45,4 @@ yarn-error.log*
 .vercel
 
 # TypeScript
-next-env.d.ts
+*.tsbuildinfo

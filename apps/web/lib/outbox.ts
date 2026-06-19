@@ -1,4 +1,4 @@
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import type { Db } from "@repo/db";
 import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { sideEffectOutbox } from "@repo/db/schema";
@@ -8,7 +8,7 @@ import { publishOutboxPointer } from "./queues/publish";
 const MAX_DISPATCH_ATTEMPTS = 5;
 
 export async function dispatchPendingOutbox(
-  db: PostgresJsDatabase,
+  db: Db,
   batchSize = 25,
 ): Promise<void> {
   const candidates = await db

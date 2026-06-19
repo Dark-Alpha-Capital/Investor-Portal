@@ -1,0 +1,16 @@
+# Server-only secrets for local `vite dev` / `wrangler dev`.
+# Copy to `.dev.vars` in this directory.
+
+BETTER_AUTH_SECRET=
+BETTER_AUTH_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+RESEND_API_KEY=
+NEXTCLOUD_URL=
+NEXTCLOUD_USER=
+NEXTCLOUD_PASSWORD=
+REVALIDATE_SECRET=
+
+# Client-safe vars for Vite (also in `.env` at repo root or apps/web)
+# VITE_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
+# VITE_PUBLIC_PRISMIC_ENVIRONMENT=darkalphacapital

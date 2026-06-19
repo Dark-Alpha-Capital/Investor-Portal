@@ -74,7 +74,7 @@ export const adminRouter = createTRPCRouter({
 
       // Get total count
       const [countResult] = await ctx.db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)` })
         .from(user)
         .where(whereCondition);
 
@@ -166,7 +166,7 @@ export const adminRouter = createTRPCRouter({
 
       // Get total count
       const [countResult] = await ctx.db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)` })
         .from(user)
         .where(whereCondition);
 
@@ -271,7 +271,7 @@ export const adminRouter = createTRPCRouter({
 
       // Get total count
       const [countResult] = await ctx.db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)` })
         .from(deal)
         .where(whereCondition);
 
@@ -383,7 +383,7 @@ export const adminRouter = createTRPCRouter({
           const whereCondition = and(...conditions);
 
           const [countResult] = await ctx.db
-            .select({ count: sql<number>`count(*)::int` })
+            .select({ count: sql<number>`count(*)` })
             .from(user)
             .where(whereCondition);
 
@@ -454,7 +454,7 @@ export const adminRouter = createTRPCRouter({
           const whereCondition = and(...conditions);
 
           const [countResult] = await ctx.db
-            .select({ count: sql<number>`count(*)::int` })
+            .select({ count: sql<number>`count(*)` })
             .from(user)
             .where(whereCondition);
 

@@ -18,19 +18,15 @@
     "lint": "eslint .",
     "check-types": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate:local": "cd ../../apps/web && wrangler d1 migrations apply dac-investor-portal --local",
+    "db:migrate:remote": "cd ../../apps/web && wrangler d1 migrations apply dac-investor-portal --remote",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
-
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "@types/pg": "^8.15.6",
-    "drizzle-orm": "^0.44.7",
-    "kysely": "^0.28.8",
-    "pg": "^8.16.3",
-    "postgres": "^3.4.7"
+    "drizzle-orm": "^0.44.7"
   }
 }

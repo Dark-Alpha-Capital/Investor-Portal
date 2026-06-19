@@ -1,5 +1,5 @@
 
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "@/hooks/use-app-navigation";
 import { useCallback, useEffect, useTransition } from "react";
 import { Loader2, Briefcase } from "lucide-react";
 import {

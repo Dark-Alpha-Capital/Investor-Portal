@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Target } from "lucide-react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 
 type Interest = {
   id: string;

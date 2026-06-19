@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { Menu, X, Loader2, LogOut, User, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "@/hooks/use-app-navigation";
 import { authClient } from "@/lib/auth-client";
 import { useClientSession } from "@/lib/get-client-session";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";

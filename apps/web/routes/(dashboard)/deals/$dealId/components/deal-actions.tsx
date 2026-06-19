@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/hooks/use-app-navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

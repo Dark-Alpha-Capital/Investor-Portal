@@ -41,9 +41,9 @@ function getUserRoleFromEmail(email: string): string {
   return "user";
 }
 
-export const auth: ReturnType<typeof betterAuth> = betterAuth({
+export const auth = betterAuth({
   database: drizzleAdapter(db, {
-    provider: "pg",
+    provider: "sqlite",
     schema: {
       user: usersTable,
       verification: verificationsTable,

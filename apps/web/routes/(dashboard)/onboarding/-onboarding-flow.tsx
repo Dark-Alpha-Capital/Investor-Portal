@@ -1,5 +1,5 @@
 
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "@/hooks/use-app-navigation";
 import {
   useEffect,
   useState,
@@ -7,7 +7,7 @@ import {
   useMemo,
   useCallback,
 } from "react";
-import dynamic from "@/compat/next-dynamic";
+import dynamic from "@/lib/lazy-component";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";

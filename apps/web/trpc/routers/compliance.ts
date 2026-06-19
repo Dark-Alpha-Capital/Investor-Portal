@@ -33,8 +33,7 @@ import {
   inArray,
 } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { revalidateTag } from "next/cache";
-import { after } from "next/server";
+import { after } from "@/lib/after-response";
 import {
   logClearanceChange,
   logPermissionGrant,
@@ -178,18 +177,18 @@ export const complianceRouter = createTRPCRouter({
       const permissionCounts =
         investorIds.length > 0
           ? await ctx.db
-              .select({
-                userId: vehiclePermission.userId,
-                count: sql<number>`count(*)::int`,
-              })
-              .from(vehiclePermission)
-              .where(
-                and(
-                  inArray(vehiclePermission.userId, investorIds),
-                  isNull(vehiclePermission.revokedAt)
-                )
+            .select({
+              userId: vehiclePermission.userId,
+              count: sql<number>`count(*)::int`,
+            })
+            .from(vehiclePermission)
+            .where(
+              and(
+                inArray(vehiclePermission.userId, investorIds),
+                isNull(vehiclePermission.revokedAt)
               )
-              .groupBy(vehiclePermission.userId)
+            )
+            .groupBy(vehiclePermission.userId)
           : [];
 
       const permissionCountByUserId = new Map(
@@ -205,12 +204,12 @@ export const complianceRouter = createTRPCRouter({
         isOnboardingCompleted: investor.isOnboardingCompleted,
         clearance: investor.clearanceStatus
           ? {
-              status: investor.clearanceStatus,
-              conditions: investor.clearanceConditions,
-              conditionsJson: investor.clearanceConditionsJson,
-              clearedAt: investor.clearanceClearedAt,
-              clearedBy: investor.clearanceClearedBy,
-            }
+            status: investor.clearanceStatus,
+            conditions: investor.clearanceConditions,
+            conditionsJson: investor.clearanceConditionsJson,
+            clearedAt: investor.clearanceClearedAt,
+            clearedBy: investor.clearanceClearedBy,
+          }
           : null,
         dealAccessCount: permissionCountByUserId.get(investor.id) ?? 0,
       }));
@@ -1103,10 +1102,6 @@ export const complianceRouter = createTRPCRouter({
         });
       });
 
-      // Revalidate Next.js cache tag for this investor
-      // Cache tag format must match: `investor-compliance-${investorId}` used in the page component
-      revalidateTag(`investor-compliance-${input.investorId}`, "max");
-
       return {
         success: true,
         message: `Document status updated to ${input.status}`,
@@ -1152,10 +1147,6 @@ export const complianceRouter = createTRPCRouter({
           })
           .where(eq(onboardingDocument.id, docId));
       }
-
-      // Revalidate Next.js cache tag for this investor
-      // Cache tag format must match: `investor-compliance-${investorId}` used in the page component
-      revalidateTag(`investor-compliance-${input.investorId}`, "max");
 
       return {
         success: true,

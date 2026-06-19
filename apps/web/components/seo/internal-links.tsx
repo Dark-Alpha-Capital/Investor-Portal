@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { ArrowRight } from "lucide-react";
 import { getRelatedSectors, SECTORS } from "@/lib/constants/sectors";
 import {

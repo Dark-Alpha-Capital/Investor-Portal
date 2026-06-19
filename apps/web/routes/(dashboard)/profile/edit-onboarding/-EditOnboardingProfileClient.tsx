@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { ArrowLeft, Save, Loader2, History, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

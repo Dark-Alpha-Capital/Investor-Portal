@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { TRPCError } from "@trpc/server";
 import { authSession } from "@/lib/auth-session-from-request";
 import { onboardingSubmitSchema } from "@/trpc/routers/onboarding";
-
-const SERVER_URL = process.env.SERVER_URL || "http://localhost:8080";
+import { getTrpcCaller } from "@/trpc/caller-from-request";
 
 export const Route = createFileRoute("/api/onboarding/submit")({
   server: {
@@ -22,7 +22,6 @@ export const Route = createFileRoute("/api/onboarding/submit")({
             );
           }
 
-          const userId = session.user.id;
           const formData = await request.formData();
 
           let investorData: unknown = null;
@@ -98,38 +97,32 @@ export const Route = createFileRoute("/api/onboarding/submit")({
             );
           }
 
-          const { investorData: investorPayload, files: filesPayload } =
-            validated.data;
-
-          const serverResponse = await fetch(
-            `${SERVER_URL}/api/onboarding/submit`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                userId,
-                investorData: investorPayload,
-                files: filesPayload,
-              }),
-            },
-          );
-
-          const responseData = await serverResponse.json();
-
-          if (!serverResponse.ok) {
-            return Response.json(responseData, {
-              status: serverResponse.status,
-            });
-          }
+          const caller = await getTrpcCaller();
+          const responseData = await caller.onboarding.submit(validated.data);
 
           return Response.json(responseData, { status: 200 });
         } catch (error) {
-          console.error(
-            "Error forwarding onboarding submission to server:",
-            error,
-          );
+          if (error instanceof TRPCError) {
+            return Response.json(
+              {
+                success: false,
+                error: error.code,
+                message: error.message,
+              },
+              { status:
+                error.code === "UNAUTHORIZED"
+                  ? 401
+                  : error.code === "FORBIDDEN"
+                    ? 403
+                    : error.code === "NOT_FOUND"
+                      ? 404
+                      : error.code === "BAD_REQUEST"
+                        ? 400
+                        : 500 },
+            );
+          }
+
+          console.error("Error processing onboarding submission:", error);
           return Response.json(
             {
               success: false,

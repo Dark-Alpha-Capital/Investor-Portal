@@ -14,26 +14,26 @@
     "build": {
       "dependsOn": ["^build"],
       "env": [
+        "VITE_PUBLIC_*",
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
         "BETTER_AUTH_SECRET",
         "BETTER_AUTH_URL",
-        "DATABASE_URL",
-        "POSTGRES_URL",
         "NEXTCLOUD_URL",
         "NEXTCLOUD_USER",
         "NEXTCLOUD_PASSWORD",
-        "RESEND_API_KEY"
+        "RESEND_API_KEY",
+        "REVALIDATE_SECRET"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"],
       "outputLogs": "new-only"
     },
     "lint": {
-      "dependsOn": ["transit"]
+      "dependsOn": ["^transit"]
     },
     "check-types": {
-      "dependsOn": ["transit"]
+      "dependsOn": ["^transit"]
     },
     "dev": {
       "cache": false,

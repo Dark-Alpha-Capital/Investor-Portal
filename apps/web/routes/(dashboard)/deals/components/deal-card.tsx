@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, DollarSign, Target } from "lucide-react";
 

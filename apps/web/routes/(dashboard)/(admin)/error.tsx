@@ -1,6 +1,6 @@
 
 import { useEffect } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { AlertTriangle, RefreshCw, ArrowLeft, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

@@ -6,7 +6,7 @@ import { KycReviewScreen } from "./components/kyc-review";
 import { KycRejectedScreen } from "./components/kyc-rejected";
 import { OnboardingRequiredScreen } from "./components/onboarding-required";
 import { DollarSign, TrendingUp, FileText, Pencil } from "lucide-react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 

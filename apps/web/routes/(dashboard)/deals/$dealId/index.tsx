@@ -1,7 +1,7 @@
 import { createFileRoute, notFound, redirect } from "@tanstack/react-router";
 import type { DealDetailLoaderData } from "@/lib/types/investor-route-loaders";
 import { fetchDealDetailRouteData } from "@/lib/server-fns/investor-route-data";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, FileText, User, Info } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

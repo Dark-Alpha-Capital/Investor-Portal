@@ -1,6 +1,6 @@
 
 import { useMutation } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/hooks/use-app-navigation";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
@@ -117,7 +117,10 @@ export function useGoogleAuth() {
   return useMutation({
     mutationFn: async () => {
       console.log("[Google Auth] Starting OAuth flow...");
-      console.log("[Google Auth] Base URL:", process.env.NEXT_PUBLIC_BETTER_AUTH_URL);
+      console.log(
+        "[Google Auth] Base URL:",
+        import.meta.env.VITE_PUBLIC_BETTER_AUTH_URL
+      );
 
       const result = await authClient.signIn.social({
         provider: "google",

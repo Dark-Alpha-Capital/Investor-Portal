@@ -14,16 +14,7 @@
     "jsx": "react-jsx",
     "incremental": true,
     "paths": {
-      "@/*": ["./*"],
-      "next/dynamic": ["./compat/next-dynamic.tsx"],
-      "next": ["./compat/next.ts"],
-      "next/link": ["./compat/next-link.tsx"],
-      "next/navigation": ["./compat/next-navigation.ts"],
-      "next/image": ["./compat/next-image.tsx"],
-      "next/server": ["./compat/next-server.ts"],
-      "next/headers": ["./compat/next-headers.ts"],
-      "next/cache": ["./compat/next-cache.ts"],
-      "next/font/google": ["./compat/next-font-google.ts"]
+      "@/*": ["./*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", "**/*.mts"],

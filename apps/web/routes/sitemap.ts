@@ -1,4 +1,4 @@
-import type { MetadataRoute } from "next";
+import type { MetadataRoute } from "@/types/metadata";
 import { createClient } from "@/prismicio";
 import { siteConfig } from "@/lib/seo";
 import { getAllSectorSlugs } from "@/lib/constants/sectors";

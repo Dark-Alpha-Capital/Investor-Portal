@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { revalidateTag } from "next/cache";
 
 export const Route = createFileRoute("/api/revalidate")({
   server: {
@@ -26,8 +25,6 @@ export const Route = createFileRoute("/api/revalidate")({
         if (!providedSecret || providedSecret !== configuredSecret) {
           return Response.json({ error: "Unauthorized" }, { status: 401 });
         }
-
-        revalidateTag("prismic", "default");
 
         return Response.json({ revalidated: true, now: Date.now() });
       },

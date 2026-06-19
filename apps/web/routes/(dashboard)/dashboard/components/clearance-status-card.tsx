@@ -10,7 +10,7 @@ import {
   AlertTriangle,
   ExternalLink,
 } from "lucide-react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import type { ClearanceStatus } from "@/lib/permissions";
 
 type ClearanceStatusCardProps = {

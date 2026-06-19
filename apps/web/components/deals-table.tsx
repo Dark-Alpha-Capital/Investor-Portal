@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useCallback, useTransition } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import Link from "next/link";
+import { useRouter, useSearchParams, usePathname } from "@/hooks/use-app-navigation";
+import { AppLink as Link } from "@/components/app-link";
 import { useTRPC } from "@/trpc/client";
 import { useMutation } from "@tanstack/react-query";
 import {

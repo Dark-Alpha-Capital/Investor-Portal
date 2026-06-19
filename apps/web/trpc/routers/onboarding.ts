@@ -15,7 +15,6 @@ import { and, eq, desc, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { TRPCError } from "@trpc/server";
 import { mapWorkflowStatusToJobProgress } from "@/lib/map-workflow-job-status";
-import { revalidateTag } from "next/cache";
 import { dispatchPendingOutbox } from "@/lib/outbox";
 import {
   EMAIL_CONFIG,
@@ -565,8 +564,6 @@ export const onboardingRouter = createTRPCRouter({
 
         await dispatchPendingOutbox(ctx.db);
 
-        revalidateTag(`onboarding-status-${userId}`, "max");
-
         return {
           success: true,
           message: "Onboarding data submitted successfully",
@@ -876,8 +873,6 @@ export const onboardingRouter = createTRPCRouter({
             "Onboarding was updated by another request. Please refresh and retry.",
         });
       }
-
-      revalidateTag(`onboarding-status-${userId}`, "max");
 
       console.log(
         `[Onboarding] User ${userId} edited ${changes.length} field(s) on onboarding ${currentOnboarding.id}`

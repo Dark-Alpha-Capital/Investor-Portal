@@ -1,6 +1,6 @@
 
 import { InvestmentManagement } from "./deal-investment-management";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/hooks/use-app-navigation";
 
 type Investment = {
   id: string;

@@ -1,5 +1,5 @@
 
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/hooks/use-app-navigation";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, FileText, ArrowRight } from "lucide-react";
 

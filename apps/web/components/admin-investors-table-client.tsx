@@ -1,7 +1,7 @@
 
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "@/hooks/use-app-navigation";
 import { useCallback, useState, useTransition, memo, useMemo } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import {
   LayoutGrid,
   List,

@@ -1,6 +1,5 @@
 
 import { ChevronUp } from "lucide-react";
-import Image from "next/image";
 import { authClient } from "@/lib/auth-client";
 import {
   DropdownMenu,
@@ -14,8 +13,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { useRouter } from "next/navigation";
-import type { Route } from "next";
+import { useRouter } from "@/hooks/use-app-navigation";
 import { useTheme } from "next-themes";
 import type { Session } from "@/lib/session-types";
 
@@ -46,7 +44,7 @@ export function SidebarUserNav({ session }: { session: Session }) {
               data-testid="user-nav-button"
               className="data-[state=open]:bg-sidebar-accent bg-background data-[state=open]:text-sidebar-accent-foreground h-10"
             >
-              <Image
+              <img
                 src={
                   session?.user.image ||
                   `https://avatar.vercel.sh/${session?.user.email}`
@@ -74,7 +72,7 @@ export function SidebarUserNav({ session }: { session: Session }) {
               className="cursor-pointer"
               onSelect={() => {
                 if (session?.user.id) {
-                  router.push(`/profile/${session?.user?.id}` as Route);
+                  router.push(`/profile/${session?.user?.id}`);
                 }
               }}
             >

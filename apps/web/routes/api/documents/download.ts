@@ -145,54 +145,11 @@ export const Route = createFileRoute("/api/documents/download")({
             });
           }
 
-          if (document.fileUrl) {
-            const { getSignedUrl } = await import("@/lib/storage");
-            const signedUrl = await getSignedUrl(document.fileUrl, 15);
-
-            if (!signedUrl) {
-              return Response.json(
-                {
-                  success: false,
-                  error: "Internal Server Error",
-                  message: "Failed to generate signed URL",
-                },
-                { status: 500 },
-              );
-            }
-
-            const fileResponse = await fetch(signedUrl);
-
-            if (!fileResponse.ok) {
-              return Response.json(
-                {
-                  success: false,
-                  error: "Internal Server Error",
-                  message: "Failed to fetch file from storage",
-                },
-                { status: 500 },
-              );
-            }
-
-            const fileBuffer = await fileResponse.arrayBuffer();
-
-            return new Response(fileBuffer, {
-              headers: {
-                "Content-Type":
-                  document.fileType || "application/octet-stream",
-                "Content-Disposition": `attachment; filename="${encodeURIComponent(document.fileName || "document")}"`,
-                "Content-Length": fileBuffer.byteLength.toString(),
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                Pragma: "no-cache",
-                Expires: "0",
-              },
-            });
-          }
-
           return Response.json(
             {
               success: false,
               error: "Not Found",
-              message: "No file path or URL available for this document",
+              message: "No Nextcloud file path available for this document",
             },
             { status: 404 },
           );

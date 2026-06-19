@@ -4,6 +4,18 @@
   "main": "./cloudflare-worker.ts",
   "compatibility_date": "2025-09-02",
   "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "VITE_PUBLIC_BETTER_AUTH_URL": "https://investors.darkalphacapital.com",
+    "VITE_PUBLIC_PRISMIC_ENVIRONMENT": "darkalphacapital"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dac-investor-portal",
+      "database_id": "5baf884f-584b-4b35-b925-ee53a036de82",
+      "migrations_dir": "../../packages/db/migrations"
+    }
+  ],
   "workflows": [
     {
       "name": "onboarding-kyc-upload",

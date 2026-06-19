@@ -35,7 +35,6 @@ import {
   sanitizeUploadFileName,
   sanitizeDealFolderSegment,
 } from "@repo/nextcloud";
-import { revalidatePath } from "next/cache";
 import { authSession } from "@/lib/auth-session-from-request";
 
 const parseNumericField = (value: string | undefined | null): number | null => {
@@ -279,10 +278,6 @@ export const dealsRouter = createTRPCRouter({
         });
 
         await dispatchPendingOutbox(ctx.db);
-
-        // Revalidate paths (non-blocking)
-        revalidatePath(`/admin/deals/${dealId}`);
-        revalidatePath(`/admin/deals`);
 
         return {
           success: true,
@@ -905,19 +900,19 @@ export const dealsRouter = createTRPCRouter({
 
       // Insert invites with conflict-safe semantics to avoid race-condition failures
       const inviteRows = validUserIds.map((userId) => ({
-          id: randomUUID(),
-          dealId: input.dealId,
-          userId,
-          curationNote: input.curationNote || null,
-        }));
+        id: randomUUID(),
+        dealId: input.dealId,
+        userId,
+        curationNote: input.curationNote || null,
+      }));
 
       const insertedInvites =
         inviteRows.length > 0
           ? await ctx.db
-              .insert(dealInvite)
-              .values(inviteRows)
-              .onConflictDoNothing()
-              .returning({ id: dealInvite.id })
+            .insert(dealInvite)
+            .values(inviteRows)
+            .onConflictDoNothing()
+            .returning({ id: dealInvite.id })
           : [];
 
       const addedCount = insertedInvites.length;

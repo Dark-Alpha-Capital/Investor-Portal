@@ -3,7 +3,7 @@ import { Content } from "@prismicio/client";
 import { SliceComponentProps } from "@prismicio/react";
 import { Clock, Target, Shield, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 
 /**
  * Props for `ValueCreationPlaybook`.
