@@ -3,15 +3,16 @@ import { fetchComplianceListData } from "@/lib/server-fns/admin-route-data";
 import { ShieldCheck, Lock, Building2, Info } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ComplianceTableClient } from "@/components/compliance-table-client";
+import { serializeRouteSearch } from "@/lib/serialize-route-search";
 
 type PendingPayload = Awaited<
   ReturnType<typeof import("@repo/db/queries").getPendingInvestors>
 >;
 
 export const Route = createFileRoute("/(dashboard)/(admin)/admin/compliance/")({
-  loader: async ({ location }: { location: { search: string } }) => {
+  loader: async ({ location }) => {
     const r = await fetchComplianceListData({
-      data: { search: location.search },
+      data: { search: serializeRouteSearch(location.search) },
     });
     return {
       initialData: r.initialData,

@@ -2,11 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { fetchAdminHomePageData } from "@/lib/server-fns/admin-route-data";
 import { AdminDashboardTabs } from "@/components/admin-dashboard-tabs";
 import type { AdminHomeOk } from "@/lib/server-fns/admin-route-data";
+import { serializeRouteSearch } from "@/lib/serialize-route-search";
 
 export const Route = createFileRoute("/(dashboard)/(admin)/admin/")({
-  loader: async ({ location }: { location: { search: string } }) => {
+  loader: async ({ location }) => {
     const r = await fetchAdminHomePageData({
-      data: { search: location.search },
+      data: { search: serializeRouteSearch(location.search) },
     });
     return { dashboard: r.dashboard };
   },
@@ -26,7 +27,9 @@ function AdminDashboardInner({
   return (
     <div className="container mx-auto max-w-6xl px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight">Admin Dashboard</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Admin Dashboard
+        </h1>
         <p className="mt-2 text-muted-foreground">
           Manage users and monitor system activity
         </p>

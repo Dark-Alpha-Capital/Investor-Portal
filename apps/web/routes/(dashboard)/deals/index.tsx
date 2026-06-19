@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import type { DealsLoaderData } from "@/lib/types/investor-route-loaders";
 import { fetchMarketplaceDealsRouteData } from "@/lib/server-fns/investor-route-data";
 import { DealsMarketplace } from "./components/deals-marketplace";
+import { serializeRouteSearch } from "@/lib/serialize-route-search";
 
 function DealsPageContent({ initialData }: DealsLoaderData) {
   return (
@@ -23,9 +24,9 @@ function DealsPageContent({ initialData }: DealsLoaderData) {
 }
 
 export const Route = createFileRoute("/(dashboard)/deals/")({
-  loader: async ({ location }: { location: { search: string } }) => {
+  loader: async ({ location }) => {
     const r = await fetchMarketplaceDealsRouteData({
-      data: { search: location.search },
+      data: { search: serializeRouteSearch(location.search) },
     });
     if (r.tag === "redirect") {
       throw redirect({ to: r.to });

@@ -173,7 +173,6 @@ export const auth = betterAuth({
   },
 
   plugins: [
-    tanstackStartCookies(),
     admin(),
     customSession(async ({ user, session }) => {
       // Include the role field from the user object
@@ -186,5 +185,6 @@ export const auth = betterAuth({
         session,
       };
     }),
+    tanstackStartCookies(),
   ],
 });

@@ -3,15 +3,16 @@ import { fetchAdminDealsListData } from "@/lib/server-fns/admin-route-data";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { DealsTable } from "@/components/deals-table";
+import { serializeRouteSearch } from "@/lib/serialize-route-search";
 
 type AdminDealsPayload = Awaited<
   ReturnType<typeof import("@repo/db/queries").getAdminDeals>
 >;
 
 export const Route = createFileRoute("/(dashboard)/(admin)/admin/deals/")({
-  loader: async ({ location }: { location: { search: string } }) => {
+  loader: async ({ location }) => {
     const r = await fetchAdminDealsListData({
-      data: { search: location.search },
+      data: { search: serializeRouteSearch(location.search) },
     });
     return { initialData: r.initialData };
   },
