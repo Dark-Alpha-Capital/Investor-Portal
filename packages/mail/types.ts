@@ -1,4 +1,4 @@
-// Email job types for BullMQ queue
+// Email job types for async side-effect / workflow dispatch
 export type EmailJobType =
   | "onboarding-investor-confirmation"
   | "onboarding-admin-notification";

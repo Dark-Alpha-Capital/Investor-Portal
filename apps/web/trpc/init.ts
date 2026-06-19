@@ -1,17 +1,20 @@
 import { TRPCError, initTRPC } from "@trpc/server";
-import { cache } from "react";
 import { db } from "@repo/db";
 import superjson from "superjson";
-import { authSession } from "@/app/(auth)/auth";
+import { authSessionFromHeaders } from "@/lib/auth-session";
+import type { Session } from "@/lib/session-types";
 
-export const createTRPCContext = cache(async () => {
-  const session = await authSession();
+/** Session guaranteed non-null with a user (set by `enforceUserIsAuthed`). */
+export type SessionWithUser = Exclude<Session, null>;
+
+export async function createTRPCContext(opts: { req: Request }) {
+  const session = await authSessionFromHeaders(opts.req.headers);
 
   return {
     db,
     session,
   };
-});
+}
 
 type TRPCContext = Awaited<ReturnType<typeof createTRPCContext>>;
 
@@ -36,7 +39,8 @@ export const createCallerFactory = t.createCallerFactory;
 export const baseProcedure = t.procedure;
 
 const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
-  if (!ctx.session?.user) {
+  const session = ctx.session;
+  if (!session?.user) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "Authentication required",
@@ -46,20 +50,21 @@ const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
   return next({
     ctx: {
       ...ctx,
-      session: ctx.session,
+      session: session as SessionWithUser,
     },
   });
 });
 
 const enforceUserIsAdmin = t.middleware(({ ctx, next }) => {
-  if (!ctx.session?.user) {
+  const session = ctx.session;
+  if (!session?.user) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "Authentication required",
     });
   }
 
-  if (ctx.session.user.role !== "admin") {
+  if (session.user.role !== "admin") {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Admin access required",
@@ -69,7 +74,7 @@ const enforceUserIsAdmin = t.middleware(({ ctx, next }) => {
   return next({
     ctx: {
       ...ctx,
-      session: ctx.session,
+      session: session as SessionWithUser,
     },
   });
 });

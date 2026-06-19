@@ -1,0 +1,98 @@
+import {
+  getSectorBySlug,
+  getRelatedSectors,
+} from "@/lib/constants/sectors";
+import {
+  getInvestmentTypeBySlug,
+  getRelatedInvestmentTypes,
+} from "@/lib/constants/investment-types";
+import {
+  generateFinancialServiceJsonLd,
+  generateWebPageJsonLd,
+} from "@/lib/seo";
+import type {
+  InvestmentTypePageInput,
+  SectorPageInput,
+} from "@/lib/schemas/server-fn/inputs";
+
+export function runFetchSectorPagePayload(data: SectorPageInput) {
+  const sector = getSectorBySlug(data.sectorSlug);
+  if (!sector) {
+    return { tag: "not_found" as const };
+  }
+
+  const relatedSectors = getRelatedSectors(data.sectorSlug);
+  const breadcrumbItems = [
+    { name: "Sectors", href: "/sectors" },
+    { name: sector.name, href: `/sectors/${sector.slug}` },
+  ];
+
+  const financialServiceJsonLd = generateFinancialServiceJsonLd(
+    `${sector.name} Investments`,
+    sector.description,
+    `/sectors/${sector.slug}`,
+    `${sector.name} Investment Services`,
+  );
+
+  const webPageJsonLd = generateWebPageJsonLd(
+    `${sector.name} Investments`,
+    sector.description,
+    `/sectors/${sector.slug}`,
+    [
+      { name: "Sectors", href: "/sectors" },
+      { name: sector.name, href: `/sectors/${sector.slug}` },
+    ],
+  );
+
+  return {
+    tag: "ok" as const,
+    sector,
+    relatedSectors,
+    breadcrumbItems,
+    jsonLd: [financialServiceJsonLd, webPageJsonLd],
+  };
+}
+
+export function runFetchInvestmentTypePagePayload(data: InvestmentTypePageInput) {
+  const investmentType = getInvestmentTypeBySlug(data.typeSlug);
+  if (!investmentType) {
+    return { tag: "not_found" as const };
+  }
+
+  const relatedTypes = getRelatedInvestmentTypes(data.typeSlug);
+  const breadcrumbItems = [
+    { name: "Investments", href: "/investments" },
+    {
+      name: investmentType.name,
+      href: `/investments/${investmentType.slug}`,
+    },
+  ];
+
+  const financialServiceJsonLd = generateFinancialServiceJsonLd(
+    investmentType.name,
+    investmentType.description,
+    `/investments/${investmentType.slug}`,
+    investmentType.name,
+  );
+
+  const webPageJsonLd = generateWebPageJsonLd(
+    `${investmentType.name} Investments`,
+    investmentType.description,
+    `/investments/${investmentType.slug}`,
+    [
+      { name: "Investments", href: "/investments" },
+      {
+        name: investmentType.name,
+        href: `/investments/${investmentType.slug}`,
+      },
+    ],
+  );
+
+  return {
+    tag: "ok" as const,
+    investmentType,
+    relatedTypes,
+    breadcrumbItems,
+    jsonLd: [financialServiceJsonLd, webPageJsonLd],
+  };
+}

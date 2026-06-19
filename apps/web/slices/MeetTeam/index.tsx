@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { Content } from "@prismicio/client";
 import { PrismicRichText, SliceComponentProps } from "@prismicio/react";
-import { PrismicNextImage } from "@prismicio/next";
+import { PrismicImage } from "@prismicio/react";
 
 /**
  * Props for `MeetTeam`.
@@ -30,7 +30,7 @@ const MeetTeam: FC<MeetTeamProps> = ({ slice }) => {
               className="border border-border bg-background p-6 text-center"
             >
               <div className="mx-auto mb-6 w-40 overflow-hidden rounded-full sm:w-44 md:w-48">
-                <PrismicNextImage
+                <PrismicImage
                   field={member.person_image}
                   className="aspect-square h-full w-full object-cover"
                   sizes="(max-width: 48em) 40vw, 18vw"

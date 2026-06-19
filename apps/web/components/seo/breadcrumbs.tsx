@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { ChevronRight, Home } from "lucide-react";
 import type { BreadcrumbItem } from "@/types/seo";
 import { generateBreadcrumbJsonLd, siteConfig } from "@/lib/seo";

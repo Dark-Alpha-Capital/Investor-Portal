@@ -1,4 +1,3 @@
-"use client";
 // ^-- to make sure we can mount the Provider from a server component
 import type { QueryClient } from "@tanstack/react-query";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -27,8 +26,7 @@ function getQueryClient() {
 function getUrl() {
   const base = (() => {
     if (typeof window !== "undefined") return "";
-    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-    return "http://localhost:3000";
+    return process.env.BETTER_AUTH_URL || "http://localhost:3000";
   })();
   return `${base}/api/trpc`;
 }

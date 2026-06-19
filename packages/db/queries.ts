@@ -99,7 +99,7 @@ export const getAdminDeals = async ({
 
     // Get total count
     const [countResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(deal)
       .where(whereCondition);
 
@@ -608,7 +608,7 @@ export const getPendingInvestors = async ({
 
     // Get total count
     const [countResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(user)
       .where(whereCondition);
 
@@ -650,7 +650,7 @@ export const getPendingInvestors = async ({
 
         // Get permission count (active, non-revoked permissions)
         const [permissionCount] = await db
-          .select({ count: sql<number>`count(*)::int` })
+          .select({ count: sql<number>`count(*)` })
           .from(vehiclePermission)
           .where(
             and(
@@ -1175,7 +1175,7 @@ export const getMarketplaceDeals = async ({
 
     // Get total count
     const [countResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(deal)
       .where(whereCondition);
 

@@ -26,19 +26,16 @@ import {
   inArray,
 } from "drizzle-orm";
 import { z } from "zod";
-import { createClient } from "webdav";
-import { FileStat } from "webdav";
-import { revalidatePath } from "next/cache";
-import { authSession } from "@/app/(auth)/auth";
-
-// Helper functions hoisted outside mutations for better performance
-const sanitizeFileName = (fileName: string): string => {
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.\./g, "_");
-};
-
-const sanitizeDealName = (dealName: string): string => {
-  return dealName.replace(/[^a-z0-9]/gi, "_").toLowerCase();
-};
+import {
+  createNextcloudClientFromEnv,
+  fileExists,
+  listFiles,
+  ensureDirectory,
+  uploadBuffer,
+  sanitizeUploadFileName,
+  sanitizeDealFolderSegment,
+} from "@repo/nextcloud";
+import { authSession } from "@/lib/auth-session-from-request";
 
 const parseNumericField = (value: string | undefined | null): number | null => {
   if (!value) return null;
@@ -281,10 +278,6 @@ export const dealsRouter = createTRPCRouter({
         });
 
         await dispatchPendingOutbox(ctx.db);
-
-        // Revalidate paths (non-blocking)
-        revalidatePath(`/admin/deals/${dealId}`);
-        revalidatePath(`/admin/deals`);
 
         return {
           success: true,
@@ -599,20 +592,13 @@ export const dealsRouter = createTRPCRouter({
 
       // Convert slug to match worker's sanitization (replace non-alphanumeric with underscore, lowercase)
       // slugify uses hyphens, but worker uses underscores
-      const sanitizedName = sanitizeDealName(dealSlug);
+      const sanitizedName = sanitizeDealFolderSegment(dealSlug);
       const folderPath = `/Deals/Deal_${sanitizedName}`;
 
       try {
-        const client = createClient(
-          `${process.env.NEXTCLOUD_URL}/remote.php/dav/files/${process.env.NEXTCLOUD_USER}`,
-          {
-            username: process.env.NEXTCLOUD_USER,
-            password: process.env.NEXTCLOUD_PASSWORD,
-          }
-        );
+        const client = createNextcloudClientFromEnv();
 
-        // Check if folder exists first (like apps/server does)
-        const folderExists = await client.exists(folderPath);
+        const folderExists = await fileExists(client, folderPath);
 
         if (!folderExists) {
           return {
@@ -621,16 +607,7 @@ export const dealsRouter = createTRPCRouter({
           };
         }
 
-        // Get directory contents
-        const contents = await client.getDirectoryContents(folderPath);
-        // Transform the data
-        const files = (contents as FileStat[]).map((item) => ({
-          name: item.basename,
-          size: item.size,
-          lastModified: item.lastmod,
-          mimeType: item.mime ?? "",
-          downloadUrl: client.getFileDownloadLink(item.filename),
-        }));
+        const files = await listFiles(client, folderPath);
 
         return {
           success: true,
@@ -742,33 +719,20 @@ export const dealsRouter = createTRPCRouter({
       const dealSlug =
         dealRecord.slug ||
         slugify(dealRecord.name, { lower: true, strict: true });
-      const sanitizedName = sanitizeDealName(dealSlug);
+      const sanitizedName = sanitizeDealFolderSegment(dealSlug);
       const folderPath = `/Deals/Deal_${sanitizedName}`;
 
       // Sanitize file name to prevent path traversal and invalid characters
-      const sanitizedFileName = sanitizeFileName(input.fileName);
+      const sanitizedFileName = sanitizeUploadFileName(input.fileName);
       const remoteFilePath = `${folderPath}/${sanitizedFileName}`;
 
       try {
-        // Create webdav client
-        const client = createClient(
-          `${process.env.NEXTCLOUD_URL}/remote.php/dav/files/${process.env.NEXTCLOUD_USER}`,
-          {
-            username: process.env.NEXTCLOUD_USER,
-            password: process.env.NEXTCLOUD_PASSWORD,
-          }
-        );
+        const client = createNextcloudClientFromEnv();
 
-        // Ensure folder exists, create if it doesn't
-        const folderExists = await client.exists(folderPath);
-        if (!folderExists) {
-          await client.createDirectory(folderPath, { recursive: true });
-        }
+        await ensureDirectory(client, folderPath);
 
-        // Decode base64 to buffer
         const fileBuffer = Buffer.from(input.fileData, "base64");
 
-        // Verify decoded buffer size matches expected size
         if (fileBuffer.length !== input.fileSize) {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -776,15 +740,9 @@ export const dealsRouter = createTRPCRouter({
           });
         }
 
-        // Upload file using putFileContents
-        const success = await client.putFileContents(
-          remoteFilePath,
-          fileBuffer,
-          {
-            overwrite: true,
-            contentLength: fileBuffer.length,
-          }
-        );
+        const success = await uploadBuffer(client, remoteFilePath, fileBuffer, {
+          overwrite: true,
+        });
 
         if (!success) {
           throw new TRPCError({
@@ -793,7 +751,6 @@ export const dealsRouter = createTRPCRouter({
           });
         }
 
-        // Get file info after upload
         const fileStat = await client.stat(remoteFilePath);
         const statData = "data" in fileStat ? fileStat.data : fileStat;
 
@@ -943,19 +900,19 @@ export const dealsRouter = createTRPCRouter({
 
       // Insert invites with conflict-safe semantics to avoid race-condition failures
       const inviteRows = validUserIds.map((userId) => ({
-          id: randomUUID(),
-          dealId: input.dealId,
-          userId,
-          curationNote: input.curationNote || null,
-        }));
+        id: randomUUID(),
+        dealId: input.dealId,
+        userId,
+        curationNote: input.curationNote || null,
+      }));
 
       const insertedInvites =
         inviteRows.length > 0
           ? await ctx.db
-              .insert(dealInvite)
-              .values(inviteRows)
-              .onConflictDoNothing()
-              .returning({ id: dealInvite.id })
+            .insert(dealInvite)
+            .values(inviteRows)
+            .onConflictDoNothing()
+            .returning({ id: dealInvite.id })
           : [];
 
       const addedCount = insertedInvites.length;

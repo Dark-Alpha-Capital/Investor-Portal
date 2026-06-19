@@ -1,4 +1,4 @@
-import React, { Suspense } from "react";
+import React from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -7,14 +7,11 @@ import {
 } from "@/components/ui/sidebar";
 import { SidebarUserNav } from "./sidebar-user-nav";
 import { DashboardNavLinks } from "./dashboard-nav-links";
-import { DashboardSidebarSkeleton } from "./skeleton/dashboard-sidebar-skeleton";
-import { authSession } from "@/app/(auth)/auth";
+import type { Session } from "@/lib/session-types";
 
-async function DashboardSidebarContent() {
-  const session = await authSession();
-
+export function DashboardSidebar({ session }: { session: Session }) {
   return (
-    <>
+    <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="px-2 py-1">
           <h2 className="font-semibold text-sm tracking-tight truncate group-data-[collapsible=icon]:hidden">
@@ -28,16 +25,6 @@ async function DashboardSidebarContent() {
       <SidebarFooter>
         <SidebarUserNav session={session} />
       </SidebarFooter>
-    </>
-  );
-}
-
-export async function DashboardSidebar() {
-  return (
-    <Sidebar collapsible="icon">
-      <Suspense fallback={<DashboardSidebarSkeleton />}>
-        <DashboardSidebarContent />
-      </Suspense>
     </Sidebar>
   );
 }

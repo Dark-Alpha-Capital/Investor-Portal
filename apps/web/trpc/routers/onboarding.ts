@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { randomUUID } from "crypto";
-import { baseProcedure, createTRPCRouter } from "../init";
+import { createTRPCRouter, protectedProcedure } from "../init";
 import {
   onboarding,
   onboardingDocument,
@@ -12,16 +12,16 @@ import {
   kycAttestation,
 } from "@repo/db/schema";
 import { and, eq, desc, sql } from "drizzle-orm";
-import { onboardingQueue } from "@/lib/redis";
+import { env } from "cloudflare:workers";
 import { TRPCError } from "@trpc/server";
-import { revalidateTag } from "next/cache";
+import { mapWorkflowStatusToJobProgress } from "@/lib/map-workflow-job-status";
 import { dispatchPendingOutbox } from "@/lib/outbox";
 import {
   EMAIL_CONFIG,
   type OnboardingInvestorConfirmationJobData,
   type OnboardingAdminNotificationJobData,
 } from "@repo/mail/types";
-import { authSession } from "@/app/(auth)/auth";
+import { sanitizeUploadFileName } from "@repo/nextcloud";
 
 // Admin email for onboarding notifications - can be configured via env var
 const ADMIN_NOTIFICATION_EMAIL =
@@ -178,19 +178,19 @@ const investorDataSchema = z.object({
   electronicSignatureDate: z.string().optional(),
 });
 
-// Schema for file uploads
-const fileSchema = z.object({
-  documentType: z.string(),
-  name: z.string(),
-  type: z.string(),
-  size: z.number(),
-  buffer: z.string(), // base64 encoded
+/** File uploads for onboarding submit (tRPC + HTTP proxy). */
+export const onboardingSubmitFileSchema = z.object({
+  documentType: z.string().min(1).max(128),
+  name: z.string().min(1).max(512),
+  type: z.string().max(256),
+  size: z.number().int().positive().max(25 * 1024 * 1024),
+  buffer: z.string().min(1).max(40_000_000),
 });
 
-// Main onboarding submit schema
-const onboardingSubmitSchema = z.object({
+/** Main onboarding submit body (shared with `/api/onboarding/submit`). */
+export const onboardingSubmitSchema = z.object({
   investorData: investorDataSchema,
-  files: z.array(fileSchema),
+  files: z.array(onboardingSubmitFileSchema).max(50),
 });
 
 // Helper functions hoisted outside mutation for better performance
@@ -215,15 +215,12 @@ const trimRequired = (value: string | undefined | null): string => {
   return value.trim();
 };
 
-const sanitizeFileName = (fileName: string): string => {
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.\./g, "_");
-};
-
 export const onboardingRouter = createTRPCRouter({
-  submit: baseProcedure
+  submit: protectedProcedure
     .input(onboardingSubmitSchema)
     .mutation(async ({ input, ctx }) => {
       const { investorData, files } = input;
+      const userId = ctx.session.user.id;
 
       // Early validation: files are required
       if (!files || files.length === 0) {
@@ -232,15 +229,6 @@ export const onboardingRouter = createTRPCRouter({
           message: "KYC files are required for onboarding submission",
         });
       }
-
-      const session = await authSession();
-      if (!session?.user) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You must be logged in to submit onboarding",
-        });
-      }
-      const userId = session.user.id;
 
       // Verify user exists and generate onboarding ID in parallel
       const [userRecord] = await ctx.db
@@ -473,7 +461,7 @@ export const onboardingRouter = createTRPCRouter({
       // Create document records in the database
       // These records will be updated by the worker with the final file paths
       const documentRecords = files.map((file) => {
-        const sanitizedFileName = sanitizeFileName(file.name);
+        const sanitizedFileName = sanitizeUploadFileName(file.name);
         const expectedFilePath = `/investors/${userId}/onboarding/kyc-files/${sanitizedFileName}`;
 
         return {
@@ -576,8 +564,6 @@ export const onboardingRouter = createTRPCRouter({
 
         await dispatchPendingOutbox(ctx.db);
 
-        revalidateTag(`onboarding-status-${userId}`, "max");
-
         return {
           success: true,
           message: "Onboarding data submitted successfully",
@@ -600,57 +586,53 @@ export const onboardingRouter = createTRPCRouter({
     }),
 
   // Get job progress
-  getJobProgress: baseProcedure
+  getJobProgress: protectedProcedure
     .input(
       z.object({
         jobId: z.string(),
       })
     )
     .query(async ({ input, ctx }) => {
-      const session = await authSession();
-      if (!session?.user) {
+      const prefix = "upload-onboarding-files:";
+      if (!input.jobId.startsWith(prefix)) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Job not found",
+        });
+      }
+      const onboardingId = input.jobId.slice(prefix.length);
+
+      const [record] = await ctx.db
+        .select({ userId: onboarding.userId })
+        .from(onboarding)
+        .where(eq(onboarding.id, onboardingId))
+        .limit(1);
+
+      if (!record || record.userId !== ctx.session.user.id) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "You are not allowed to access this job",
         });
       }
-      const job = await onboardingQueue.getJob(input.jobId);
 
-      if (!job) {
+      let instance;
+      try {
+        instance = await env.ONBOARDING_KYC_WORKFLOW.get(input.jobId);
+      } catch {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Job not found",
         });
       }
 
-      // Verify the job belongs to this user by checking the job data
-      const jobData = job.data as {
-        investorId: string;
-      };
-
-      if (jobData.investorId !== session.user.id) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You are not allowed to access this job",
-        });
-      }
-
-      const state = await job.getState();
-      const progress = job.progress;
-
-      return {
-        jobId: job.id,
-        state,
-        progress: typeof progress === "number" ? progress : 0,
-        returnvalue: job.returnvalue,
-        failedReason: job.failedReason,
-      };
+      const details = await instance.status();
+      return mapWorkflowStatusToJobProgress(input.jobId, details);
     }),
 
 
 
   // Update onboarding data (investor can edit after submission)
-  updateOnboarding: baseProcedure
+  updateOnboarding: protectedProcedure
     .input(
       z.object({
         // All editable fields (partial - only send what changed)
@@ -710,15 +692,7 @@ export const onboardingRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const session = await authSession();
-      if (!session?.user) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You must be logged in",
-        });
-      }
-
-      const userId = session.user.id;
+      const userId = ctx.session.user.id;
 
       // Get current onboarding
       const [currentOnboarding] = await ctx.db
@@ -899,8 +873,6 @@ export const onboardingRouter = createTRPCRouter({
             "Onboarding was updated by another request. Please refresh and retry.",
         });
       }
-
-      revalidateTag(`onboarding-status-${userId}`, "max");
 
       console.log(
         `[Onboarding] User ${userId} edited ${changes.length} field(s) on onboarding ${currentOnboarding.id}`

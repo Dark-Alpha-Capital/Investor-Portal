@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { Content } from "@prismicio/client";
 import { SliceComponentProps } from "@prismicio/react";
-import { PrismicNextImage } from "@prismicio/next";
+import { PrismicImage } from "@prismicio/react";
 
 export type RoundedImageContentProps =
   SliceComponentProps<Content.RoundedImageContentSlice>;
@@ -28,9 +28,8 @@ const RoundedImageContent: FC<RoundedImageContentProps> = ({ slice }) => {
           </div>
 
           <div className="relative order-1 min-h-64 bg-muted lg:order-2 lg:min-h-full">
-            <PrismicNextImage
+            <PrismicImage
               field={slice.primary.main_image}
-              fill
               className="object-cover object-center"
               sizes="(max-width: 64em) 92vw, 46vw"
             />

@@ -1,4 +1,3 @@
-"use client";
 
 import { format } from "date-fns";
 import {
@@ -11,13 +10,6 @@ import {
   UserCog,
   History,
 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -86,30 +78,30 @@ const formatValue = (value: unknown): string => {
 export function AuditHistory({ entries }: AuditHistoryProps) {
   if (entries.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Audit History</CardTitle>
-          <CardDescription>No audit events recorded</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <section className="flex flex-col gap-5 border-y border-border py-5">
+        <header className="space-y-1.5">
+          <h2 className="text-base font-semibold leading-none">Audit History</h2>
+          <p className="text-sm text-muted-foreground">No audit events recorded</p>
+        </header>
+        <div>
           <div className="text-center py-8 text-muted-foreground">
             <History className="h-12 w-12 mx-auto mb-3 opacity-50" />
             <p>No audit events found for this investor</p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Audit History</CardTitle>
-        <CardDescription>
+    <section className="flex flex-col gap-5 border-y border-border py-5">
+      <header className="space-y-1.5">
+        <h2 className="text-base font-semibold leading-none">Audit History</h2>
+        <p className="text-sm text-muted-foreground">
           {entries.length} event(s) recorded for this investor
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+        </p>
+      </header>
+      <div>
         <ScrollArea className="h-[400px] pr-4">
           <div className="relative">
             {/* Timeline line */}
@@ -235,7 +227,7 @@ export function AuditHistory({ entries }: AuditHistoryProps) {
             </div>
           </div>
         </ScrollArea>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

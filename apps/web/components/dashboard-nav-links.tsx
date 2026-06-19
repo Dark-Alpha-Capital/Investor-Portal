@@ -15,7 +15,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import type { Session } from "@/app/(auth)/auth";
+import type { Session } from "@/lib/session-types";
 
 export function DashboardNavLinks({ session }: { session: Session }) {
   const isAdmin = session?.user?.role === "admin";

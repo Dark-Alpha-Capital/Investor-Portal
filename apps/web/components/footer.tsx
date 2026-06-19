@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { Mail } from "lucide-react";
 import { ModeToggle } from "./mode-toggle";
 

@@ -4,7 +4,8 @@ import type { auth } from "@/auth";
 
 export const authClient: ReturnType<typeof createAuthClient> = createAuthClient(
   {
-    baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
+    baseURL:
+      import.meta.env.VITE_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
     plugins: [adminClient(), customSessionClient<typeof auth>()],
   }
 );

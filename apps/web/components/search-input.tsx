@@ -1,6 +1,5 @@
-"use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "@/hooks/use-app-navigation";
 import { useRef, useTransition } from "react";
 import { Loader2, Search, X } from "lucide-react";
 import { useDebouncedCallback } from "use-debounce";

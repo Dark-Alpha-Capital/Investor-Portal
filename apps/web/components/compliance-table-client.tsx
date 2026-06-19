@@ -1,8 +1,7 @@
-"use client";
 
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "@/hooks/use-app-navigation";
 import { useCallback, useTransition, useMemo } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import {
   CheckCircle2,
   Clock,
@@ -229,7 +228,7 @@ export function ComplianceTableClient({
       }
     }
     return items;
-  }, [pagination.page, pagination.totalPages]);
+  }, [pagination]);
 
   return (
     <div className="space-y-4">

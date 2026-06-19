@@ -1,7 +1,6 @@
-"use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "@/hooks/use-app-navigation";
 import { useDebouncedCallback } from "use-debounce";
 
 interface UseDebouncedSearchOptions {

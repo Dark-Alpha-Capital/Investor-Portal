@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { Content } from "@prismicio/client";
 import { PrismicRichText, SliceComponentProps } from "@prismicio/react";
-import { PrismicNextImage, PrismicNextLink } from "@prismicio/next";
+import { PrismicImage, PrismicLink } from "@prismicio/react";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 
@@ -16,7 +16,7 @@ const InvestmentHero: FC<InvestmentHeroProps> = ({ slice }) => {
       className="relative isolate overflow-hidden py-16 md:py-24"
     >
       <div className="absolute inset-0 -z-10">
-        <PrismicNextImage
+        <PrismicImage
           field={slice.primary.background_image}
           className="h-full w-full object-cover"
           priority
@@ -27,7 +27,7 @@ const InvestmentHero: FC<InvestmentHeroProps> = ({ slice }) => {
 
       <div className="mx-auto grid w-[min(92%,76rem)] items-center gap-10 border-y border-white/40 bg-white/90 p-6 backdrop-blur md:grid-cols-2 md:p-10">
         <div className="order-2 md:order-1">
-          <PrismicNextImage
+          <PrismicImage
             field={slice.primary.featured_image}
             className="h-auto w-full border border-border object-cover"
             priority
@@ -50,20 +50,20 @@ const InvestmentHero: FC<InvestmentHeroProps> = ({ slice }) => {
               asChild
               className="w-full justify-center sm:w-auto"
             >
-              <PrismicNextLink field={slice.primary.pdf_guide} target="_blank">
+              <PrismicLink field={slice.primary.pdf_guide} target="_blank">
                 <Download className="size-4" />
                 <span>{slice.primary.pdf_guide.text}</span>
-              </PrismicNextLink>
+              </PrismicLink>
             </Button>
             <Button
               variant="outline"
               asChild
               className="w-full justify-center sm:w-auto"
             >
-              <PrismicNextLink field={slice.primary.guide_image} target="_blank">
+              <PrismicLink field={slice.primary.guide_image} target="_blank">
                 <Download className="size-4" />
                 <span>{slice.primary.guide_image.text}</span>
-              </PrismicNextLink>
+              </PrismicLink>
             </Button>
           </div>
         </div>

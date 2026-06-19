@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata } from "@/types/metadata";
 
 /**
  * Site configuration for SEO

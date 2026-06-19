@@ -1,8 +1,7 @@
-"use client";
 
 import React, { useState, useMemo, useCallback, memo } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useRouter } from "@/hooks/use-app-navigation";
+import { AppLink as Link } from "@/components/app-link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

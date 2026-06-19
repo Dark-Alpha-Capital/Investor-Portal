@@ -1,37 +1,36 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # Dependencies
-node_modules
+node_modules/
 .pnp
 .pnp.js
 
-# Local env files
+# Local env & secrets
 .env
 .env.local
 .env.development.local
 .env.test.local
-
+.env.production.local
 investor-portal-key.json
 
-
-
-.env.production.local
-
-# Testing
-coverage
-
-# Turbo
-.turbo
-
-# Vercel
-.vercel
-
-# Build Outputs
+# Build outputs (Vite / Nitro / TanStack Start, Next, etc.)
+.output/
+dist/
+build/
 .next/
 out/
-build
-dist
 
+# Tooling & caches
+.turbo/
+.tanstack/
+.vercel/
+.wrangler/
+.nitro/
+*.tsbuildinfo
+.eslintcache
+
+# Testing
+coverage/
 
 # Debug
 npm-debug.log*

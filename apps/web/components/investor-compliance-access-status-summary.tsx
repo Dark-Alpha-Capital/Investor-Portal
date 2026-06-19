@@ -1,4 +1,3 @@
-"use client";
 
 import {
   ShieldCheck,
@@ -11,7 +10,6 @@ import {
   Wallet,
   AlertCircle,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -115,15 +113,14 @@ export function AccessStatusSummary({
 
   return (
     <div className="space-y-4">
-      {/* Main Access Status Card */}
-      <Card className={`border-2 ${access.color}`}>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            {access.icon}
-            <span className={access.textColor}>Deal Marketplace Access</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section
+        className={`flex flex-col gap-4 rounded-lg border-2 p-4 ${access.color}`}
+      >
+        <h2 className="flex items-center gap-2 text-lg font-semibold leading-none">
+          {access.icon}
+          <span className={access.textColor}>Deal Marketplace Access</span>
+        </h2>
+        <div className="space-y-4">
           {/* Status Badge */}
           <div className="flex items-center gap-3">
             <Badge
@@ -199,8 +196,8 @@ export function AccessStatusSummary({
                 </ul>
               </div>
             )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* Info box explaining the system */}
       <div className="rounded-lg bg-muted/50 p-4 text-sm">

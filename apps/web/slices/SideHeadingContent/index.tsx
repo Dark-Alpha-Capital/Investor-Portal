@@ -3,7 +3,7 @@ import { Content } from "@prismicio/client";
 import { PrismicRichText, SliceComponentProps } from "@prismicio/react";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import { PrismicNextLink } from "@prismicio/next";
+import { PrismicLink } from "@prismicio/react";
 
 /**
  * Props for `SideHeadingContent`.
@@ -42,10 +42,10 @@ const SideHeadingContent: FC<SideHeadingContentProps> = ({ slice }) => {
                 className="group"
                 asChild
               >
-                <PrismicNextLink field={slice.primary.button_link}>
+                <PrismicLink field={slice.primary.button_link}>
                   {slice.primary.button_link.text}
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </PrismicNextLink>
+                </PrismicLink>
               </Button>
             </div>
           </div>

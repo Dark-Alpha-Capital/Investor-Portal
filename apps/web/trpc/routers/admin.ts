@@ -14,8 +14,13 @@ import {
   getDealInterestsWithUsersByDealId,
   getDealInvestmentsWithUsersByDealId,
 } from "@repo/db/queries";
-import { createClient, type FileStat } from "webdav";
 import slugify from "slugify";
+import {
+  createNextcloudClientFromEnv,
+  fileExists,
+  listFiles,
+  sanitizeDealFolderSegment,
+} from "@repo/nextcloud";
 
 export const adminRouter = createTRPCRouter({
   /**
@@ -69,7 +74,7 @@ export const adminRouter = createTRPCRouter({
 
       // Get total count
       const [countResult] = await ctx.db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)` })
         .from(user)
         .where(whereCondition);
 
@@ -161,7 +166,7 @@ export const adminRouter = createTRPCRouter({
 
       // Get total count
       const [countResult] = await ctx.db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)` })
         .from(user)
         .where(whereCondition);
 
@@ -266,7 +271,7 @@ export const adminRouter = createTRPCRouter({
 
       // Get total count
       const [countResult] = await ctx.db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)` })
         .from(deal)
         .where(whereCondition);
 
@@ -378,7 +383,7 @@ export const adminRouter = createTRPCRouter({
           const whereCondition = and(...conditions);
 
           const [countResult] = await ctx.db
-            .select({ count: sql<number>`count(*)::int` })
+            .select({ count: sql<number>`count(*)` })
             .from(user)
             .where(whereCondition);
 
@@ -449,7 +454,7 @@ export const adminRouter = createTRPCRouter({
           const whereCondition = and(...conditions);
 
           const [countResult] = await ctx.db
-            .select({ count: sql<number>`count(*)::int` })
+            .select({ count: sql<number>`count(*)` })
             .from(user)
             .where(whereCondition);
 
@@ -581,32 +586,15 @@ export const adminRouter = createTRPCRouter({
         const dealSlug =
           dealRecord.slug ||
           slugify(dealRecord.name, { lower: true, strict: true });
-        const sanitizedName = dealSlug
-          .replace(/[^a-z0-9]/gi, "_")
-          .toLowerCase();
+        const sanitizedName = sanitizeDealFolderSegment(dealSlug);
         const folderPath = `/Deals/Deal_${sanitizedName}`;
 
-        const client = createClient(
-          `${process.env.NEXTCLOUD_URL}/remote.php/dav/files/${process.env.NEXTCLOUD_USER}`,
-          {
-            username: process.env.NEXTCLOUD_USER,
-            password: process.env.NEXTCLOUD_PASSWORD,
-          }
-        );
+        const client = createNextcloudClientFromEnv();
 
-        const folderExists = await client.exists(folderPath);
+        const folderExists = await fileExists(client, folderPath);
 
         if (folderExists) {
-          const contents = await client.getDirectoryContents(folderPath);
-          files = (contents as FileStat[])
-            .map((item) => ({
-              name: item.basename,
-              size: item.size,
-              lastModified: item.lastmod,
-              mimeType: item.mime ?? "",
-              downloadUrl: client.getFileDownloadLink(item.filename),
-            }))
-            .filter((f) => f.mimeType !== "httpd/unix-directory");
+          files = await listFiles(client, folderPath);
         }
       } catch (error) {
         console.error("Error listing files:", error);

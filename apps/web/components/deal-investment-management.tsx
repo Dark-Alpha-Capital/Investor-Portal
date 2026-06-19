@@ -1,14 +1,6 @@
-"use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useRouter } from "@/hooks/use-app-navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -40,7 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { Plus, Edit, DollarSign, TrendingUp } from "lucide-react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 
 type Investment = {
   id: string;
@@ -320,59 +312,45 @@ export function InvestmentManagement({
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              Total Committed
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(totalCommitted.toString())}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              Total Funded
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(totalFunded.toString())}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Current Value (NAV)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(totalCurrentValue.toString())}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-6 border-y border-border py-5 md:grid-cols-3">
+        <div className="space-y-2">
+          <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <DollarSign className="h-4 w-4" />
+            Total Committed
+          </p>
+          <p className="text-2xl font-bold">
+            {formatCurrency(totalCommitted.toString())}
+          </p>
+        </div>
+        <div className="space-y-2">
+          <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <DollarSign className="h-4 w-4" />
+            Total Funded
+          </p>
+          <p className="text-2xl font-bold">
+            {formatCurrency(totalFunded.toString())}
+          </p>
+        </div>
+        <div className="space-y-2">
+          <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <TrendingUp className="h-4 w-4" />
+            Current Value (NAV)
+          </p>
+          <p className="text-2xl font-bold">
+            {formatCurrency(totalCurrentValue.toString())}
+          </p>
+        </div>
       </div>
 
-      {/* Create Investment Dialog */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Investments</CardTitle>
-              <CardDescription>
+      <section className="flex flex-col gap-5 border-y border-border py-5">
+        <header>
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-1.5">
+              <h2 className="text-base font-semibold leading-none">Investments</h2>
+              <p className="text-sm text-muted-foreground">
                 Manage investments for this deal. Create investments after users
                 sign commitment documents.
-              </CardDescription>
+              </p>
             </div>
             <Dialog
               open={isCreateDialogOpen}
@@ -531,8 +509,8 @@ export function InvestmentManagement({
               </DialogContent>
             </Dialog>
           </div>
-        </CardHeader>
-        <CardContent>
+        </header>
+        <div>
           {investments.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <p>No investments have been made in this deal yet.</p>
@@ -621,8 +599,8 @@ export function InvestmentManagement({
               </TableBody>
             </Table>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* Update Investment Dialog */}
       <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>

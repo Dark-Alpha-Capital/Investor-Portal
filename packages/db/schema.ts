@@ -1,16 +1,24 @@
 import { relations, sql } from "drizzle-orm";
 import {
-  pgTable,
-  doublePrecision,
+  sqliteTable,
+  real,
   integer,
   text,
-  timestamp,
-  boolean,
   index,
   uniqueIndex,
-  jsonb,
-  pgEnum,
-} from "drizzle-orm/pg-core";
+} from "drizzle-orm/sqlite-core";
+
+const pgTable = sqliteTable;
+const doublePrecision = real;
+const boolean = (name: string) => integer(name, { mode: "boolean" });
+const timestamp = (name: string) => integer(name, { mode: "timestamp_ms" });
+const jsonb = (name: string) => text(name, { mode: "json" });
+const pgEnum = <TValues extends [string, ...string[]]>(
+  _enumName: string,
+  values: TValues
+) => {
+  return (columnName: string) => text(columnName, { enum: values });
+};
 
 export const kyc_status_enum = pgEnum("kyc_status", [
   "review",
@@ -45,9 +53,9 @@ export const sideEffectOutbox = pgTable(
     attempts: integer("attempts").default(0).notNull(),
     lastError: text("last_error"),
     dispatchedAt: timestamp("dispatched_at"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
@@ -67,9 +75,9 @@ export const user = pgTable("user", {
     .default(false)
     .notNull(),
   kycStatus: kyc_status_enum("kyc_status").default("review").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
   updatedAt: timestamp("updated_at")
-    .defaultNow()
+    .default(sql`(unixepoch() * 1000)`)
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
   role: text("role"),
@@ -84,7 +92,7 @@ export const session = pgTable(
     id: text("id").primaryKey(),
     expiresAt: timestamp("expires_at").notNull(),
     token: text("token").notNull().unique(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -114,7 +122,7 @@ export const account = pgTable(
     refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
     scope: text("scope"),
     password: text("password"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -129,9 +137,9 @@ export const verification = pgTable(
     identifier: text("identifier").notNull(),
     value: text("value").notNull(),
     expiresAt: timestamp("expires_at").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
@@ -303,9 +311,9 @@ export const onboarding = pgTable(
     editCount: text("edit_count").default("0"), // Number of times edited after submission
     isEditable: boolean("is_editable").default(true), // Can investor still edit?
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -336,16 +344,16 @@ export const onboardingDocument = pgTable(
     filePath: text("file_path"), // Local file path if stored on server
 
     // Additional metadata
-    uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+    uploadedAt: timestamp("uploaded_at").default(sql`(unixepoch() * 1000)`).notNull(),
 
     // Document review status
     status: document_status_enum("status").default("pending").notNull(),
     reviewedAt: timestamp("reviewed_at"),
     reviewedBy: text("reviewed_by"), // Admin user ID who reviewed
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -398,10 +406,10 @@ export const onboardingEditHistory = pgTable(
     newValue: text("new_value"), // Value after the change (stringified)
 
     // Metadata
-    editedAt: timestamp("edited_at").defaultNow().notNull(),
+    editedAt: timestamp("edited_at").default(sql`(unixepoch() * 1000)`).notNull(),
     editReason: text("edit_reason"), // Optional reason for the edit
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
   },
   (table) => [
     index("onboarding_edit_history_onboardingId_idx").on(table.onboardingId),
@@ -585,9 +593,9 @@ export const deal = pgTable("deal", {
 
   launchDate: timestamp("launch_date"),
   closeDate: timestamp("close_date"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
   updatedAt: timestamp("updated_at")
-    .defaultNow()
+    .default(sql`(unixepoch() * 1000)`)
     .$onUpdate(() => new Date()),
 });
 
@@ -604,7 +612,7 @@ export const dealInvite = pgTable(
 
     curationNote: text("curation_note"),
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
   },
   (t) => [
     index("deal_invite_user_idx").on(t.userId),
@@ -629,9 +637,9 @@ export const dealInterest = pgTable(
     status: interest_status_enum("status").default("interested").notNull(),
     proposedAmount: doublePrecision("proposed_amount"),
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => new Date()),
   },
   (table) => [
@@ -666,9 +674,9 @@ export const investment = pgTable("investment", {
   // Ownership specific
   ownershipPercentage: doublePrecision("ownership_percentage"),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
   updatedAt: timestamp("updated_at")
-    .defaultNow()
+    .default(sql`(unixepoch() * 1000)`)
     .$onUpdate(() => new Date()),
 });
 
@@ -698,10 +706,10 @@ export const investmentDocument = pgTable(
     year: text("year"), // e.g., "2024" for annual documents
 
     // Additional metadata
-    uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    uploadedAt: timestamp("uploaded_at").default(sql`(unixepoch() * 1000)`).notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -787,7 +795,7 @@ export const auditLog = pgTable(
     metadata: jsonb("metadata"), // Additional context
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
   },
   (table) => [
     index("audit_log_userId_idx").on(table.userId),
@@ -810,13 +818,13 @@ export const userRoleAssignment = pgTable(
     grantedBy: text("granted_by").references(() => user.id, {
       onDelete: "set null",
     }),
-    grantedAt: timestamp("granted_at").defaultNow().notNull(),
+    grantedAt: timestamp("granted_at").default(sql`(unixepoch() * 1000)`).notNull(),
     revokedAt: timestamp("revoked_at"), // Null if still active
     revokedBy: text("revoked_by").references(() => user.id, {
       onDelete: "set null",
     }),
     notes: text("notes"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
   },
   (table) => [
     index("user_role_assignment_userId_idx").on(table.userId),
@@ -860,9 +868,9 @@ export const beneficialOwner = pgTable(
     isPep: boolean("is_pep").default(false),
     pepDetails: text("pep_details"),
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -895,9 +903,9 @@ export const authorizedSignatory = pgTable(
     // Board resolution reference
     boardResolutionDate: text("board_resolution_date"),
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -937,9 +945,9 @@ export const kycAttestation = pgTable(
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -972,9 +980,9 @@ export const investorClearance = pgTable(
     // Expiry (if clearance has time limit)
     expiresAt: timestamp("expires_at"),
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -1008,7 +1016,7 @@ export const vehiclePermission = pgTable(
     grantedBy: text("granted_by").references(() => user.id, {
       onDelete: "set null",
     }),
-    grantedAt: timestamp("granted_at").defaultNow().notNull(),
+    grantedAt: timestamp("granted_at").default(sql`(unixepoch() * 1000)`).notNull(),
     notes: text("notes"),
 
     // Revocation
@@ -1018,9 +1026,9 @@ export const vehiclePermission = pgTable(
     }),
     revokeReason: text("revoke_reason"),
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -1028,8 +1036,7 @@ export const vehiclePermission = pgTable(
     index("vehicle_permission_userId_idx").on(table.userId),
     index("vehicle_permission_dealId_idx").on(table.dealId),
     uniqueIndex("vehicle_permission_user_deal_active_uniq")
-      .on(table.userId, table.dealId)
-      .where(sql`${table.revokedAt} is null`),
+      .on(table.userId, table.dealId),
   ]
 );
 
@@ -1057,9 +1064,9 @@ export const dealDocument = pgTable(
     createdBy: text("created_by").references(() => user.id, {
       onDelete: "set null",
     }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -1094,7 +1101,7 @@ export const documentVersion = pgTable(
     uploadedBy: text("uploaded_by").references(() => user.id, {
       onDelete: "set null",
     }),
-    uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+    uploadedAt: timestamp("uploaded_at").default(sql`(unixepoch() * 1000)`).notNull(),
 
     // Review metadata
     reviewedBy: text("reviewed_by").references(() => user.id, {
@@ -1122,9 +1129,9 @@ export const documentVersion = pgTable(
     }),
     supersededByVersionId: text("superseded_by_version_id"),
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -1149,7 +1156,7 @@ export const documentVisibility = pgTable(
     // Specific user IDs (if visibilityType is "specific_users")
     userIds: jsonb("user_ids").$type<string[]>(),
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
   },
   (table) => [
     index("document_visibility_versionId_idx").on(table.documentVersionId),
@@ -1186,7 +1193,7 @@ export const capitalNotice = pgTable(
     createdBy: text("created_by").references(() => user.id, {
       onDelete: "set null",
     }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
 
     // COO approval
     approvedBy: text("approved_by").references(() => user.id, {
@@ -1200,7 +1207,7 @@ export const capitalNotice = pgTable(
     sentBy: text("sent_by").references(() => user.id, { onDelete: "set null" }),
 
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -1239,9 +1246,9 @@ export const capitalNoticeRecipient = pgTable(
     respondedAt: timestamp("responded_at"),
     response: text("response"), // e.g., "will_fund", "need_extension"
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -1276,7 +1283,7 @@ export const bankingVerification = pgTable(
       .notNull(),
 
     // Request metadata
-    requestedAt: timestamp("requested_at").defaultNow().notNull(),
+    requestedAt: timestamp("requested_at").default(sql`(unixepoch() * 1000)`).notNull(),
     requestIpAddress: text("request_ip_address"),
 
     // Callback scheduling
@@ -1301,9 +1308,9 @@ export const bankingVerification = pgTable(
     rejectedAt: timestamp("rejected_at"),
     rejectionReason: text("rejection_reason"),
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
+      .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(() => new Date())
       .notNull(),
   },
@@ -1323,7 +1330,7 @@ export const evidenceExport = pgTable(
     exportedBy: text("exported_by").references(() => user.id, {
       onDelete: "set null",
     }),
-    exportedAt: timestamp("exported_at").defaultNow().notNull(),
+    exportedAt: timestamp("exported_at").default(sql`(unixepoch() * 1000)`).notNull(),
 
     // Date range covered
     periodStart: timestamp("period_start"),
@@ -1337,7 +1344,7 @@ export const evidenceExport = pgTable(
     fileSize: text("file_size"),
     checksum: text("checksum"), // SHA-256 for integrity verification
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
   },
   (table) => [
     index("evidence_export_type_idx").on(table.exportType),

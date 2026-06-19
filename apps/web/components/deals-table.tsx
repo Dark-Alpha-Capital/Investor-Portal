@@ -1,8 +1,7 @@
-"use client";
 
 import React, { useEffect, useState, useCallback, useTransition } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import Link from "next/link";
+import { useRouter, useSearchParams, usePathname } from "@/hooks/use-app-navigation";
+import { AppLink as Link } from "@/components/app-link";
 import { useTRPC } from "@/trpc/client";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -560,8 +559,7 @@ export function DealsTable({ initialData }: DealsTableProps) {
   const page = parseInt(searchParams.get("dealsPage") || "1", 10);
   const search = searchParams.get("dealsSearch") || "";
 
-  // Use server-fetched cached data directly
-  // Data is fetched with `use cache` in getDealsCached and passed down
+  // Initial page data from route loader (server function); client handles pagination UX
   const deals = initialData?.deals ?? [];
   const pagination = initialData?.pagination;
 

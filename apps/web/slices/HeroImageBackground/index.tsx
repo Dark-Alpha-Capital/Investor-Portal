@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { Content } from "@prismicio/client";
 import { SliceComponentProps } from "@prismicio/react";
-import { PrismicNextImage } from "@prismicio/next";
+import { PrismicImage } from "@prismicio/react";
 
 export type HeroImageBackgroundProps =
   SliceComponentProps<Content.HeroImageBackgroundSlice>;
@@ -13,7 +13,7 @@ const HeroImageBackground: FC<HeroImageBackgroundProps> = ({ slice }) => {
       data-slice-variation={slice.variation}
       className="relative isolate flex min-h-[70vh] items-center overflow-hidden py-20"
     >
-      <PrismicNextImage
+      <PrismicImage
         field={slice.primary.background_image}
         className="absolute inset-0 h-full w-full object-cover"
         priority

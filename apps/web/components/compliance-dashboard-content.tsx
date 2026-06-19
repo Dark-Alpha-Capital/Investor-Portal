@@ -1,4 +1,4 @@
-import { caller } from "@/trpc/server";
+import { getTrpcCaller } from "@/trpc/server";
 import { ComplianceTableClient } from "./compliance-table-client";
 
 type SearchParams = Promise<{
@@ -47,7 +47,7 @@ async function FetchComplianceWrapper({
   clearanceStatus?: string;
 }) {
   // Fetch investors data
-  const data = await caller.compliance.getPendingInvestors({
+  const data = await (await getTrpcCaller()).compliance.getPendingInvestors({
     page,
     limit,
     search,

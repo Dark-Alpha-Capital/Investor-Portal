@@ -1,5 +1,4 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card } from "@/components/ui/card";
 
 export function OnboardingSkeleton() {
   return (
@@ -18,8 +17,7 @@ export function OnboardingSkeleton() {
           ))}
         </div>
 
-        {/* Form skeleton */}
-        <Card className="p-6 space-y-6">
+        <div className="space-y-6 border-y border-border py-6">
           <div className="space-y-4">
             <Skeleton className="h-6 w-48" />
             <Skeleton className="h-4 w-full max-w-md" />
@@ -38,7 +36,7 @@ export function OnboardingSkeleton() {
             <Skeleton className="h-10 w-24" />
             <Skeleton className="h-10 w-32" />
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );
