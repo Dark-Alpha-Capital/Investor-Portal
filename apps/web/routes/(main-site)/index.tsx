@@ -1,7 +1,5 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { SliceZone } from "@prismicio/react";
-import { Suspense } from "react";
-import { PageSkeleton } from "@/components/skeleton/page-skeleton";
 import { fetchHomepage } from "@/lib/fetch-homepage";
 import type { HomepageDocument } from "@/prismicio-types";
 import { components } from "@/slices";
@@ -42,9 +40,5 @@ export const Route = createFileRoute("/(main-site)/")({
 function HomePage() {
   const data = Route.useLoaderData() as PrismicHomeLoaderData;
 
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <SliceZone slices={data.slices} components={components} />
-    </Suspense>
-  );
+  return <SliceZone slices={data.slices} components={components} />;
 }
