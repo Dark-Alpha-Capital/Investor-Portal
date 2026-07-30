@@ -14,7 +14,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { ModeToggle } from "@/components/mode-toggle";
+import { AuthPageHeader } from "@/components/auth/auth-page-header";
 import { useSignUpEmail, useGoogleAuth } from "@/hooks/use-auth";
 
 const registerSchema = z
@@ -58,143 +58,130 @@ function RegisterPage() {
   const handleGoogleSignUp = () => {
     googleAuth.mutate();
   };
+
+  const isPending = googleAuth.isPending || signUpEmail.isPending;
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 lg:p-8">
-      <div className="w-full max-w-md space-y-8">
-        <div className="flex justify-end">
-          <ModeToggle />
+    <div className="space-y-8">
+      <AuthPageHeader
+        title="Create account"
+        description="Enter your information to get started"
+      />
+
+      <div className="space-y-5">
+        <Button
+          variant="secondary"
+          className="h-11 w-full rounded-full"
+          onClick={handleGoogleSignUp}
+          disabled={isPending}
+        >
+          <FcGoogle className="mr-2 h-5 w-5" />
+          {googleAuth.isPending ? "Signing up..." : "Continue with Google"}
+        </Button>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-border" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-3 font-medium text-muted-foreground">
+              Or continue with email
+            </span>
+          </div>
         </div>
 
-        <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Create an account
-          </h1>
-          <p className="text-muted-foreground text-base">
-            Enter your information to get started
-          </p>
-        </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      placeholder="John Doe"
+                      disabled={isPending}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="name@example.com"
+                      disabled={isPending}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <PasswordInput
+                      placeholder="Create a password"
+                      disabled={isPending}
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                        if (form.getValues("confirmPassword")) {
+                          form.trigger("confirmPassword");
+                        }
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm Password</FormLabel>
+                  <FormControl>
+                    <PasswordInput
+                      placeholder="Confirm your password"
+                      disabled={isPending}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {signUpEmail.isPending ? "Creating account..." : "Create account"}
+            </Button>
+          </form>
+        </Form>
 
-        <div className="space-y-5">
-          <Button
-            variant="secondary"
-            className="w-full h-11"
-            onClick={handleGoogleSignUp}
-            disabled={googleAuth.isPending || signUpEmail.isPending}
+        <div className="text-center text-sm text-muted-foreground">
+          Already have an account?{" "}
+          <Link
+            to="/login"
+            className="font-semibold text-primary underline-offset-4 hover:underline"
           >
-            <FcGoogle className="mr-2 h-5 w-5" />
-            {googleAuth.isPending ? "Signing up..." : "Continue with Google"}
-          </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-3 text-muted-foreground font-medium">
-                Or continue with email
-              </span>
-            </div>
-          </div>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="text"
-                        placeholder="John Doe"
-                        disabled={signUpEmail.isPending || googleAuth.isPending}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="name@example.com"
-                        disabled={signUpEmail.isPending || googleAuth.isPending}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <PasswordInput
-                        placeholder="Create a password"
-                        disabled={signUpEmail.isPending || googleAuth.isPending}
-                        {...field}
-                        onChange={(e) => {
-                          field.onChange(e);
-                          if (form.getValues("confirmPassword")) {
-                            form.trigger("confirmPassword");
-                          }
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirm Password</FormLabel>
-                    <FormControl>
-                      <PasswordInput
-                        placeholder="Confirm your password"
-                        disabled={signUpEmail.isPending || googleAuth.isPending}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button
-                type="submit"
-                className="w-full h-11"
-                disabled={signUpEmail.isPending || googleAuth.isPending}
-              >
-                {signUpEmail.isPending
-                  ? "Creating account..."
-                  : "Create account"}
-              </Button>
-            </form>
-          </Form>
-
-          <div className="text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link
-              to="/login"
-              className="font-semibold text-primary underline-offset-4 hover:underline"
-            >
-              Sign in
-            </Link>
-          </div>
+            Sign in
+          </Link>
         </div>
       </div>
     </div>

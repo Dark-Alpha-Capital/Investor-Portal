@@ -1,5 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
+  "account_id": "db3c8d159d12f92055af63054dfec052",
   "name": "dac-investor-portal",
   "main": "./cloudflare-worker.ts",
   "compatibility_date": "2025-09-02",

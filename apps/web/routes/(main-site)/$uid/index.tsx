@@ -13,11 +13,7 @@ type PrismicUidPageLoaderData = Pick<
 > & { ogImageUrl: string };
 
 export const Route = createFileRoute("/(main-site)/$uid/")({
-  loader: async ({
-    params,
-  }: {
-    params: { uid: string };
-  }) => {
+  loader: async ({ params }: { params: { uid: string } }) => {
     const data = await fetchPrismicPageByUid({ data: { uid: params.uid } });
     if (!data) throw notFound();
     return data as PrismicUidPageLoaderData;
@@ -45,9 +41,5 @@ export const Route = createFileRoute("/(main-site)/$uid/")({
 function PrismicUidPage() {
   const data = Route.useLoaderData() as PrismicUidPageLoaderData;
 
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <SliceZone slices={data.slices} components={components} />
-    </Suspense>
-  );
+  return <SliceZone slices={data.slices} components={components} />;
 }

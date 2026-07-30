@@ -13,7 +13,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { ModeToggle } from "@/components/mode-toggle";
+import { AuthPageHeader } from "@/components/auth/auth-page-header";
 import { useResetPassword } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/(auth)/reset-password/")({
@@ -102,168 +102,137 @@ function ResetPasswordContent() {
 
   if (status === "success") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 lg:p-8">
-        <div className="w-full max-w-md space-y-8">
-          <div className="flex justify-end">
-            <ModeToggle />
+      <div className="space-y-8">
+        <div className="space-y-4 text-center lg:text-left">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted lg:mx-0">
+            <svg
+              className="h-8 w-8 text-primary"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
           </div>
-
-          <div className="space-y-4 text-center">
-            <div className="w-16 h-16 mx-auto flex items-center justify-center">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-primary"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Password Reset Successful!
-            </h1>
-            <p className="text-muted-foreground text-base">
-              Your password has been reset successfully. You can now sign in
-              with your new password.
-            </p>
-          </div>
-
-          <Button className="w-full h-11" asChild>
-            <Link to="/login">Continue to Sign In</Link>
-          </Button>
+          <AuthPageHeader
+            title="Password reset successful"
+            description="Your password has been reset successfully. You can now sign in with your new password."
+          />
         </div>
+
+        <Button className="w-full" asChild>
+          <Link to="/login">Continue to Sign In</Link>
+        </Button>
       </div>
     );
   }
 
   if (status === "error") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 lg:p-8">
-        <div className="w-full max-w-md space-y-8">
-          <div className="flex justify-end">
-            <ModeToggle />
+      <div className="space-y-8">
+        <div className="space-y-4 text-center lg:text-left">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 lg:mx-0">
+            <svg
+              className="h-8 w-8 text-destructive"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
           </div>
+          <AuthPageHeader title="Reset failed" description={errorMessage} />
+        </div>
 
-          <div className="space-y-4 text-center">
-            <div className="w-16 h-16 mx-auto flex items-center justify-center">
-              <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-destructive"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </div>
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight">Reset Failed</h1>
-            <p className="text-muted-foreground text-base">{errorMessage}</p>
-          </div>
-
-          <div className="space-y-3">
-            <Button variant="secondary" className="w-full h-11" asChild>
-              <Link to="/forgot-password">Request New Reset Link</Link>
-            </Button>
-            <Button variant="ghost" className="w-full h-11" asChild>
-              <Link to="/login">Back to Sign In</Link>
-            </Button>
-          </div>
+        <div className="space-y-3">
+          <Button variant="secondary" className="h-11 w-full rounded-full" asChild>
+            <Link to="/forgot-password">Request New Reset Link</Link>
+          </Button>
+          <Button variant="ghost" className="h-11 w-full" asChild>
+            <Link to="/login">Back to Sign In</Link>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 lg:p-8">
-      <div className="w-full max-w-md space-y-8">
-        <div className="flex justify-end">
-          <ModeToggle />
-        </div>
+    <div className="space-y-8">
+      <AuthPageHeader
+        title="Create new password"
+        description="Enter your new password below. Make sure it's at least 8 characters long."
+      />
 
-        <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Create new password
-          </h1>
-          <p className="text-muted-foreground text-base">
-            Enter your new password below. Make sure it&apos;s at least 8
-            characters long.
-          </p>
-        </div>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>New Password</FormLabel>
-                  <FormControl>
-                    <PasswordInput
-                      placeholder="Enter new password"
-                      disabled={resetPassword.isPending}
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                        if (form.getValues("confirmPassword")) {
-                          form.trigger("confirmPassword");
-                        }
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Confirm Password</FormLabel>
-                  <FormControl>
-                    <PasswordInput
-                      placeholder="Confirm new password"
-                      disabled={resetPassword.isPending}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button
-              type="submit"
-              className="w-full h-11"
-              disabled={resetPassword.isPending || !token}
-            >
-              {resetPassword.isPending ? "Resetting..." : "Reset password"}
-            </Button>
-          </form>
-        </Form>
-
-        <div className="text-center text-sm text-muted-foreground">
-          Remember your password?{" "}
-          <Link
-            to="/login"
-            className="font-semibold text-primary underline-offset-4 hover:underline"
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>New Password</FormLabel>
+                <FormControl>
+                  <PasswordInput
+                    placeholder="Enter new password"
+                    disabled={resetPassword.isPending}
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      if (form.getValues("confirmPassword")) {
+                        form.trigger("confirmPassword");
+                      }
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Confirm Password</FormLabel>
+                <FormControl>
+                  <PasswordInput
+                    placeholder="Confirm new password"
+                    disabled={resetPassword.isPending}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={resetPassword.isPending || !token}
           >
-            Sign in
-          </Link>
-        </div>
+            {resetPassword.isPending ? "Resetting..." : "Reset password"}
+          </Button>
+        </form>
+      </Form>
+
+      <div className="text-center text-sm text-muted-foreground lg:text-left">
+        Remember your password?{" "}
+        <Link
+          to="/login"
+          className="font-semibold text-primary underline-offset-4 hover:underline"
+        >
+          Sign in
+        </Link>
       </div>
     </div>
   );
@@ -273,25 +242,23 @@ function ResetPasswordPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-screen items-center justify-center">
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-primary/20 flex items-center justify-center">
-              <svg
-                className="w-8 h-8 text-primary animate-spin"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-            </div>
-            <p className="text-muted-foreground">Loading...</p>
+        <div className="space-y-4 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/20">
+            <svg
+              className="h-8 w-8 animate-spin text-primary"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
           </div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       }
     >

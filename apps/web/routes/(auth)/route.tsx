@@ -1,4 +1,5 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
+import { AuthLayout } from "@/components/auth/auth-layout";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { generateNoIndexMetadata } from "@/lib/seo";
@@ -32,7 +33,9 @@ function AuthShell() {
       disableTransitionOnChange
     >
       <TRPCReactProvider>
-        <Outlet />
+        <AuthLayout>
+          <Outlet />
+        </AuthLayout>
       </TRPCReactProvider>
       <Toaster />
     </ThemeProvider>

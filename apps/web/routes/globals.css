@@ -225,3 +225,14 @@ body {
   display: columns;
   columns: 4;
 }
+
+@layer components {
+  .auth-form [data-slot="input"] {
+    @apply h-11 rounded-none border-0 border-b border-border bg-transparent px-0 shadow-none;
+    @apply focus-visible:border-primary focus-visible:ring-0;
+  }
+
+  .auth-form button[type="submit"] {
+    @apply h-12 rounded-full;
+  }
+}

@@ -13,10 +13,6 @@ interface __BaseEnv_Env {
 	DATABASE_URL: string;
 	GOOGLE_CLIENT_ID: string;
 	GOOGLE_CLIENT_SECRET: string;
-	GCLOUD_PROJECT_ID: string;
-	GCS_CLIENT_EMAIL: string;
-	GCS_PRIVATE_KEY: string;
-	GCLOUD_BUCKET: string;
 	REDIS_URL: string;
 	RESEND_API_KEY: string;
 	NEXTCLOUD_URL: string;
@@ -36,7 +32,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "VITE_PUBLIC_BETTER_AUTH_URL" | "VITE_PUBLIC_PRISMIC_ENVIRONMENT" | "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL" | "NEXT_PUBLIC_BETTER_AUTH_URL" | "DATABASE_URL" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "GCLOUD_PROJECT_ID" | "GCS_CLIENT_EMAIL" | "GCS_PRIVATE_KEY" | "GCLOUD_BUCKET" | "REDIS_URL" | "RESEND_API_KEY" | "NEXTCLOUD_URL" | "NEXTCLOUD_USER" | "NEXTCLOUD_PASSWORD" | "POSTGRES_URL">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "VITE_PUBLIC_BETTER_AUTH_URL" | "VITE_PUBLIC_PRISMIC_ENVIRONMENT" | "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL" | "NEXT_PUBLIC_BETTER_AUTH_URL" | "DATABASE_URL" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "REDIS_URL" | "RESEND_API_KEY" | "NEXTCLOUD_URL" | "NEXTCLOUD_USER" | "NEXTCLOUD_PASSWORD" | "POSTGRES_URL">> {}
 }
 
 // Begin runtime types
