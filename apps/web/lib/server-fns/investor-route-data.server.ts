@@ -7,17 +7,19 @@ import type {
   DealsLoaderData,
 } from "@/lib/types/investor-route-loaders";
 import type { DealIdInput, RouteSearchStringInput } from "@/lib/schemas/server-fn/inputs";
+import { isAdminUser } from "@/lib/user-role-guards";
 import {
   getClearanceData,
   getDealForView,
   getMarketplaceDeals,
   getPortfolioData,
   getUserWithKycAndClearance,
+  getUserWithKycStatus,
 } from "@repo/db/queries";
 
 /** `(dashboard)` layout `beforeLoad` — must use server fn (loaders/layout modules run on client too). */
 export type RouteSessionGuardResult =
-  | { tag: "ok"; session: AuthedSession }
+  | { tag: "ok"; session: AuthedSession; isOnboardingCompleted: boolean }
   | { tag: "redirect"; to: "/login" };
 
 export async function runFetchSessionForDashboardLayout(): Promise<RouteSessionGuardResult> {
@@ -25,12 +27,19 @@ export async function runFetchSessionForDashboardLayout(): Promise<RouteSessionG
   if (!session?.user) {
     return { tag: "redirect", to: "/login" };
   }
-  return { tag: "ok", session: session as AuthedSession };
+
+  const userData = await getUserWithKycStatus(session.user.id);
+
+  return {
+    tag: "ok",
+    session: session as AuthedSession,
+    isOnboardingCompleted: userData?.isOnboardingCompleted ?? false,
+  };
 }
 
 export type DashboardLoaderFetchResult =
   | { tag: "ok"; data: DashboardLoaderData }
-  | { tag: "redirect"; to: "/login" };
+  | { tag: "redirect"; to: "/login" | "/admin" };
 
 export async function runFetchDashboardRouteData(): Promise<DashboardLoaderFetchResult> {
   const session = await authSession();
@@ -39,6 +48,11 @@ export async function runFetchDashboardRouteData(): Promise<DashboardLoaderFetch
   }
 
   const userId = session.user.id;
+
+  if (isAdminUser(session.user)) {
+    return { tag: "redirect", to: "/admin" };
+  }
+
   const userData = await getUserWithKycAndClearance(userId);
 
   if (!userData) {

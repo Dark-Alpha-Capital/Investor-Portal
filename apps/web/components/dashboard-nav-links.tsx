@@ -3,7 +3,7 @@ import {
   Briefcase,
   ChartBar,
   ChevronRight,
-  Home,
+  FileText,
   Shield,
   User,
   UserCheck,
@@ -23,6 +23,11 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { usePathname } from "@/hooks/use-app-navigation";
+import {
+  getAppHomePath,
+  isAdminUser,
+  isOnboardingAdminRestrictedUser,
+} from "@/lib/user-role-guards";
 import { cn } from "@/lib/utils";
 import type { Session } from "@/lib/session-types";
 import type { OpenSectionsState } from "./dashboard-siderbar";
@@ -30,28 +35,40 @@ import type { OpenSectionsState } from "./dashboard-siderbar";
 type NavItem = {
   title: string;
   url: string;
-  icon: typeof Home;
+  icon: typeof ChartBar;
 };
 
-const mainItems: NavItem[] = [
-  { title: "Home", url: "/", icon: Home },
-  { title: "Dashboard", url: "/dashboard", icon: ChartBar },
-  { title: "Onboarding", url: "/onboarding", icon: User },
-  { title: "Deals", url: "/deals", icon: Briefcase },
-];
-
-const adminItems: NavItem[] = [
+const adminNavItems: NavItem[] = [
   { title: "Admin", url: "/admin", icon: Shield },
   { title: "Compliance", url: "/admin/compliance", icon: UserCheck },
   { title: "Admin Deals", url: "/admin/deals", icon: Briefcase },
 ];
 
 function isNavItemActive(pathname: string, url: string) {
-  if (url === "/") {
-    return pathname === "/";
-  }
-
   return pathname === url || pathname.startsWith(`${url}/`);
+}
+
+function buildInvestorNavItems(isOnboardingCompleted: boolean): NavItem[] {
+  const items: NavItem[] = [
+    { title: "Dashboard", url: "/dashboard", icon: ChartBar },
+    {
+      title: isOnboardingCompleted ? "My Application" : "Onboarding",
+      url: "/onboarding",
+      icon: isOnboardingCompleted ? FileText : User,
+    },
+    { title: "Deals", url: "/deals", icon: Briefcase },
+  ];
+
+  return items;
+}
+
+function buildAdminNavItems(): NavItem[] {
+  return [
+    { title: "Admin", url: "/admin", icon: Shield },
+    { title: "Compliance", url: "/admin/compliance", icon: UserCheck },
+    { title: "Admin Deals", url: "/admin/deals", icon: Briefcase },
+    { title: "Deals", url: "/deals", icon: Briefcase },
+  ];
 }
 
 function NavGroup({
@@ -98,7 +115,7 @@ function NavGroup({
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
               {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={`${id}-${item.url}`}>
                   <SidebarMenuButton
                     asChild
                     tooltip={item.title}
@@ -122,33 +139,62 @@ function NavGroup({
 
 export function DashboardNavLinks({
   session,
+  isOnboardingCompleted,
   openSections,
   onSectionOpenChange,
 }: {
   session: Session;
+  isOnboardingCompleted: boolean;
   openSections: OpenSectionsState;
   onSectionOpenChange: (sectionId: string, open: boolean) => void;
 }) {
-  const isAdmin = session?.user?.role === "admin";
+  if (!session?.user) {
+    return null;
+  }
 
-  return (
-    <>
+  const user = session.user;
+  const isAdmin = isAdminUser(user);
+  const onboardingRestricted = isOnboardingAdminRestrictedUser(user);
+
+  if (isAdmin) {
+    return (
       <NavGroup
-        id="main"
-        label="Main"
-        items={mainItems}
+        id="admin"
+        label="Admin"
+        items={buildAdminNavItems()}
         openSections={openSections}
         onSectionOpenChange={onSectionOpenChange}
       />
-      {isAdmin ? (
-        <NavGroup
-          id="admin"
-          label="Admin"
-          items={adminItems}
-          openSections={openSections}
-          onSectionOpenChange={onSectionOpenChange}
-        />
-      ) : null}
-    </>
+    );
+  }
+
+  const investorItems = buildInvestorNavItems(
+    onboardingRestricted ? false : isOnboardingCompleted,
+  ).filter((item) => {
+    if (onboardingRestricted) {
+      return item.url !== "/onboarding";
+    }
+    return true;
+  });
+
+  return (
+    <NavGroup
+      id="main"
+      label="Main"
+      items={investorItems}
+      openSections={openSections}
+      onSectionOpenChange={onSectionOpenChange}
+    />
   );
 }
+
+export function getDashboardHomePath(session: Session): "/admin" | "/dashboard" {
+  if (!session?.user) {
+    return "/dashboard";
+  }
+
+  return getAppHomePath(session.user);
+}
+
+// Keep export for tests/consumers that referenced adminItems
+export { adminNavItems };

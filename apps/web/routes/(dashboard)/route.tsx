@@ -25,7 +25,7 @@ export const Route = createFileRoute("/(dashboard)")({
     if (r.tag === "redirect") {
       throw redirect({ to: r.to });
     }
-    return { session: r.session };
+    return { session: r.session, isOnboardingCompleted: r.isOnboardingCompleted };
   },
   head: () => ({
     meta: [
@@ -37,11 +37,16 @@ export const Route = createFileRoute("/(dashboard)")({
 });
 
 function DashboardShell() {
-  const { session } = useRouteContext({ from: "/(dashboard)" });
+  const { session, isOnboardingCompleted } = useRouteContext({
+    from: "/(dashboard)",
+  });
 
   return (
     <DashboardProviders>
-      <DashboardSidebar session={session} />
+      <DashboardSidebar
+        session={session}
+        isOnboardingCompleted={isOnboardingCompleted}
+      />
       <SidebarInset>
         <DashboardTopbar session={session} />
         <main className="flex-1 transition-all duration-150 ease-out">

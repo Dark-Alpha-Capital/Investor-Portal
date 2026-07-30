@@ -10,6 +10,7 @@ import {
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { usePathname } from "@/hooks/use-app-navigation";
 import type { Session } from "@/lib/session-types";
+import { getDashboardHomePath } from "./dashboard-nav-links";
 import { UserNav } from "./user-nav";
 
 function formatSegment(segment: string) {
@@ -19,16 +20,18 @@ function formatSegment(segment: string) {
     .join(" ");
 }
 
-function DashboardBreadcrumbs() {
+function DashboardBreadcrumbs({ session }: { session: Session }) {
   const pathname = usePathname();
+  const homePath = getDashboardHomePath(session);
+  const homeLabel = homePath === "/admin" ? "Admin" : "Dashboard";
   const segments = pathname.split("/").filter(Boolean);
 
-  if (segments.length === 0) {
+  if (segments.length === 0 || pathname === homePath) {
     return (
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbPage>Home</BreadcrumbPage>
+            <BreadcrumbPage>{homeLabel}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
@@ -40,7 +43,7 @@ function DashboardBreadcrumbs() {
       <BreadcrumbList>
         <BreadcrumbItem>
           <BreadcrumbLink asChild>
-            <Link to="/">Home</Link>
+            <Link to={homePath}>{homeLabel}</Link>
           </BreadcrumbLink>
         </BreadcrumbItem>
         {segments.map((segment, index) => {
@@ -72,7 +75,7 @@ export function DashboardTopbar({ session }: { session: Session }) {
     <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
       <SidebarTrigger className="text-muted-foreground md:hidden" />
       <div className="min-w-0 flex-1">
-        <DashboardBreadcrumbs />
+        <DashboardBreadcrumbs session={session} />
       </div>
       <UserNav session={session} />
     </header>

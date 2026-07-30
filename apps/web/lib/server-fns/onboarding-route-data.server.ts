@@ -4,13 +4,15 @@ import {
   getOnboardingWithEditHistory,
   getUserWithOnboarding,
 } from "@repo/db/queries";
-import { isOnboardingAdminRestrictedUser } from "@/lib/user-role-guards";
+import {
+  getOnboardingRestrictedRedirectPath,
+  isOnboardingAdminRestrictedUser,
+} from "@/lib/user-role-guards";
 
-type LoginRedirect = { tag: "redirect"; to: "/login" };
+type AuthRedirect = { tag: "redirect"; to: "/login" | "/admin" | "/dashboard" };
 
 export type OnboardingPageDataResult = Promise<
-  | LoginRedirect
-  | { tag: "admin_restricted" }
+  | AuthRedirect
   | { tag: "flow" }
   | {
       tag: "complete";
@@ -29,7 +31,10 @@ export async function runFetchOnboardingPageData(): OnboardingPageDataResult {
     return { tag: "redirect", to: "/login" };
   }
   if (isOnboardingAdminRestrictedUser(session.user)) {
-    return { tag: "admin_restricted" };
+    return {
+      tag: "redirect",
+      to: getOnboardingRestrictedRedirectPath(session.user),
+    };
   }
 
   const userId = session.user.id;
@@ -52,8 +57,7 @@ export async function runFetchOnboardingPageData(): OnboardingPageDataResult {
 }
 
 export type OnboardingEditPageDataResult = Promise<
-  | LoginRedirect
-  | { tag: "admin_restricted" }
+  | AuthRedirect
   | { tag: "no_onboarding" }
   | { tag: "editing_disabled" }
   | {
@@ -70,7 +74,10 @@ export async function runFetchOnboardingEditPageData(): OnboardingEditPageDataRe
     return { tag: "redirect", to: "/login" };
   }
   if (isOnboardingAdminRestrictedUser(session.user)) {
-    return { tag: "admin_restricted" };
+    return {
+      tag: "redirect",
+      to: getOnboardingRestrictedRedirectPath(session.user),
+    };
   }
 
   const userId = session.user.id;
@@ -88,8 +95,7 @@ export async function runFetchOnboardingEditPageData(): OnboardingEditPageDataRe
 }
 
 export type ProfileEditOnboardingDataResult = Promise<
-  | LoginRedirect
-  | { tag: "admin_restricted" }
+  | AuthRedirect
   | { tag: "no_onboarding" }
   | {
       tag: "ok";
@@ -108,7 +114,10 @@ export async function runFetchProfileEditOnboardingData(): ProfileEditOnboarding
     return { tag: "redirect", to: "/login" };
   }
   if (isOnboardingAdminRestrictedUser(session.user)) {
-    return { tag: "admin_restricted" };
+    return {
+      tag: "redirect",
+      to: getOnboardingRestrictedRedirectPath(session.user),
+    };
   }
 
   const userId = session.user.id;

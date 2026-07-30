@@ -4,6 +4,8 @@ import { useRouter } from "@/hooks/use-app-navigation";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
+import { getClientSession } from "@/lib/get-client-session";
+import { getAppHomePath } from "@/lib/user-role-guards";
 
 type SignInEmailInput = {
   email: string;
@@ -52,9 +54,11 @@ export function useSignInEmail() {
 
       return result;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Signed in successfully");
-      router.push("/dashboard");
+      const session = await getClientSession();
+      const home = session?.user ? getAppHomePath(session.user) : "/dashboard";
+      router.push(home);
       router.refresh();
     },
     onError: (error: { status?: number; message?: string; email?: string }) => {
@@ -135,9 +139,11 @@ export function useGoogleAuth() {
 
       return result;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Signed in successfully");
-      router.push("/dashboard");
+      const session = await getClientSession();
+      const home = session?.user ? getAppHomePath(session.user) : "/dashboard";
+      router.push(home);
       router.refresh();
     },
     onError: (error: { message?: string }) => {

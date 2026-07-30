@@ -30,7 +30,13 @@ function readOpenSections(): OpenSectionsState {
   }
 }
 
-export function DashboardSidebar({ session }: { session: Session }) {
+export function DashboardSidebar({
+  session,
+  isOnboardingCompleted,
+}: {
+  session: Session;
+  isOnboardingCompleted: boolean;
+}) {
   const { isMobile, setOpen } = useSidebar();
   const collapseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -99,6 +105,7 @@ export function DashboardSidebar({ session }: { session: Session }) {
       <SidebarContent>
         <DashboardNavLinks
           session={session}
+          isOnboardingCompleted={isOnboardingCompleted}
           openSections={openSections}
           onSectionOpenChange={handleSectionOpenChange}
         />
