@@ -17,7 +17,10 @@ export function DashboardProviders({ children }: DashboardProvidersProps) {
       enableSystem
       disableTransitionOnChange
     >
-      <SidebarProvider>
+      <SidebarProvider
+        defaultOpen={false}
+        className="[&_[data-slot=sidebar-gap]]:w-(--sidebar-width-icon)!"
+      >
         <TRPCReactProvider>
           <JobTrackingProvider>{children}</JobTrackingProvider>
         </TRPCReactProvider>
