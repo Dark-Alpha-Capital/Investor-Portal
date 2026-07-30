@@ -42,6 +42,11 @@ function getUserRoleFromEmail(email: string): string {
 }
 
 export const auth = betterAuth({
+  baseURL: process.env.BETTER_AUTH_URL,
+  trustedOrigins: [
+    "https://investors.darkalphacapital.com",
+    "http://localhost:3000",
+  ],
   database: drizzleAdapter(db, {
     provider: "sqlite",
     schema: {
