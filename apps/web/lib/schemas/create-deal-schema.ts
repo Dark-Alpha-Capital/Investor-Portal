@@ -16,6 +16,9 @@ export const dealVisibilityEnum = z.enum([
   "invite_only",
 ]);
 
+const optionalNumericString = z.string().optional().or(z.literal(""));
+const optionalText = z.string().optional().or(z.literal(""));
+
 export const createDealSchema = z.object({
   name: z.string().min(1, "Deal name is required"),
   description: z.string().min(1, "Description is required"),
@@ -32,4 +35,14 @@ export const createDealSchema = z.object({
   coverImageUrl: z.string().url().optional().or(z.literal("")),
   launchDate: z.string().min(1, "Launch date is required"),
   closeDate: z.string().min(1, "Close date is required"),
+  targetCompany: optionalText,
+  revenue: optionalNumericString,
+  ebitda: optionalNumericString,
+  holdPeriod: optionalText,
+  investmentThesis: optionalText,
+  risks: optionalText,
+  purchasePrice: optionalNumericString,
+  debt: optionalNumericString,
+  sponsorEquity: optionalNumericString,
+  lpEquity: optionalNumericString,
 });

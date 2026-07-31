@@ -57,7 +57,7 @@ function buildInvestorNavItems(isOnboardingCompleted: boolean): NavItem[] {
       url: "/onboarding",
       icon: isOnboardingCompleted ? FileText : User,
     },
-    { title: "Deals", url: "/deals", icon: Briefcase },
+    { title: "Investments", url: "/deals", icon: Briefcase },
     { title: "Chat", url: "/chat", icon: MessageSquare },
   ];
 
@@ -69,7 +69,7 @@ function buildAdminNavItems(): NavItem[] {
     { title: "Admin", url: "/admin", icon: Shield },
     { title: "Compliance", url: "/admin/compliance", icon: UserCheck },
     { title: "Admin Deals", url: "/admin/deals", icon: Briefcase },
-    { title: "Deals", url: "/deals", icon: Briefcase },
+    { title: "Investments", url: "/deals", icon: Briefcase },
     { title: "Chat", url: "/chat", icon: MessageSquare },
   ];
 }

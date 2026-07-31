@@ -3,13 +3,23 @@ import type { DealDetailLoaderData } from "@/lib/types/investor-route-loaders";
 import { fetchDealDetailRouteData } from "@/lib/server-fns/investor-route-data";
 import { AppLink as Link } from "@/components/app-link";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, FileText, User, Info } from "lucide-react";
+import {
+  ArrowLeft,
+  User,
+  Info,
+  Lightbulb,
+  PieChart,
+  FolderOpen,
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DealHeader } from "./components/deal-header";
 import { UserStatusCard } from "./components/user-status-card";
 import { DealActions } from "./components/deal-actions";
-import { DealInformation } from "./components/deal-information";
 import { DealAccessDenied } from "./components/deal-access-denied";
+import { DealExecutiveSummary } from "./components/deal-executive-summary";
+import { DealThesisRisks } from "./components/deal-thesis-risks";
+import { DealCapitalStructure } from "./components/deal-capital-structure";
+import { DealDocuments } from "./components/deal-documents";
 
 type GetDealResult = Awaited<
   ReturnType<typeof import("@repo/db/queries").getDealForView>
@@ -36,47 +46,81 @@ function forbiddenReason(
 }
 
 function DealTabs({ dealId, result }: { dealId: string; result: OkDeal }) {
+  const deal = result.deal;
+
   return (
     <Tabs defaultValue="overview" className="w-full">
-      <TabsList className="mb-6 grid w-full grid-cols-3">
+      <TabsList className="mb-6 grid w-full grid-cols-2 sm:grid-cols-5 h-auto gap-1">
         <TabsTrigger value="overview" className="flex items-center gap-2">
           <Info className="h-4 w-4" />
           Overview
+        </TabsTrigger>
+        <TabsTrigger value="thesis" className="flex items-center gap-2">
+          <Lightbulb className="h-4 w-4" />
+          Thesis & Risks
+        </TabsTrigger>
+        <TabsTrigger value="capital" className="flex items-center gap-2">
+          <PieChart className="h-4 w-4" />
+          Capital
+        </TabsTrigger>
+        <TabsTrigger value="documents" className="flex items-center gap-2">
+          <FolderOpen className="h-4 w-4" />
+          Documents
         </TabsTrigger>
         <TabsTrigger value="actions" className="flex items-center gap-2">
           <User className="h-4 w-4" />
           Actions
         </TabsTrigger>
-        <TabsTrigger value="information" className="flex items-center gap-2">
-          <FileText className="h-4 w-4" />
-          Information
-        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview" className="mt-0">
         <div className="space-y-6">
-          <DealHeader deal={result.deal} curationNote={result.curationNote} />
+          <DealHeader deal={deal} curationNote={result.curationNote} />
           <UserStatusCard
             userInterest={result.userInterest}
             userInvestment={result.userInvestment}
             permissions={result.permissions}
           />
+          <DealExecutiveSummary deal={deal} />
         </div>
       </TabsContent>
 
+      <TabsContent value="thesis" className="mt-0">
+        <DealThesisRisks
+          investmentThesis={deal.investmentThesis}
+          risks={deal.risks}
+        />
+      </TabsContent>
+
+      <TabsContent value="capital" className="mt-0">
+        <DealCapitalStructure
+          purchasePrice={deal.purchasePrice}
+          debt={deal.debt}
+          sponsorEquity={deal.sponsorEquity}
+          lpEquity={deal.lpEquity}
+        />
+      </TabsContent>
+
+      <TabsContent value="documents" className="mt-0">
+        <DealDocuments
+          dealId={deal.id}
+          canViewDocuments={result.permissions.canViewDocuments}
+        />
+      </TabsContent>
+
       <TabsContent value="actions" className="mt-0">
-        {result.userInvestment ? null : (
+        {result.userInvestment ? (
+          <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+            You already have an investment in this deal.
+          </div>
+        ) : (
           <DealActions
             dealId={dealId}
             userInterest={result.userInterest}
-            minInvestment={result.deal.minInvestment}
+            minInvestment={deal.minInvestment}
             permissions={result.permissions}
           />
         )}
-      </TabsContent>
-
-      <TabsContent value="information" className="mt-0">
-        <DealInformation deal={result.deal} />
       </TabsContent>
     </Tabs>
   );
@@ -90,7 +134,7 @@ function DealDetailContent({ data }: { data: DealDetailLoaderData }) {
           <Link href="/deals">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Deals
+              Back to Available Investments
             </Button>
           </Link>
         </div>

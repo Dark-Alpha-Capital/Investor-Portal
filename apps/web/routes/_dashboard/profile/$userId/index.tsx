@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router";
 import { format } from "date-fns";
-import { Pencil, Shield, User } from "lucide-react";
+import { Shield, User } from "lucide-react";
 import { fetchProfilePageData } from "@/lib/server-fns/profile-route-data";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -111,20 +111,12 @@ function UserProfilePage() {
                   </Link>
                 </Button>
               ) : (
-                <>
-                  <Button asChild variant="secondary">
-                    <Link to="/onboarding">
-                      <User className="mr-2 size-4" />
-                      View Application
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline">
-                    <Link to="/profile/edit-onboarding">
-                      <Pencil className="mr-2 size-4" />
-                      Edit Application
-                    </Link>
-                  </Button>
-                </>
+                <Button asChild variant="secondary">
+                  <Link to="/onboarding">
+                    <User className="mr-2 size-4" />
+                    View Application
+                  </Link>
+                </Button>
               )}
             </div>
           ) : null}

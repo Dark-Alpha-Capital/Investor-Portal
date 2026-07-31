@@ -1,5 +1,5 @@
-import { AppLink as Link } from "@/components/app-link";
 import { format } from "date-fns";
+import { AppLink as Link } from "@/components/app-link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -37,11 +37,9 @@ export function OnboardingCompleteView({
   editHistory,
 }: OnboardingCompleteViewProps) {
   const editCount = parseInt(onboardingData.editCount || "0", 10);
-  const isEditable = onboardingData.isEditable !== false;
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-3xl space-y-6">
-      {/* Status Card */}
       <section className="border-green-200 dark:border-green-900">
         <div className="space-y-4">
           <div className="flex items-start justify-between">
@@ -65,7 +63,6 @@ export function OnboardingCompleteView({
           </div>
         </div>
         <div className="space-y-4">
-          {/* Submission Info */}
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
             {onboardingData.submittedAt && (
               <div className="flex items-center gap-2">
@@ -74,7 +71,7 @@ export function OnboardingCompleteView({
                   Submitted:{" "}
                   {format(
                     new Date(onboardingData.submittedAt),
-                    "MMM d, yyyy"
+                    "MMM d, yyyy",
                   )}
                 </span>
               </div>
@@ -86,38 +83,26 @@ export function OnboardingCompleteView({
                   Last edited:{" "}
                   {format(
                     new Date(onboardingData.lastEditedAt),
-                    "MMM d, yyyy h:mm a"
+                    "MMM d, yyyy h:mm a",
                   )}
                 </span>
               </div>
             )}
           </div>
 
-          {/* Action Buttons */}
           <div className="flex flex-wrap gap-3 pt-2">
-            {isEditable && (
-              <Button asChild>
-                <Link href="/onboarding/edit">
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit Onboarding
-                </Link>
-              </Button>
-            )}
             <Button asChild variant="secondary">
               <Link href="/dashboard">Go to Dashboard</Link>
             </Button>
           </div>
 
-          {!isEditable && (
-            <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 p-3 rounded-lg">
-              Editing has been disabled for your onboarding. Please contact
-              support if you need to make changes.
-            </p>
-          )}
+          <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+            Your application has been submitted and can no longer be edited.
+            Please contact support if you need to make changes.
+          </p>
         </div>
       </section>
 
-      {/* Edit History Card */}
       {editHistory.length > 0 && (
         <section>
           <div>
@@ -125,9 +110,7 @@ export function OnboardingCompleteView({
               <History className="h-5 w-5" />
               Recent Edit History
             </h3>
-            <p>
-              Your most recent changes to the onboarding form
-            </p>
+            <p>Your most recent changes to the onboarding form</p>
           </div>
           <div>
             <ScrollArea className="h-[250px] pr-4">

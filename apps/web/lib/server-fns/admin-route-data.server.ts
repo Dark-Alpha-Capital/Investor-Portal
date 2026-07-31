@@ -142,6 +142,16 @@ export type AdminDealEditFormData = {
   coverImageUrl?: string;
   launchDate?: Date | string | null;
   closeDate?: Date | string | null;
+  targetCompany?: string;
+  revenue?: string;
+  ebitda?: string;
+  holdPeriod?: string;
+  investmentThesis?: string;
+  risks?: string;
+  purchasePrice?: string;
+  debt?: string;
+  sponsorEquity?: string;
+  lpEquity?: string;
 };
 
 export async function runFetchAdminDealEditData(
@@ -173,6 +183,16 @@ export async function runFetchAdminDealEditData(
     coverImageUrl: deal.coverImageUrl ?? undefined,
     launchDate: deal.launchDate ?? undefined,
     closeDate: deal.closeDate ?? undefined,
+    targetCompany: deal.targetCompany ?? undefined,
+    revenue: deal.revenue ?? undefined,
+    ebitda: deal.ebitda ?? undefined,
+    holdPeriod: deal.holdPeriod ?? undefined,
+    investmentThesis: deal.investmentThesis ?? undefined,
+    risks: deal.risks ?? undefined,
+    purchasePrice: deal.purchasePrice ?? undefined,
+    debt: deal.debt ?? undefined,
+    sponsorEquity: deal.sponsorEquity ?? undefined,
+    lpEquity: deal.lpEquity ?? undefined,
   };
 
   return { tag: "ok", formData };

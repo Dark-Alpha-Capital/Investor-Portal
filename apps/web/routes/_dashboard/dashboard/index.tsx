@@ -5,7 +5,7 @@ import { fetchDashboardRouteData } from "@/lib/server-fns/investor-route-data";
 import { KycReviewScreen } from "./components/kyc-review";
 import { KycRejectedScreen } from "./components/kyc-rejected";
 import { OnboardingRequiredScreen } from "./components/onboarding-required";
-import { DollarSign, TrendingUp, FileText, Pencil } from "lucide-react";
+import { DollarSign, TrendingUp, FileText } from "lucide-react";
 import { AppLink as Link } from "@/components/app-link";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
@@ -45,14 +45,6 @@ function DashboardMain({
             <p className="text-muted-foreground text-base">
               Overview of your investment portfolio and activity
             </p>
-          </div>
-          <div className="flex gap-2">
-            <Link href="/profile/edit-onboarding">
-              <Button variant="secondary" size="sm">
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit Profile
-              </Button>
-            </Link>
           </div>
         </header>
 

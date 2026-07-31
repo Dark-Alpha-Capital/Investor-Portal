@@ -87,7 +87,12 @@ export async function runFetchOnboardingEditPageData(): OnboardingEditPageDataRe
     return { tag: "no_onboarding" };
   }
 
-  if (data.onboarding.isEditable === false) {
+  // Investors cannot edit onboarding after submission
+  if (
+    data.onboarding.submittedAt != null ||
+    data.onboarding.status === "submitted" ||
+    data.onboarding.isEditable === false
+  ) {
     return { tag: "editing_disabled" };
   }
 

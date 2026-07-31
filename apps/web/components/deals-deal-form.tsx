@@ -93,8 +93,10 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
       minInvestment: initialData?.minInvestment || "",
       targetIrr: initialData?.targetIrr || "",
       targetMoic: initialData?.targetMoic || "",
-      status: initialData?.status || "draft",
-      visibility: initialData?.visibility || "invite_only",
+      status: (initialData?.status as DealFormValues["status"]) || "draft",
+      visibility:
+        (initialData?.visibility as DealFormValues["visibility"]) ||
+        "invite_only",
       coverImageUrl: initialData?.coverImageUrl || "",
       launchDate: initialData?.launchDate
         ? new Date(initialData.launchDate).toISOString().split("T")[0]
@@ -102,6 +104,16 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
       closeDate: initialData?.closeDate
         ? new Date(initialData.closeDate).toISOString().split("T")[0]
         : "",
+      targetCompany: initialData?.targetCompany || "",
+      revenue: initialData?.revenue || "",
+      ebitda: initialData?.ebitda || "",
+      holdPeriod: initialData?.holdPeriod || "",
+      investmentThesis: initialData?.investmentThesis || "",
+      risks: initialData?.risks || "",
+      purchasePrice: initialData?.purchasePrice || "",
+      debt: initialData?.debt || "",
+      sponsorEquity: initialData?.sponsorEquity || "",
+      lpEquity: initialData?.lpEquity || "",
     },
   });
 
@@ -117,11 +129,37 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
     // Find the first tab with errors and switch to it
     const errors = form.formState.errors;
     const tabs = [
-      { key: "basic", fields: ["name", "description", "teaserSummary"] },
-      { key: "categorization", fields: ["sector", "geography", "dealType"] },
+      {
+        key: "basic",
+        fields: ["name", "description", "teaserSummary", "targetCompany"],
+        label: "Basic Info",
+      },
+      {
+        key: "categorization",
+        fields: ["sector", "geography", "dealType"],
+        label: "Categorization",
+      },
       {
         key: "financial",
-        fields: ["targetRaise", "minInvestment", "targetIrr", "targetMoic"],
+        fields: [
+          "targetRaise",
+          "minInvestment",
+          "targetIrr",
+          "targetMoic",
+          "revenue",
+          "ebitda",
+          "holdPeriod",
+          "purchasePrice",
+          "debt",
+          "sponsorEquity",
+          "lpEquity",
+        ],
+        label: "Financial",
+      },
+      {
+        key: "thesis",
+        fields: ["investmentThesis", "risks"],
+        label: "Thesis & Risks",
       },
       {
         key: "settings",
@@ -132,6 +170,7 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
           "launchDate",
           "closeDate",
         ],
+        label: "Settings",
       },
     ];
 
@@ -141,15 +180,7 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
       );
       if (hasError) {
         setActiveTab(tab.key);
-        const tabName =
-          tab.key === "basic"
-            ? "Basic Info"
-            : tab.key === "categorization"
-              ? "Categorization"
-              : tab.key === "financial"
-                ? "Financial"
-                : "Settings";
-        toast.error(`Please fill in all required fields in the ${tabName} tab`);
+        toast.error(`Please fill in all required fields in the ${tab.label} tab`);
         return;
       }
     }
@@ -164,10 +195,11 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
         className="space-y-6"
       >
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="categorization">Categorization</TabsTrigger>
             <TabsTrigger value="financial">Financial</TabsTrigger>
+            <TabsTrigger value="thesis">Thesis & Risks</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -183,6 +215,23 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
                     <FormControl>
                       <Input placeholder="Project Alpha" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="targetCompany"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Target Company</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Acme Healthcare Inc." {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Name of the target company
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -373,7 +422,159 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={form.control}
+                  name="revenue"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Revenue</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="25000000" {...field} />
+                      </FormControl>
+                      <FormDescription>LTM / latest revenue (USD)</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="ebitda"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>EBITDA</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="7500000" {...field} />
+                      </FormControl>
+                      <FormDescription>LTM / latest EBITDA (USD)</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="holdPeriod"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Expected Hold Period</FormLabel>
+                      <FormControl>
+                        <Input placeholder="3–5 years" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
+
+              <div className="pt-2">
+                <h3 className="text-sm font-medium mb-3">Capital Structure</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="purchasePrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Purchase Price</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="45000000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="debt"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Debt</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="25000000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="sponsorEquity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Sponsor Equity</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="10000000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="lpEquity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>LP Equity</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="10000000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Thesis & Risks Tab */}
+          <TabsContent value="thesis" className="space-y-4">
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="investmentThesis"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Investment Thesis</FormLabel>
+                    <FormControl>
+                      <RichTextEditor
+                        content={field.value || ""}
+                        onChange={field.onChange}
+                        placeholder="Why are we buying? Why now? What is attractive?"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Explain the investment rationale for institutional investors
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="risks"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Risks</FormLabel>
+                    <FormControl>
+                      <RichTextEditor
+                        content={field.value || ""}
+                        onChange={field.onChange}
+                        placeholder="Customer concentration, key employee dependency, integration risk..."
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Key risks investors should understand
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
           </TabsContent>
 

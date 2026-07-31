@@ -636,6 +636,18 @@ export const deal = pgTable("deal", {
   targetIrr: doublePrecision("target_irr"), // e.g. 15.50
   targetMoic: doublePrecision("target_moic"), // e.g. 2.50
 
+  // Executive summary / data room content
+  targetCompany: text("target_company"),
+  revenue: doublePrecision("revenue"),
+  ebitda: doublePrecision("ebitda"),
+  holdPeriod: text("hold_period"),
+  investmentThesis: text("investment_thesis"),
+  risks: text("risks"),
+  purchasePrice: doublePrecision("purchase_price"),
+  debt: doublePrecision("debt"),
+  sponsorEquity: doublePrecision("sponsor_equity"),
+  lpEquity: doublePrecision("lp_equity"),
+
   // State
   status: deal_status_enum("status").default("draft").notNull(),
   visibility: deal_visibility_enum("visibility")

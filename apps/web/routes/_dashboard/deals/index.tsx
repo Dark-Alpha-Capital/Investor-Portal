@@ -10,7 +10,7 @@ function DealsPageContent({ initialData }: DealsLoaderData) {
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-8 border-b border-border pb-6">
           <h1 className="mb-2 text-3xl font-semibold tracking-tight">
-            Deal Marketplace
+            Available Investments
           </h1>
           <p className="text-muted-foreground text-base">
             Discover investment opportunities tailored to your profile

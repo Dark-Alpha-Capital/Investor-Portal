@@ -366,6 +366,7 @@ export const onboardingRouter = createTRPCRouter({
         // Status
         status: "submitted" as const,
         submittedAt,
+        isEditable: false,
       };
 
       // Prepare parallel database operations for entity-specific data
@@ -740,11 +741,16 @@ export const onboardingRouter = createTRPCRouter({
         });
       }
 
-      // Check if editing is allowed
-      if (currentOnboarding.isEditable === false) {
+      // Submitted applications are locked — investors cannot edit after submit
+      if (
+        currentOnboarding.submittedAt != null ||
+        currentOnboarding.status === "submitted" ||
+        currentOnboarding.isEditable === false
+      ) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "This onboarding can no longer be edited",
+          message:
+            "Your onboarding application has been submitted and can no longer be edited. Please contact support if you need to make changes.",
         });
       }
 

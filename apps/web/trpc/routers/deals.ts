@@ -94,6 +94,16 @@ export const dealsRouter = createTRPCRouter({
         minInvestment: parseNumericField(input.minInvestment),
         targetIrr: parseNumericField(input.targetIrr),
         targetMoic: parseNumericField(input.targetMoic),
+        targetCompany: input.targetCompany || null,
+        revenue: parseNumericField(input.revenue),
+        ebitda: parseNumericField(input.ebitda),
+        holdPeriod: input.holdPeriod || null,
+        investmentThesis: input.investmentThesis || null,
+        risks: input.risks || null,
+        purchasePrice: parseNumericField(input.purchasePrice),
+        debt: parseNumericField(input.debt),
+        sponsorEquity: parseNumericField(input.sponsorEquity),
+        lpEquity: parseNumericField(input.lpEquity),
         status: input.status || "draft",
         visibility: input.visibility || "invite_only",
         coverImageUrl: input.coverImageUrl || null,
@@ -233,6 +243,16 @@ export const dealsRouter = createTRPCRouter({
         minInvestment: parseNumericField(updateData.minInvestment),
         targetIrr: parseNumericField(updateData.targetIrr),
         targetMoic: parseNumericField(updateData.targetMoic),
+        targetCompany: updateData.targetCompany || null,
+        revenue: parseNumericField(updateData.revenue),
+        ebitda: parseNumericField(updateData.ebitda),
+        holdPeriod: updateData.holdPeriod || null,
+        investmentThesis: updateData.investmentThesis || null,
+        risks: updateData.risks || null,
+        purchasePrice: parseNumericField(updateData.purchasePrice),
+        debt: parseNumericField(updateData.debt),
+        sponsorEquity: parseNumericField(updateData.sponsorEquity),
+        lpEquity: parseNumericField(updateData.lpEquity),
         status: updateData.status || "draft",
         visibility: updateData.visibility || "invite_only",
         coverImageUrl: updateData.coverImageUrl || null,
@@ -399,6 +419,12 @@ export const dealsRouter = createTRPCRouter({
           minInvestment: dealRecord.minInvestment?.toString() ?? null,
           targetIrr: dealRecord.targetIrr?.toString() ?? null,
           targetMoic: dealRecord.targetMoic?.toString() ?? null,
+          revenue: dealRecord.revenue?.toString() ?? null,
+          ebitda: dealRecord.ebitda?.toString() ?? null,
+          purchasePrice: dealRecord.purchasePrice?.toString() ?? null,
+          debt: dealRecord.debt?.toString() ?? null,
+          sponsorEquity: dealRecord.sponsorEquity?.toString() ?? null,
+          lpEquity: dealRecord.lpEquity?.toString() ?? null,
           launchDate: dealRecord.launchDate?.toISOString() ?? null,
           closeDate: dealRecord.closeDate?.toISOString() ?? null,
           createdAt: dealRecord.createdAt.toISOString(),
@@ -569,11 +595,21 @@ export const dealsRouter = createTRPCRouter({
   getFiles: baseProcedure
     .input(z.object({ dealId: z.string() }))
     .query(async ({ input, ctx }) => {
-      // Get deal to construct folder path
+      const session = await authSession();
+      if (!session?.user) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to view deal documents",
+        });
+      }
+
+      const isAdmin = session.user.role === "admin";
+
+      // Get deal to construct folder path (accept id or slug)
       const [dealRecord] = await ctx.db
         .select()
         .from(deal)
-        .where(eq(deal.id, input.dealId))
+        .where(or(eq(deal.id, input.dealId), eq(deal.slug, input.dealId)))
         .limit(1);
 
       if (!dealRecord) {
@@ -581,6 +617,27 @@ export const dealsRouter = createTRPCRouter({
           code: "NOT_FOUND",
           message: "Deal not found",
         });
+      }
+
+      if (!isAdmin) {
+        const [permission] = await ctx.db
+          .select({ canViewDocuments: vehiclePermission.canViewDocuments })
+          .from(vehiclePermission)
+          .where(
+            and(
+              eq(vehiclePermission.userId, session.user.id),
+              eq(vehiclePermission.dealId, dealRecord.id),
+              isNull(vehiclePermission.revokedAt),
+            ),
+          )
+          .limit(1);
+
+        if (!permission?.canViewDocuments) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You do not have permission to view documents for this deal",
+          });
+        }
       }
 
       // Construct folder path based on deal slug
