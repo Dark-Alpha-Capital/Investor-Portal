@@ -402,10 +402,11 @@ export function Step4InvestmentProfile({
                 .toLowerCase()
                 .replace(/\s+/g, "-")
                 .replace(/\//g, "");
+              const roleId = `role-${roleValue}`;
               return (
                 <div key={role} className="flex items-center space-x-2">
-                  <RadioGroupItem value={roleValue} id={role} />
-                  <Label htmlFor={role} className="font-normal cursor-pointer">
+                  <RadioGroupItem value={roleValue} id={roleId} />
+                  <Label htmlFor={roleId} className="font-normal cursor-pointer">
                     {role}
                   </Label>
                 </div>
@@ -774,11 +775,12 @@ export function Step4InvestmentProfile({
           >
             {OWNERSHIP_OPTIONS.map((ownership) => {
               const ownershipValue = ownership.toLowerCase();
+              const ownershipId = `ownership-${ownershipValue}`;
               return (
                 <div key={ownership} className="flex items-center space-x-2">
-                  <RadioGroupItem value={ownershipValue} id={ownership} />
+                  <RadioGroupItem value={ownershipValue} id={ownershipId} />
                   <Label
-                    htmlFor={ownership}
+                    htmlFor={ownershipId}
                     className="font-normal cursor-pointer"
                   >
                     {ownership}

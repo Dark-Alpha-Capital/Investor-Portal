@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 export function JobProgressTracker() {
   const { jobs, updateJob, removeJob } = useJobTracking();
   const pollingRefs = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const missCountRefs = useRef<Map<string, number>>(new Map());
 
   // Poll for job progress
   useEffect(() => {
@@ -20,6 +21,7 @@ export function JobProgressTracker() {
       if (!job || (job.state !== "waiting" && job.state !== "active")) {
         clearTimeout(timeoutId);
         pollingRefs.current.delete(jobId);
+        missCountRefs.current.delete(jobId);
       }
     });
 
@@ -36,6 +38,7 @@ export function JobProgressTracker() {
           (currentJob.state !== "waiting" && currentJob.state !== "active")
         ) {
           pollingRefs.current.delete(jobId);
+          missCountRefs.current.delete(jobId);
           return;
         }
 
@@ -47,8 +50,10 @@ export function JobProgressTracker() {
           );
           const data = await response.json();
           const result = data.result?.data?.json;
+          const trpcError = data.error?.json ?? data.error;
 
           if (result) {
+            missCountRefs.current.delete(jobId);
             updateJob(jobId, {
               state: result.state as
                 | "waiting"
@@ -77,7 +82,32 @@ export function JobProgressTracker() {
               const timeoutId = setTimeout(pollJobProgress, 2000);
               pollingRefs.current.set(jobId, timeoutId);
             }
+            return;
           }
+
+          // Workflow not created yet / not found — keep polling briefly, then fail.
+          const attempts = (missCountRefs.current.get(jobId) ?? 0) + 1;
+          missCountRefs.current.set(jobId, attempts);
+          const errorMessage =
+            trpcError?.message ??
+            `Job progress unavailable (HTTP ${response.status})`;
+          console.warn(
+            `[JobProgress] no result for ${jobId} attempt=${attempts}: ${errorMessage}`,
+          );
+
+          if (attempts >= 15) {
+            updateJob(jobId, {
+              state: "failed",
+              progress: 0,
+              failedReason: errorMessage,
+            });
+            pollingRefs.current.delete(jobId);
+            missCountRefs.current.delete(jobId);
+            return;
+          }
+
+          const timeoutId = setTimeout(pollJobProgress, 2000);
+          pollingRefs.current.set(jobId, timeoutId);
         } catch (error) {
           console.error(`Error polling job progress for ${jobId}:`, error);
           // Retry after 2 seconds on error

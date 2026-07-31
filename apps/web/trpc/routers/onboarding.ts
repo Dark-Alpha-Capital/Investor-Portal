@@ -12,6 +12,7 @@ import {
   kycAttestation,
 } from "@repo/db/schema";
 import { and, eq, desc, sql } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
 import { env } from "cloudflare:workers";
 import { TRPCError } from "@trpc/server";
 import { mapWorkflowStatusToJobProgress } from "@/lib/workflows/map-workflow-job-status";
@@ -500,32 +501,36 @@ export const onboardingRouter = createTRPCRouter({
       };
 
       try {
-        // Keep all database writes atomic to avoid partial onboarding state.
-        await ctx.db.transaction(async (tx) => {
-          await tx.insert(onboarding).values(onboardingData);
-
-          await tx
+        // D1 does not support SQL BEGIN/COMMIT; use batch for atomic multi-writes.
+        const statements: BatchItem<"sqlite">[] = [
+          ctx.db.insert(onboarding).values(onboardingData),
+          ctx.db
             .update(user)
             .set({
               isOnboardingCompleted: true,
             })
-            .where(eq(user.id, userId));
+            .where(eq(user.id, userId)),
+        ];
 
-          if (uboRecords) {
-            await tx.insert(beneficialOwner).values(uboRecords);
-          }
+        if (uboRecords) {
+          statements.push(ctx.db.insert(beneficialOwner).values(uboRecords));
+        }
 
-          if (signatoryRecords) {
-            await tx.insert(authorizedSignatory).values(signatoryRecords);
-          }
+        if (signatoryRecords) {
+          statements.push(
+            ctx.db.insert(authorizedSignatory).values(signatoryRecords)
+          );
+        }
 
-          if (kycAttestationRecord) {
-            await tx.insert(kycAttestation).values(kycAttestationRecord);
-          }
+        if (kycAttestationRecord) {
+          statements.push(
+            ctx.db.insert(kycAttestation).values(kycAttestationRecord)
+          );
+        }
 
-          await tx.insert(onboardingDocument).values(documentRecords);
-
-          await tx.insert(sideEffectOutbox).values([
+        statements.push(
+          ctx.db.insert(onboardingDocument).values(documentRecords),
+          ctx.db.insert(sideEffectOutbox).values([
             {
               id: randomUUID(),
               topic: "queue",
@@ -533,7 +538,8 @@ export const onboardingRouter = createTRPCRouter({
               payload: {
                 queue: "onboarding",
                 jobName: "upload-onboarding-files",
-                jobId: `upload-onboarding-files:${onboardingId}`,
+                // Workflow instance IDs must match ^[a-zA-Z0-9_][a-zA-Z0-9-_]*$
+                jobId: `upload-onboarding-files-${onboardingId}`,
                 data: fileJobData,
               },
             },
@@ -544,7 +550,7 @@ export const onboardingRouter = createTRPCRouter({
               payload: {
                 queue: "email",
                 jobName: "onboarding-investor-confirmation",
-                jobId: `onboarding-investor-confirmation:${onboardingId}`,
+                jobId: `onboarding-investor-confirmation-${onboardingId}`,
                 data: investorEmailData,
               },
             },
@@ -555,20 +561,27 @@ export const onboardingRouter = createTRPCRouter({
               payload: {
                 queue: "email",
                 jobName: "onboarding-admin-notification",
-                jobId: `onboarding-admin-notification:${onboardingId}`,
+                jobId: `onboarding-admin-notification-${onboardingId}`,
                 data: adminEmailData,
               },
             },
-          ]);
-        });
+          ])
+        );
 
+        await ctx.db.batch(
+          statements as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]
+        );
+
+        console.log(
+          `[Onboarding] submit persisted onboardingId=${onboardingId}; dispatching outbox`
+        );
         await dispatchPendingOutbox(ctx.db);
 
         return {
           success: true,
           message: "Onboarding data submitted successfully",
           onboardingId,
-          jobId: `upload-onboarding-files:${onboardingId}`,
+          jobId: `upload-onboarding-files-${onboardingId}`,
           timestamp: submittedAt.toISOString(),
           userId,
           fileCount: files.length,
@@ -593,8 +606,18 @@ export const onboardingRouter = createTRPCRouter({
       })
     )
     .query(async ({ input, ctx }) => {
-      const prefix = "upload-onboarding-files:";
-      if (!input.jobId.startsWith(prefix)) {
+      // Prefer hyphen form (valid Workflow instance ID). Keep colon for old clients.
+      const hyphenPrefix = "upload-onboarding-files-";
+      const colonPrefix = "upload-onboarding-files:";
+      const prefix = input.jobId.startsWith(hyphenPrefix)
+        ? hyphenPrefix
+        : input.jobId.startsWith(colonPrefix)
+          ? colonPrefix
+          : null;
+      if (!prefix) {
+        console.warn(
+          `[Onboarding] getJobProgress unknown jobId format: ${input.jobId}`
+        );
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Job not found",
@@ -618,14 +641,22 @@ export const onboardingRouter = createTRPCRouter({
       let instance;
       try {
         instance = await env.ONBOARDING_KYC_WORKFLOW.get(input.jobId);
-      } catch {
+      } catch (error) {
+        console.error(
+          `[Onboarding] getJobProgress workflow.get failed jobId=${input.jobId}`,
+          error instanceof Error ? error.message : error
+        );
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Job not found",
+          cause: error,
         });
       }
 
       const details = await instance.status();
+      console.log(
+        `[Onboarding] getJobProgress jobId=${input.jobId} status=${details.status}`
+      );
       return mapWorkflowStatusToJobProgress(input.jobId, details);
     }),
 
@@ -836,42 +867,35 @@ export const onboardingRouter = createTRPCRouter({
         editedAt: new Date(),
       }));
 
-      // Transactional optimistic-concurrency update to avoid lost updates.
+      // Optimistic-concurrency update (D1 has no SQL transactions; batch can't
+      // skip the history insert when the update matches 0 rows).
       const updatedAtMarker = currentOnboarding.updatedAt;
-      const editUpdateResult = await ctx.db.transaction(async (tx) => {
-        const updatedRows = await tx
-          .update(onboarding)
-          .set({
-            ...updateData,
-            lastEditedAt: new Date(),
-            lastEditedBy: userId,
-            editCount: sql`((COALESCE(${onboarding.editCount}, '0'))::int + 1)::text`,
-          })
-          .where(
-            and(
-              eq(onboarding.id, currentOnboarding.id),
-              eq(onboarding.updatedAt, updatedAtMarker)
-            )
+      const updatedRows = await ctx.db
+        .update(onboarding)
+        .set({
+          ...updateData,
+          lastEditedAt: new Date(),
+          lastEditedBy: userId,
+          editCount: sql`CAST((CAST(COALESCE(${onboarding.editCount}, '0') AS INTEGER) + 1) AS TEXT)`,
+        })
+        .where(
+          and(
+            eq(onboarding.id, currentOnboarding.id),
+            eq(onboarding.updatedAt, updatedAtMarker)
           )
-          .returning({ id: onboarding.id });
+        )
+        .returning({ id: onboarding.id });
 
-        if (updatedRows.length === 0) {
-          return { updated: false as const };
-        }
-
-        if (editHistoryRecords.length > 0) {
-          await tx.insert(onboardingEditHistory).values(editHistoryRecords);
-        }
-
-        return { updated: true as const };
-      });
-
-      if (!editUpdateResult.updated) {
+      if (updatedRows.length === 0) {
         throw new TRPCError({
           code: "CONFLICT",
           message:
             "Onboarding was updated by another request. Please refresh and retry.",
         });
+      }
+
+      if (editHistoryRecords.length > 0) {
+        await ctx.db.insert(onboardingEditHistory).values(editHistoryRecords);
       }
 
       console.log(
