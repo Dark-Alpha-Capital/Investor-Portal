@@ -1,6 +1,7 @@
 import {
   chatbotSystemPrompt,
   chatbotTools,
+  getChatModelOption,
   isChatModelId,
   modelSupportsReasoning,
   resolveModel,
@@ -56,6 +57,15 @@ export const Route = createFileRoute("/api/chat")({
             );
           }
 
+          const modelOption = getChatModelOption(modelId);
+          console.log("[chat] user-selected model", {
+            chatId,
+            userId: session.user.id,
+            modelId,
+            provider: modelOption?.provider,
+            label: modelOption?.name,
+          });
+
           const existing = await loadChat(chatId, session.user.id);
           if (!existing) {
             return Response.json({ error: "Chat not found" }, { status: 404 });
@@ -76,6 +86,13 @@ export const Route = createFileRoute("/api/chat")({
           }
 
           const model = resolveModel(modelId);
+          console.log("[chat] using model for streamText generation", {
+            chatId,
+            userId: session.user.id,
+            modelId,
+            provider: modelOption?.provider,
+            sendReasoning: modelSupportsReasoning(modelId),
+          });
           const sendReasoning = modelSupportsReasoning(modelId);
 
           const result = streamText({

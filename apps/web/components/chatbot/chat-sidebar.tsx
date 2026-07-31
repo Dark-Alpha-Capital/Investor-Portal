@@ -1,7 +1,15 @@
 "use client";
 
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { MessageSquare, Plus, Trash2 } from "lucide-react";
+import {
+  Briefcase,
+  ChartBar,
+  FileText,
+  Home,
+  MessageSquare,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import {
   Sidebar,
@@ -23,13 +31,25 @@ import {
 } from "@/lib/server-fns/chatbot-route-data";
 import type { ChatListItem } from "@/lib/chat/chat-store";
 import { DEFAULT_CHAT_MODEL_ID } from "@repo/ai-core";
+import { getAppHomePath } from "@/lib/auth/user-role-guards";
+import type { Session } from "@/lib/auth/session-types";
 import { cn } from "@/lib/utils";
 
-export function ChatSidebar() {
+const appNavItems = [
+  { title: "Home", url: "/", icon: Home },
+  { title: "Dashboard", url: "/dashboard", icon: ChartBar },
+  { title: "Docs", url: "/onboarding", icon: FileText },
+  { title: "Deals", url: "/deals", icon: Briefcase },
+] as const;
+
+export function ChatSidebar({ session }: { session: Session }) {
   const params = useParams({ strict: false }) as { chatId?: string };
   const navigate = useNavigate();
   const [chats, setChats] = useState<ChatListItem[]>([]);
   const [isPending, startTransition] = useTransition();
+
+  const dashboardPath =
+    session?.user != null ? getAppHomePath(session.user) : "/dashboard";
 
   const refresh = () => {
     startTransition(async () => {
@@ -87,9 +107,31 @@ export function ChatSidebar() {
           type="button"
           variant="secondary"
         >
-          <Plus className="size-4" />
+          <Plus className="size-4 shrink-0" />
           New chat
         </Button>
+        <div className="flex items-center gap-1">
+          {appNavItems.map((item) => {
+            const href =
+              item.title === "Dashboard" ? dashboardPath : item.url;
+            return (
+              <Button
+                asChild
+                className="h-8 flex-1"
+                key={item.title}
+                size="sm"
+                title={item.title}
+                type="button"
+                variant="outline"
+              >
+                <Link to={href}>
+                  <item.icon className="size-4" />
+                  <span className="sr-only">{item.title}</span>
+                </Link>
+              </Button>
+            );
+          })}
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

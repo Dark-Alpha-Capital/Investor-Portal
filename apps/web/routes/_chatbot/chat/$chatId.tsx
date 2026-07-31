@@ -29,7 +29,6 @@ function ChatPage() {
       chatId={chat.id}
       initialMessages={chat.messages}
       initialModel={chat.model}
-      title={chat.title}
     />
   );
 }

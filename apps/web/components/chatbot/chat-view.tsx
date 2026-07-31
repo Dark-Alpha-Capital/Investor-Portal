@@ -34,6 +34,7 @@ import {
   PromptInputSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
+  PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
 import {
   Reasoning,
@@ -54,7 +55,6 @@ type ChatViewProps = {
   chatId: string;
   initialMessages: ChatbotUIMessage[];
   initialModel: string;
-  title: string;
 };
 
 function resolveInitialModel(model: string): ChatModelId {
@@ -73,13 +73,15 @@ export function ChatView({
   chatId,
   initialMessages,
   initialModel,
-  title,
 }: ChatViewProps) {
   const [model, setModel] = useState<ChatModelId>(
     resolveInitialModel(initialModel),
   );
   const modelRef = useRef(model);
   modelRef.current = model;
+  // PromptInput calls form.reset() on submit, which can fire Select onValueChange
+  // with the first option. Only accept changes while the user has the menu open.
+  const isSelectingModelRef = useRef(false);
   const [input, setInput] = useState("");
 
   useEffect(() => {
@@ -137,15 +139,9 @@ export function ChatView({
   };
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-3.5rem)] w-full max-w-3xl flex-col px-4 py-4">
-      <div className="mb-3 shrink-0">
-        <h1 className="truncate text-lg font-semibold tracking-tight">
-          {title}
-        </h1>
-      </div>
-
-      <Conversation className="min-h-0 flex-1 rounded-lg border">
-        <ConversationContent>
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col">
+      <Conversation className="min-h-0 flex-1">
+        <ConversationContent className="w-full px-4 py-6 md:px-8">
           {messages.length === 0 ? (
             <ConversationEmptyState
               description="Ask about the portal, or try “What’s the weather in San Francisco?”"
@@ -232,7 +228,7 @@ export function ChatView({
       </Conversation>
 
       {error ? (
-        <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">
+        <div className="mx-auto flex w-full items-center justify-between gap-3 border-t border-destructive/30 bg-destructive/5 px-4 py-2 text-sm md:px-8">
           <span>Something went wrong.</span>
           <Button
             disabled={isBusy}
@@ -246,54 +242,71 @@ export function ChatView({
         </div>
       ) : null}
 
-      <div className="mt-3 shrink-0 space-y-2">
-        {/* Keep model select outside PromptInput — the form calls reset() on
-            submit, which resets Radix Select back to the first option. */}
-        <div className="flex items-center justify-between gap-2">
-          <PromptInputSelect
-            onValueChange={(value) => {
-              if (isChatModelId(value)) {
-                setModel(value);
-              }
-            }}
-            value={model}
-          >
-            <PromptInputSelectTrigger className="w-[11.5rem]">
-              <PromptInputSelectValue placeholder="Model" />
-            </PromptInputSelectTrigger>
-            <PromptInputSelectContent>
-              {CHAT_MODELS.map((option) => (
-                <PromptInputSelectItem key={option.id} value={option.id}>
-                  {option.name}
-                </PromptInputSelectItem>
-              ))}
-            </PromptInputSelectContent>
-          </PromptInputSelect>
+      <div className="shrink-0 border-t px-4 py-3 md:px-8">
+        <div className="w-full">
+          <PromptInput onSubmit={handleSubmit}>
+            <PromptInputBody>
+              <PromptInputTextarea
+                disabled={isBusy}
+                onChange={(event) => setInput(event.target.value)}
+                placeholder={
+                  error != null
+                    ? "Edit your message and try again..."
+                    : "Say something..."
+                }
+                value={input}
+              />
+            </PromptInputBody>
+            <PromptInputFooter>
+              <PromptInputTools>
+                <PromptInputSelect
+                  onOpenChange={(open) => {
+                    if (open) {
+                      isSelectingModelRef.current = true;
+                      return;
+                    }
+                    // Defer clear so selecting an item still counts as intentional.
+                    queueMicrotask(() => {
+                      isSelectingModelRef.current = false;
+                    });
+                  }}
+                  onValueChange={(value) => {
+                    if (!isSelectingModelRef.current) {
+                      return;
+                    }
+                    if (isChatModelId(value)) {
+                      setModel(value);
+                    }
+                  }}
+                  value={model}
+                >
+                  <PromptInputSelectTrigger className="w-[11.5rem]">
+                    <PromptInputSelectValue placeholder="Model" />
+                  </PromptInputSelectTrigger>
+                  <PromptInputSelectContent>
+                    {CHAT_MODELS.map((option) => (
+                      <PromptInputSelectItem key={option.id} value={option.id}>
+                        {option.name}
+                      </PromptInputSelectItem>
+                    ))}
+                  </PromptInputSelectContent>
+                </PromptInputSelect>
+              </PromptInputTools>
+              {isBusy ? (
+                <Button
+                  onClick={() => stop()}
+                  size="sm"
+                  type="button"
+                  variant="secondary"
+                >
+                  Stop
+                </Button>
+              ) : (
+                <PromptInputSubmit disabled={!canSubmit} />
+              )}
+            </PromptInputFooter>
+          </PromptInput>
         </div>
-
-        <PromptInput onSubmit={handleSubmit}>
-          <PromptInputBody>
-            <PromptInputTextarea
-              disabled={isBusy}
-              onChange={(event) => setInput(event.target.value)}
-              placeholder={
-                error != null
-                  ? "Edit your message and try again..."
-                  : "Say something..."
-              }
-              value={input}
-            />
-          </PromptInputBody>
-          <PromptInputFooter>
-            {isBusy ? (
-              <Button onClick={() => stop()} size="sm" type="button" variant="secondary">
-                Stop
-              </Button>
-            ) : (
-              <PromptInputSubmit disabled={!canSubmit} />
-            )}
-          </PromptInputFooter>
-        </PromptInput>
       </div>
     </div>
   );

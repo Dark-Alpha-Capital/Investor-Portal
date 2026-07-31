@@ -1,16 +1,9 @@
-import {
-  Link,
-  Outlet,
-  createFileRoute,
-  redirect,
-  useRouterState,
-} from "@tanstack/react-router";
-import { MessageSquarePlus } from "lucide-react";
+import { Outlet, createFileRoute, redirect, useRouterState } from "@tanstack/react-router";
 import { ChatSidebar } from "@/components/chatbot/chat-sidebar";
 import { ChatbotProviders } from "@/components/chatbot/chatbot-providers";
-import { SidebarInset } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
+import { UserNav } from "@/components/user-nav";
 import { fetchSessionForChatbotLayout } from "@/lib/server-fns/chatbot-route-data";
 import { generateNoIndexMetadata } from "@/lib/marketing/seo";
 
@@ -39,22 +32,21 @@ export const Route = createFileRoute("/_chatbot")({
 });
 
 function ChatbotShell() {
+  const { session } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
     <ChatbotProviders>
-      <ChatSidebar />
+      <ChatSidebar session={session} />
       <SidebarInset className="flex max-h-svh flex-col overflow-hidden">
-        <header className="flex h-14 shrink-0 items-center justify-between border-b px-4">
-          <div className="text-sm font-medium text-muted-foreground">
-            Assistant
+        <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <SidebarTrigger className="text-muted-foreground md:hidden" />
+            <div className="text-sm font-medium text-muted-foreground">
+              Assistant
+            </div>
           </div>
-          <Button asChild size="sm" variant="outline">
-            <Link to="/chat">
-              <MessageSquarePlus className="size-4" />
-              New chat
-            </Link>
-          </Button>
+          <UserNav session={session} />
         </header>
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden" key={pathname}>
           <Outlet />
