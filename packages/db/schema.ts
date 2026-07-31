@@ -178,12 +178,34 @@ export const userRelations = relations(user, ({ many }) => ({
   investments: many(investment), // "My Portfolio"
   dealInterests: many(dealInterest), // "My Watchlist"
   dealInvites: many(dealInvite), // "Curated for Me"
-  // Compliance Governance
-  roleAssignments: many(userRoleAssignment), // Granular RBAC
-  clearances: many(investorClearance), // Clearance status
-  vehiclePermissions: many(vehiclePermission), // Deal-level access
-  bankingVerifications: many(bankingVerification), // Banking changes
+  // Compliance Governance — relationName required when a table has multiple FKs to user
+  roleAssignments: many(userRoleAssignment, {
+    relationName: "roleAssignments",
+  }),
+  rolesGranted: many(userRoleAssignment, { relationName: "grantedByUser" }),
+  clearances: many(investorClearance, { relationName: "clearances" }),
+  clearancesPerformed: many(investorClearance, {
+    relationName: "clearedByUser",
+  }),
+  vehiclePermissions: many(vehiclePermission, {
+    relationName: "vehiclePermissions",
+  }),
+  vehiclePermissionsGranted: many(vehiclePermission, {
+    relationName: "grantedByUser",
+  }),
+  bankingVerifications: many(bankingVerification, {
+    relationName: "bankingVerifications",
+  }),
+  bankingVerificationsPerformed: many(bankingVerification, {
+    relationName: "verifiedByUser",
+  }),
   capitalNoticeRecipients: many(capitalNoticeRecipient), // Capital notices
+  capitalNoticesCreated: many(capitalNotice, {
+    relationName: "capitalNoticesCreated",
+  }),
+  capitalNoticesApproved: many(capitalNotice, {
+    relationName: "approvedByUser",
+  }),
 }));
 
 export const chatRelations = relations(chat, ({ one }) => ({
@@ -1443,6 +1465,7 @@ export const investorClearanceRelations = relations(
     user: one(user, {
       fields: [investorClearance.userId],
       references: [user.id],
+      relationName: "clearances",
     }),
     clearedByUser: one(user, {
       fields: [investorClearance.clearedBy],
@@ -1458,6 +1481,7 @@ export const vehiclePermissionRelations = relations(
     user: one(user, {
       fields: [vehiclePermission.userId],
       references: [user.id],
+      relationName: "vehiclePermissions",
     }),
     deal: one(deal, {
       fields: [vehiclePermission.dealId],
@@ -1522,6 +1546,7 @@ export const capitalNoticeRelations = relations(
     createdByUser: one(user, {
       fields: [capitalNotice.createdBy],
       references: [user.id],
+      relationName: "capitalNoticesCreated",
     }),
     approvedByUser: one(user, {
       fields: [capitalNotice.approvedBy],
@@ -1551,6 +1576,7 @@ export const bankingVerificationRelations = relations(
     user: one(user, {
       fields: [bankingVerification.userId],
       references: [user.id],
+      relationName: "bankingVerifications",
     }),
     verifiedByUser: one(user, {
       fields: [bankingVerification.verifiedBy],

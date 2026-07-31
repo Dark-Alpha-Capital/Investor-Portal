@@ -1,13 +1,11 @@
 import {
   chatbotSystemPrompt,
-  chatbotTools,
   getChatModelOption,
   isChatModelId,
   modelSupportsReasoning,
   resolveModel,
   type ChatbotUIMessage,
 } from "@repo/ai-core";
-import { pipeJsonRender } from "@json-render/core";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   convertToModelMessages,
@@ -26,9 +24,10 @@ import { authSession } from "@/lib/auth/session-from-request";
 import { chatStreamErrorMessage } from "@/lib/chat/chat-stream-error";
 import { loadChat, saveChat } from "@/lib/chat/chat-store";
 import { stripOpenAIItemIds } from "@/lib/chat/strip-openai-item-ids";
-import { chatCatalogPrompt } from "@/lib/json-render/catalog";
-
-const chatInstructions = [chatbotSystemPrompt, chatCatalogPrompt].join("\n\n");
+import {
+  getChatToolInstructions,
+  getChatToolsForUser,
+} from "@/lib/chat/tools";
 
 export const Route = createFileRoute("/api/chat")({
   server: {
@@ -79,7 +78,11 @@ export const Route = createFileRoute("/api/chat")({
           }
 
           const messages = [...existing.messages, message];
-          const tools = chatbotTools as ToolSet;
+          const tools = getChatToolsForUser(session.user) as ToolSet;
+          const chatInstructions = [
+            chatbotSystemPrompt,
+            getChatToolInstructions(session.user),
+          ].join("\n\n");
 
           let validatedMessages: ChatbotUIMessage[];
           try {
@@ -111,7 +114,7 @@ export const Route = createFileRoute("/api/chat")({
             model,
             instructions: chatInstructions,
             messages: modelMessages,
-            tools: chatbotTools,
+            tools,
             stopWhen: isStepCount(5),
             onError: ({ error }) => {
               console.error("streamText error:", error);
@@ -122,7 +125,7 @@ export const Route = createFileRoute("/api/chat")({
 
           const uiStream = toUIMessageStream({
             stream: result.stream,
-            tools: chatbotTools,
+            tools,
             sendReasoning,
             generateMessageId: createIdGenerator({
               prefix: "msg",
@@ -135,7 +138,7 @@ export const Route = createFileRoute("/api/chat")({
             originalMessages: validatedMessages,
             execute: async ({ writer }) => {
               writer.merge(
-                pipeJsonRender(uiStream) as ReadableStream<
+                uiStream as ReadableStream<
                   InferUIMessageChunk<ChatbotUIMessage>
                 >,
               );

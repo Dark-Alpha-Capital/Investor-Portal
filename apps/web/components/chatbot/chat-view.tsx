@@ -8,7 +8,6 @@ import {
   type ChatbotUIMessage,
   type ChatModelId,
 } from "@repo/ai-core";
-import { useJsonRenderMessage } from "@json-render/react";
 import { DefaultChatTransport } from "ai";
 import { MessageSquare } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -46,7 +45,6 @@ import { renderDedicatedToolPart } from "@/components/chatbot/tool-ui";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { configureAiSdkClientWarnings } from "@/lib/ai/configure-sdk-warnings";
-import { ChatJsonRenderer } from "@/lib/json-render/renderer";
 import { cn } from "@/lib/utils";
 
 type ChatViewProps = {
@@ -112,10 +110,6 @@ function ChatMessage({
   message: ChatbotUIMessage;
   isStreaming: boolean;
 }) {
-  const { spec, hasSpec } = useJsonRenderMessage(
-    message.parts as Parameters<typeof useJsonRenderMessage>[0],
-  );
-
   return (
     <Message from={message.role}>
       <MessageContent>
@@ -137,19 +131,13 @@ function ChatMessage({
             );
           }
 
-          // 1) Dedicated tool UI (e.g. displayWeather → Weather)
           const toolUi = renderDedicatedToolPart(part, partKey);
           if (toolUi != null) {
             return toolUi;
           }
 
-          // 2) No dedicated tool UI — json-render / text handle the rest
           return null;
         })}
-        {/* Fallback generative UI for catalog specs (metrics, cards, etc.) */}
-        {hasSpec ? (
-          <ChatJsonRenderer loading={isStreaming} spec={spec} />
-        ) : null}
       </MessageContent>
     </Message>
   );

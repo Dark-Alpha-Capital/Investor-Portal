@@ -1,82 +1,119 @@
 "use client";
 
 import type { ChatbotUIMessage } from "@repo/ai-core";
+import type { DynamicToolUIPart, ToolUIPart } from "ai";
 import type { ReactNode } from "react";
+import {
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolInput,
+  ToolOutput,
+} from "@/components/ai-elements/tool";
 import { Weather } from "@/components/chatbot/weather";
 
 type MessagePart = ChatbotUIMessage["parts"][number];
 
-type ToolPart = Extract<MessagePart, { type: `tool-${string}` }>;
+type ChatToolPart = Extract<
+  MessagePart,
+  { type: `tool-${string}` } | { type: "dynamic-tool" }
+>;
 
-type ToolUiRenderer = (args: {
-  part: ToolPart;
-  partKey: string;
-}) => ReactNode;
-
-/**
- * Dedicated generative UI for known tools.
- * Tools not listed here fall through — the model may use json-render instead.
- */
-const toolUiByName: Record<string, ToolUiRenderer> = {
-  displayWeather: ({ part, partKey }) => {
-    if (part.type !== "tool-displayWeather") {
-      return null;
-    }
-
-    switch (part.state) {
-      case "input-streaming":
-      case "input-available":
-      case "approval-requested":
-      case "approval-responded":
-        return (
-          <div className="text-sm text-muted-foreground" key={partKey}>
-            Loading weather…
-          </div>
-        );
-      case "output-available":
-        return <Weather key={partKey} {...part.output} />;
-      case "output-error":
-        return (
-          <div className="text-sm text-destructive" key={partKey}>
-            Error: {part.errorText}
-          </div>
-        );
-      case "output-denied":
-        return (
-          <div className="text-sm text-muted-foreground" key={partKey}>
-            Weather request denied.
-          </div>
-        );
-      default: {
-        const _exhaustive: never = part;
-        return _exhaustive;
-      }
-    }
-  },
+const TOOL_TITLES: Record<string, string> = {
+  displayWeather: "Weather",
+  listInvestors: "List investors",
+  getInvestorDetails: "Investor details",
+  listMarketplaceDeals: "Marketplace deals",
 };
 
-function toolNameFromPartType(type: string): string | null {
-  if (!type.startsWith("tool-") || type === "dynamic-tool") {
+function toolNameFromPart(part: ChatToolPart): string {
+  if (part.type === "dynamic-tool") {
+    return part.toolName;
+  }
+  return part.type.slice("tool-".length);
+}
+
+function isChatToolPart(part: MessagePart): part is ChatToolPart {
+  return part.type.startsWith("tool-") || part.type === "dynamic-tool";
+}
+
+function renderToolOutput(part: ChatToolPart): ReactNode {
+  if (part.state !== "output-available") {
     return null;
   }
-  return type.slice("tool-".length);
+
+  if (
+    part.type === "tool-displayWeather" &&
+    part.output &&
+    typeof part.output === "object"
+  ) {
+    const output = part.output as {
+      location: string;
+      weather: string;
+      temperature: number;
+    };
+    return <Weather {...output} />;
+  }
+
+  return part.output;
+}
+
+function toolErrorText(part: ChatToolPart): string | undefined {
+  if (part.state === "output-error") {
+    return part.errorText;
+  }
+  if (part.state === "output-denied") {
+    return "Tool request denied.";
+  }
+  return undefined;
 }
 
 /**
- * Renders a tool part with its dedicated component, or null if none is registered
- * (json-render is the fallback for those cases).
+ * Renders any tool / dynamic-tool part with the AI Elements Tool collapsible.
  */
 export function renderDedicatedToolPart(
   part: MessagePart,
   partKey: string,
 ): ReactNode {
-  const name = toolNameFromPartType(part.type);
-  if (name == null) {
+  if (!isChatToolPart(part)) {
     return null;
   }
-  const render = toolUiByName[name];
-  if (!render) {
-    return null;
-  }
-  return render({ part: part as ToolPart, partKey });
+
+  const name = toolNameFromPart(part);
+  const title = TOOL_TITLES[name] ?? name;
+  const defaultOpen =
+    part.state === "output-available" ||
+    part.state === "output-error" ||
+    part.state === "output-denied";
+
+  const header =
+    part.type === "dynamic-tool" ? (
+      <ToolHeader
+        state={(part as DynamicToolUIPart).state}
+        title={title}
+        toolName={part.toolName}
+        type="dynamic-tool"
+      />
+    ) : (
+      <ToolHeader
+        state={(part as ToolUIPart).state}
+        title={title}
+        type={(part as ToolUIPart).type}
+      />
+    );
+
+  return (
+    <Tool defaultOpen={defaultOpen} key={partKey}>
+      {header}
+      <ToolContent>
+        {"input" in part && part.input != null ? (
+          <ToolInput input={part.input} />
+        ) : null}
+        <ToolOutput
+          errorText={toolErrorText(part)}
+          output={renderToolOutput(part)}
+        />
+      </ToolContent>
+    </Tool>
+  );
 }
