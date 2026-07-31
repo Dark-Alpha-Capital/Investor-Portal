@@ -503,10 +503,12 @@ export const deal_visibility_enum = pgEnum("deal_visibility", [
   "invite_only", // Strictly curated (requires an entry in deal_invite)
 ]);
 
-// 3. Status of a specific User's Investment
+// 3. Status of a specific User's Investment (capital commitment lifecycle)
 export const investment_status_enum = pgEnum("investment_status", [
-  "committed", // Signed docs, money not wired yet
-  "active", // Money wired, currently deployed
+  "committed", // Investor submitted commitment amount
+  "pending", // Under review / docs in progress
+  "confirmed", // Commitment accepted; awaiting wire
+  "funded", // Money received
   "transferred", // Sold to someone else
   "liquidated", // Deal exited, money returned
   "written_off", // Loss
@@ -714,36 +716,44 @@ export const dealInterest = pgTable(
 
 // --- D. CURRENT INVESTMENTS (The Portfolio/Holdings) ---
 // This is the source of truth for "My Portfolio"
-export const investment = pgTable("investment", {
-  id: text("id").primaryKey(),
-  dealId: text("deal_id")
-    .notNull()
-    .references(() => deal.id, { onDelete: "restrict" }),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "restrict" }),
+export const investment = pgTable(
+  "investment",
+  {
+    id: text("id").primaryKey(),
+    dealId: text("deal_id")
+      .notNull()
+      .references(() => deal.id, { onDelete: "restrict" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
 
-  // The "Commitment" - What they signed for
-  committedAmount: doublePrecision("committed_amount").notNull(),
-  committedDate: timestamp("committed_date").notNull(),
+    // The "Commitment" - What they signed for
+    committedAmount: doublePrecision("committed_amount").notNull(),
+    committedDate: timestamp("committed_date").notNull(),
 
-  // The "Funded" - What they actually wired
-  fundedAmount: doublePrecision("funded_amount").default(0),
+    // The "Funded" - What they actually wired
+    fundedAmount: doublePrecision("funded_amount").default(0),
 
-  // Metrics for Dashboard (Calculated periodically via admin/script)
-  currentValue: doublePrecision("current_value"), // NAV
-  distributions: doublePrecision("distributions").default(0), // Cash returned
+    // Metrics for Dashboard (Calculated periodically via admin/script)
+    currentValue: doublePrecision("current_value"), // NAV
+    distributions: doublePrecision("distributions").default(0), // Cash returned
 
-  status: investment_status_enum("status").default("active").notNull(),
+    status: investment_status_enum("status").default("committed").notNull(),
 
-  // Ownership specific
-  ownershipPercentage: doublePrecision("ownership_percentage"),
+    // Ownership specific
+    ownershipPercentage: doublePrecision("ownership_percentage"),
 
-  createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
-  updatedAt: timestamp("updated_at")
-    .default(sql`(unixepoch() * 1000)`)
-    .$onUpdate(() => new Date()),
-});
+    createdAt: timestamp("created_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+    updatedAt: timestamp("updated_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("investment_deal_user_uniq").on(table.dealId, table.userId),
+  ]
+);
 
 // --- E. INVESTMENT DOCUMENTS (K-1s, Quarterly Reports, etc.) ---
 // Documents linked to investments (tax forms, reports, statements)

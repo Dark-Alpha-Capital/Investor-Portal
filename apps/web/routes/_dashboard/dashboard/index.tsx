@@ -8,7 +8,31 @@ import { OnboardingRequiredScreen } from "./components/onboarding-required";
 import { DollarSign, TrendingUp, FileText } from "lucide-react";
 import { AppLink as Link } from "@/components/app-link";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
+
+const commitmentStatusLabels: Record<string, string> = {
+  committed: "Committed",
+  pending: "Pending",
+  confirmed: "Confirmed",
+  funded: "Funded",
+  transferred: "Transferred",
+  liquidated: "Liquidated",
+  written_off: "Written Off",
+};
+
+const commitmentStatusVariant: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  committed: "secondary",
+  pending: "outline",
+  confirmed: "default",
+  funded: "default",
+  transferred: "secondary",
+  liquidated: "secondary",
+  written_off: "destructive",
+};
 
 type PortfolioPayload = Awaited<
   ReturnType<typeof import("@repo/db/queries").getPortfolioData>
@@ -157,9 +181,20 @@ function DashboardMain({
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1 space-y-2">
-                      <h3 className="text-base font-semibold transition-colors group-hover:text-primary">
-                        {investment.dealName}
-                      </h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-semibold transition-colors group-hover:text-primary">
+                          {investment.dealName}
+                        </h3>
+                        <Badge
+                          variant={
+                            commitmentStatusVariant[investment.status] ??
+                            "secondary"
+                          }
+                        >
+                          {commitmentStatusLabels[investment.status] ??
+                            investment.status}
+                        </Badge>
+                      </div>
                       <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
                         <p className="text-muted-foreground">
                           Committed:{" "}
@@ -169,15 +204,18 @@ function DashboardMain({
                             )}
                           </span>
                         </p>
-                        <p className="text-muted-foreground">
-                          Deployed:{" "}
-                          <span className="font-medium text-foreground">
-                            {formatCurrency(
-                              parseFloat(investment.fundedAmount || "0"),
-                            )}
-                          </span>
-                        </p>
-                        {investment.currentValue && (
+                        {investment.status === "funded" ||
+                        parseFloat(investment.fundedAmount || "0") > 0 ? (
+                          <p className="text-muted-foreground">
+                            Deployed:{" "}
+                            <span className="font-medium text-foreground">
+                              {formatCurrency(
+                                parseFloat(investment.fundedAmount || "0"),
+                              )}
+                            </span>
+                          </p>
+                        ) : null}
+                        {investment.currentValue ? (
                           <p className="text-muted-foreground">
                             Value:{" "}
                             <span className="font-medium text-foreground">
@@ -186,7 +224,7 @@ function DashboardMain({
                               )}
                             </span>
                           </p>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                     <Button variant="ghost" size="sm" className="w-fit">

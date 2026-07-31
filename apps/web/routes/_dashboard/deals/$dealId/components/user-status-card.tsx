@@ -1,4 +1,5 @@
 import { CheckCircle2, Shield, FileText, DollarSign, Eye } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 type UserInterest = {
   id: string;
@@ -39,6 +40,29 @@ const interestStatusLabels: Record<string, string> = {
   meeting_requested: "Meeting Requested",
 };
 
+const commitmentStatusLabels: Record<string, string> = {
+  committed: "Committed",
+  pending: "Pending",
+  confirmed: "Confirmed",
+  funded: "Funded",
+  transferred: "Transferred",
+  liquidated: "Liquidated",
+  written_off: "Written Off",
+};
+
+const commitmentStatusVariant: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  committed: "secondary",
+  pending: "outline",
+  confirmed: "default",
+  funded: "default",
+  transferred: "secondary",
+  liquidated: "secondary",
+  written_off: "destructive",
+};
+
 const formatCurrency = (value: string | null | undefined): string => {
   if (!value) return "-";
   const num = parseFloat(value);
@@ -69,13 +93,14 @@ export function UserStatusCard({
   userInvestment,
   permissions,
 }: UserStatusCardProps) {
+  const isFunded = userInvestment?.status === "funded";
+
   return (
     <section>
       <div>
         <h3>Your Status</h3>
       </div>
       <div className="space-y-4">
-        {/* Permission badges */}
         <div className="flex flex-wrap gap-2">
           <div
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -119,11 +144,19 @@ export function UserStatusCard({
           </div>
         </div>
 
-        {userInvestment && (
+        {userInvestment ? (
           <div className="p-4 bg-primary/10 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-3">
               <CheckCircle2 className="h-5 w-5 text-primary" />
-              <span className="font-semibold">Active Investment</span>
+              <span className="font-semibold">Capital Commitment</span>
+              <Badge
+                variant={
+                  commitmentStatusVariant[userInvestment.status] ?? "secondary"
+                }
+              >
+                {commitmentStatusLabels[userInvestment.status] ??
+                  userInvestment.status}
+              </Badge>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
@@ -132,12 +165,14 @@ export function UserStatusCard({
                   {formatCurrency(userInvestment.committedAmount)}
                 </p>
               </div>
-              <div>
-                <p className="text-muted-foreground">Funded</p>
-                <p className="font-semibold">
-                  {formatCurrency(userInvestment.fundedAmount)}
-                </p>
-              </div>
+              {isFunded ? (
+                <div>
+                  <p className="text-muted-foreground">Funded</p>
+                  <p className="font-semibold">
+                    {formatCurrency(userInvestment.fundedAmount)}
+                  </p>
+                </div>
+              ) : null}
               <div>
                 <p className="text-muted-foreground">Current Value</p>
                 <p className="font-semibold">
@@ -152,8 +187,8 @@ export function UserStatusCard({
               </div>
             </div>
           </div>
-        )}
-        {userInterest && !userInvestment && (
+        ) : null}
+        {userInterest && !userInvestment ? (
           <div className="p-4 bg-primary/10 rounded-lg border-l-4 border-primary">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
@@ -165,13 +200,14 @@ export function UserStatusCard({
                   Status:{" "}
                   {interestStatusLabels[userInterest.status] ||
                     userInterest.status}
-                  {userInterest.proposedAmount &&
-                    ` • Amount: ${formatCurrency(userInterest.proposedAmount)}`}
+                  {userInterest.proposedAmount
+                    ? ` • Amount: ${formatCurrency(userInterest.proposedAmount)}`
+                    : null}
                 </p>
               </div>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </section>
   );

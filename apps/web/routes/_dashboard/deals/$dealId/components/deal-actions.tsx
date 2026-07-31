@@ -73,7 +73,11 @@ export function DealActions({
   const router = useRouter();
   const trpc = useTRPC();
   const [isSoftCommitDialogOpen, setIsSoftCommitDialogOpen] = useState(false);
+  const [isCommitDialogOpen, setIsCommitDialogOpen] = useState(false);
   const [proposedAmount, setProposedAmount] = useState<string>(
+    userInterest?.proposedAmount || "",
+  );
+  const [commitAmount, setCommitAmount] = useState<string>(
     userInterest?.proposedAmount || "",
   );
 
@@ -86,19 +90,48 @@ export function DealActions({
 
   const { mutate: expressInterest } = useMutation(
     trpc.deals.expressInterest.mutationOptions({
-      onSuccess: (data) => {
+      onSuccess: () => {
         toast.success("Interest sent – IR Team will contact you.");
         setIsSoftCommitDialogOpen(false);
         setProposedAmount("");
         setLoadingAction(null);
         router.refresh();
       },
-      onError: (error: any) => {
+      onError: (error: { message?: string }) => {
         toast.error(error.message || "Failed to express interest");
         setLoadingAction(null);
       },
     }),
   );
+
+  const { mutate: commitCapital } = useMutation(
+    trpc.investments.commit.mutationOptions({
+      onSuccess: () => {
+        toast.success("Capital commitment recorded.");
+        setIsCommitDialogOpen(false);
+        setCommitAmount("");
+        setLoadingAction(null);
+        router.refresh();
+      },
+      onError: (error: { message?: string }) => {
+        toast.error(error.message || "Failed to commit capital");
+        setLoadingAction(null);
+      },
+    }),
+  );
+
+  const handleCommitCapital = () => {
+    const amount = parseFloat(commitAmount);
+    if (!commitAmount || amount <= 0) {
+      toast.error("Please enter a valid commitment amount");
+      return;
+    }
+    setLoadingAction("commit");
+    commitCapital({
+      dealId,
+      committedAmount: amount,
+    });
+  };
 
   const handleInterestedClick = () => {
     setLoadingAction("interested");
@@ -198,6 +231,93 @@ export function DealActions({
           </p>
         </div>
       )}
+
+      {canInvest ? (
+        <Dialog open={isCommitDialogOpen} onOpenChange={setIsCommitDialogOpen}>
+          <div className="border rounded-lg p-4 border-primary/30 bg-primary/5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <h4 className="font-medium mb-1">Commit Capital</h4>
+                <p className="text-sm text-muted-foreground">
+                  Submit a capital commitment for this deal. This records your
+                  commitment before funds are wired. Status will move through
+                  Committed → Pending → Confirmed → Funded.
+                </p>
+                {minInvestment ? (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Minimum investment: {formatCurrency(minInvestment)}
+                  </p>
+                ) : null}
+              </div>
+              <DialogTrigger asChild>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    setCommitAmount(userInterest?.proposedAmount || "")
+                  }
+                >
+                  Commit
+                </Button>
+              </DialogTrigger>
+            </div>
+          </div>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Commit Capital</DialogTitle>
+              <DialogDescription>
+                Enter the amount you are committing. Money is not wired yet —
+                this records your commitment only.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="commit-amount">Commitment Amount</Label>
+                <div className="relative mt-2">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    $
+                  </span>
+                  <Input
+                    id="commit-amount"
+                    type="number"
+                    placeholder="250000"
+                    className="pl-7"
+                    value={commitAmount}
+                    onChange={(e) => setCommitAmount(e.target.value)}
+                    min="0"
+                    step="1000"
+                  />
+                </div>
+                {minInvestment ? (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Minimum investment: {formatCurrency(minInvestment)}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsCommitDialogOpen(false);
+                  setCommitAmount("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCommitCapital}
+                disabled={
+                  loadingAction === "commit" ||
+                  !commitAmount ||
+                  parseFloat(commitAmount) <= 0
+                }
+              >
+                {loadingAction === "commit" ? "Committing..." : "I Commit"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       {!userInterest ? (
         // Initial interest options

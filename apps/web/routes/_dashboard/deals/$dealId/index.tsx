@@ -110,8 +110,23 @@ function DealTabs({ dealId, result }: { dealId: string; result: OkDeal }) {
 
       <TabsContent value="actions" className="mt-0">
         {result.userInvestment ? (
-          <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-            You already have an investment in this deal.
+          <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
+            <p className="font-medium text-foreground">
+              Capital commitment on file
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Status:{" "}
+              {result.userInvestment.status
+                .replace(/_/g, " ")
+                .replace(/\b\w/g, (c) => c.toUpperCase())}{" "}
+              · {result.userInvestment.committedAmount
+                ? new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: "USD",
+                    maximumFractionDigits: 0,
+                  }).format(parseFloat(result.userInvestment.committedAmount))
+                : null}
+            </p>
           </div>
         ) : (
           <DealActions

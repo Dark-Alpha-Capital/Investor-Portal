@@ -1,6 +1,4 @@
-
-import React, { useState, useEffect } from "react";
-import { useRouter } from "@/hooks/use-app-navigation";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,8 +29,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Plus, Edit, DollarSign, TrendingUp } from "lucide-react";
+import { Plus, Edit, DollarSign, TrendingUp, ArrowRight } from "lucide-react";
 import { AppLink as Link } from "@/components/app-link";
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 type Investment = {
   id: string;
@@ -67,15 +67,6 @@ type DealInterest = {
   };
 };
 
-type Investor = {
-  id: string;
-  name: string;
-  email: string;
-  image: string | null;
-  kycStatus: string;
-  isOnboardingCompleted: boolean;
-};
-
 type InvestmentManagementProps = {
   dealId: string;
   investments: Investment[];
@@ -83,12 +74,32 @@ type InvestmentManagementProps = {
   onRefresh: () => void;
 };
 
-const investmentStatusColors: Record<string, string> = {
+const investmentStatusLabels: Record<string, string> = {
+  committed: "Committed",
+  pending: "Pending",
+  confirmed: "Confirmed",
+  funded: "Funded",
+  transferred: "Transferred",
+  liquidated: "Liquidated",
+  written_off: "Written Off",
+};
+
+const investmentStatusColors: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
   committed: "secondary",
-  active: "default",
+  pending: "outline",
+  confirmed: "default",
+  funded: "default",
   transferred: "secondary",
-  liquidated: "default",
+  liquidated: "secondary",
   written_off: "destructive",
+};
+
+const ADVANCE_LABEL: Record<string, string> = {
+  committed: "Mark Pending",
+  pending: "Confirm",
 };
 
 const formatCurrency = (value: string | null | undefined): string => {
@@ -125,15 +136,14 @@ export function InvestmentManagement({
   interests,
   onRefresh,
 }: InvestmentManagementProps) {
-  const router = useRouter();
+  const trpc = useTRPC();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
+  const [isFundDialogOpen, setIsFundDialogOpen] = useState(false);
   const [selectedInvestment, setSelectedInvestment] =
     useState<Investment | null>(null);
-  const [investors, setInvestors] = useState<Investor[]>([]);
-  const [isLoadingInvestors, setIsLoadingInvestors] = useState(false);
+  const [fundAmount, setFundAmount] = useState("");
 
-  // Form state for creating investment
   const [createForm, setCreateForm] = useState({
     userId: "",
     committedAmount: "",
@@ -141,25 +151,22 @@ export function InvestmentManagement({
     ownershipPercentage: "",
   });
 
-  // Form state for updating investment
   const [updateForm, setUpdateForm] = useState({
-    fundedAmount: "",
     currentValue: "",
     distributions: "",
     status: "",
     ownershipPercentage: "",
   });
 
-  useEffect(() => {
-    if (isCreateDialogOpen) {
-      fetchInvestors();
-    }
-  }, [isCreateDialogOpen]);
+  const { data: investorsData, isLoading: isLoadingInvestors } = useQuery({
+    ...trpc.deals.getInvestors.queryOptions(),
+    enabled: isCreateDialogOpen,
+  });
+  const investors = investorsData?.investors ?? [];
 
   useEffect(() => {
     if (selectedInvestment && isUpdateDialogOpen) {
       setUpdateForm({
-        fundedAmount: selectedInvestment.fundedAmount || "",
         currentValue: selectedInvestment.currentValue || "",
         distributions: selectedInvestment.distributions || "",
         status: selectedInvestment.status,
@@ -168,116 +175,122 @@ export function InvestmentManagement({
     }
   }, [selectedInvestment, isUpdateDialogOpen]);
 
-  const fetchInvestors = async () => {
-    setIsLoadingInvestors(true);
-    try {
-      const response = await fetch("/api/investors");
-      const data = await response.json();
-      if (data.success) {
-        setInvestors(data.investors || []);
-      }
-    } catch (error) {
-      console.error("Error fetching investors:", error);
-    } finally {
-      setIsLoadingInvestors(false);
-    }
-  };
+  const { mutate: createInvestment, isPending: isCreating } = useMutation(
+    trpc.investments.create.mutationOptions({
+      onSuccess: () => {
+        toast.success("Capital commitment created");
+        setIsCreateDialogOpen(false);
+        setCreateForm({
+          userId: "",
+          committedAmount: "",
+          committedDate: new Date().toISOString().split("T")[0],
+          ownershipPercentage: "",
+        });
+        onRefresh();
+      },
+      onError: (error: { message?: string }) => {
+        toast.error(error.message || "Failed to create commitment");
+      },
+    }),
+  );
 
-  const handleCreateInvestment = async () => {
+  const { mutate: advanceStatus, isPending: isAdvancing } = useMutation(
+    trpc.investments.advanceStatus.mutationOptions({
+      onSuccess: (data) => {
+        toast.success(data.message);
+        onRefresh();
+      },
+      onError: (error: { message?: string }) => {
+        toast.error(error.message || "Failed to advance status");
+      },
+    }),
+  );
+
+  const { mutate: recordFunding, isPending: isFunding } = useMutation(
+    trpc.investments.recordFunding.mutationOptions({
+      onSuccess: () => {
+        toast.success("Funding recorded");
+        setIsFundDialogOpen(false);
+        setSelectedInvestment(null);
+        setFundAmount("");
+        onRefresh();
+      },
+      onError: (error: { message?: string }) => {
+        toast.error(error.message || "Failed to record funding");
+      },
+    }),
+  );
+
+  const { mutate: updateInvestment, isPending: isUpdating } = useMutation(
+    trpc.investments.update.mutationOptions({
+      onSuccess: () => {
+        toast.success("Investment updated");
+        setIsUpdateDialogOpen(false);
+        setSelectedInvestment(null);
+        onRefresh();
+      },
+      onError: (error: { message?: string }) => {
+        toast.error(error.message || "Failed to update investment");
+      },
+    }),
+  );
+
+  const handleCreateInvestment = () => {
     if (!createForm.userId || !createForm.committedAmount) {
       toast.error("Please fill in all required fields");
       return;
     }
-
-    try {
-      const response = await fetch("/api/investments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          dealId,
-          userId: createForm.userId,
-          committedAmount: parseFloat(createForm.committedAmount),
-          committedDate: createForm.committedDate,
-          ownershipPercentage: createForm.ownershipPercentage
-            ? parseFloat(createForm.ownershipPercentage)
-            : null,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        toast.error(data.message || "Failed to create investment");
-        return;
-      }
-
-      toast.success("Investment created successfully");
-      setIsCreateDialogOpen(false);
-      setCreateForm({
-        userId: "",
-        committedAmount: "",
-        committedDate: new Date().toISOString().split("T")[0],
-        ownershipPercentage: "",
-      });
-      onRefresh();
-    } catch (error) {
-      console.error("Error creating investment:", error);
-      toast.error("Failed to create investment");
-    }
+    createInvestment({
+      dealId,
+      userId: createForm.userId,
+      committedAmount: parseFloat(createForm.committedAmount),
+      committedDate: createForm.committedDate,
+      ownershipPercentage: createForm.ownershipPercentage
+        ? parseFloat(createForm.ownershipPercentage)
+        : null,
+    });
   };
 
-  const handleUpdateInvestment = async () => {
+  const handleUpdateInvestment = () => {
     if (!selectedInvestment) return;
 
-    try {
-      const updateData: any = {};
+    updateInvestment({
+      investmentId: selectedInvestment.id,
+      ...(updateForm.currentValue
+        ? { currentValue: parseFloat(updateForm.currentValue) }
+        : {}),
+      ...(updateForm.distributions
+        ? { distributions: parseFloat(updateForm.distributions) }
+        : {}),
+      ...(updateForm.ownershipPercentage
+        ? { ownershipPercentage: parseFloat(updateForm.ownershipPercentage) }
+        : {}),
+      ...(updateForm.status
+        ? {
+            status: updateForm.status as
+              | "committed"
+              | "pending"
+              | "confirmed"
+              | "funded"
+              | "transferred"
+              | "liquidated"
+              | "written_off",
+          }
+        : {}),
+    });
+  };
 
-      if (updateForm.fundedAmount) {
-        updateData.fundedAmount = parseFloat(updateForm.fundedAmount);
-      }
-      if (updateForm.currentValue) {
-        updateData.currentValue = parseFloat(updateForm.currentValue);
-      }
-      if (updateForm.distributions) {
-        updateData.distributions = parseFloat(updateForm.distributions);
-      }
-      if (updateForm.status) {
-        updateData.status = updateForm.status;
-      }
-      if (updateForm.ownershipPercentage) {
-        updateData.ownershipPercentage = parseFloat(
-          updateForm.ownershipPercentage
-        );
-      }
-
-      const response = await fetch(
-        `/api/investments/${selectedInvestment.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updateData),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!data.success) {
-        toast.error(data.message || "Failed to update investment");
-        return;
-      }
-
-      toast.success("Investment updated successfully");
-      setIsUpdateDialogOpen(false);
-      setSelectedInvestment(null);
-      onRefresh();
-    } catch (error) {
-      console.error("Error updating investment:", error);
-      toast.error("Failed to update investment");
+  const handleRecordFunding = () => {
+    if (!selectedInvestment) return;
+    const amount = parseFloat(fundAmount);
+    if (!fundAmount || amount <= 0) {
+      toast.error("Enter a valid funded amount");
+      return;
     }
+    recordFunding({
+      investmentId: selectedInvestment.id,
+      fundedAmount: amount,
+    });
   };
 
   const handleCreateFromInterest = (interest: DealInterest) => {
@@ -287,17 +300,14 @@ export function InvestmentManagement({
       committedDate: new Date().toISOString().split("T")[0],
       ownershipPercentage: "",
     });
-    setIsCreateDialogOpen(true);
   };
 
-  // Get users who have expressed interest but don't have investments yet
   const interestedUsersWithoutInvestments = interests.filter(
     (interest) =>
       interest.status !== "pass" &&
-      !investments.some((inv) => inv.userId === interest.userId)
+      !investments.some((inv) => inv.userId === interest.userId),
   );
 
-  // Calculate totals
   const totalCommitted = investments.reduce((sum, inv) => {
     return sum + parseFloat(inv.committedAmount || "0");
   }, 0);
@@ -346,10 +356,12 @@ export function InvestmentManagement({
         <header>
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-1.5">
-              <h2 className="text-base font-semibold leading-none">Investments</h2>
+              <h2 className="text-base font-semibold leading-none">
+                Capital Commitments
+              </h2>
               <p className="text-sm text-muted-foreground">
-                Manage investments for this deal. Create investments after users
-                sign commitment documents.
+                Committed → Pending → Confirmed → Funded. Funding is recorded
+                when capital is wired.
               </p>
             </div>
             <Dialog
@@ -359,15 +371,15 @@ export function InvestmentManagement({
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
-                  Create Investment
+                  Create Commitment
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Create Investment</DialogTitle>
+                  <DialogTitle>Create Capital Commitment</DialogTitle>
                   <DialogDescription>
-                    Record a new investment after the user has signed commitment
-                    documents.
+                    Record a commitment for an investor. Status starts as
+                    Committed.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
@@ -398,8 +410,7 @@ export function InvestmentManagement({
                     </Select>
                   </div>
 
-                  {/* Quick create from interests */}
-                  {interestedUsersWithoutInvestments.length > 0 && (
+                  {interestedUsersWithoutInvestments.length > 0 ? (
                     <div>
                       <Label>Quick Create from Interest</Label>
                       <div className="mt-2 space-y-2">
@@ -428,14 +439,14 @@ export function InvestmentManagement({
                         ))}
                       </div>
                     </div>
-                  )}
+                  ) : null}
 
                   <div>
                     <Label htmlFor="committedAmount">Committed Amount *</Label>
                     <Input
                       id="committedAmount"
                       type="number"
-                      placeholder="100000"
+                      placeholder="250000"
                       value={createForm.committedAmount}
                       onChange={(e) =>
                         setCreateForm({
@@ -482,9 +493,6 @@ export function InvestmentManagement({
                       max="100"
                       step="0.01"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Percentage ownership in the deal
-                    </p>
                   </div>
                 </div>
                 <DialogFooter>
@@ -502,8 +510,11 @@ export function InvestmentManagement({
                   >
                     Cancel
                   </Button>
-                  <Button onClick={handleCreateInvestment}>
-                    Create Investment
+                  <Button
+                    onClick={handleCreateInvestment}
+                    disabled={isCreating}
+                  >
+                    {isCreating ? "Creating..." : "Create Commitment"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -513,10 +524,7 @@ export function InvestmentManagement({
         <div>
           {investments.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <p>No investments have been made in this deal yet.</p>
-              <p className="text-sm mt-2">
-                Create an investment after a user signs commitment documents.
-              </p>
+              <p>No capital commitments for this deal yet.</p>
             </div>
           ) : (
             <Table>
@@ -534,65 +542,89 @@ export function InvestmentManagement({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {investments.map((investment) => (
-                  <TableRow key={investment.id}>
+                {investments.map((inv) => (
+                  <TableRow key={inv.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar>
-                          <AvatarImage
-                            src={investment.user.image || undefined}
-                          />
+                          <AvatarImage src={inv.user.image || undefined} />
                           <AvatarFallback>
-                            {investment.user.name.charAt(0).toUpperCase()}
+                            {inv.user.name.charAt(0).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <Link
-                          href={`/admin/compliance/investors/${investment.user.id}`}
+                          href={`/admin/compliance/investors/${inv.user.id}`}
                           className="font-medium hover:underline"
                         >
-                          {investment.user.name}
+                          {inv.user.name}
                         </Link>
                       </div>
                     </TableCell>
                     <TableCell>
                       <Badge
                         variant={
-                          (investmentStatusColors[investment.status] as any) ||
-                          "secondary"
+                          investmentStatusColors[inv.status] ?? "secondary"
                         }
                       >
-                        {investment.status.replace(/_/g, " ")}
+                        {investmentStatusLabels[inv.status] ??
+                          inv.status.replace(/_/g, " ")}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {formatCurrency(investment.committedAmount)}
+                      {formatCurrency(inv.committedAmount)}
                     </TableCell>
+                    <TableCell>{formatCurrency(inv.fundedAmount)}</TableCell>
+                    <TableCell>{formatCurrency(inv.currentValue)}</TableCell>
+                    <TableCell>{formatCurrency(inv.distributions)}</TableCell>
                     <TableCell>
-                      {formatCurrency(investment.fundedAmount)}
+                      {formatPercentage(inv.ownershipPercentage)}
                     </TableCell>
-                    <TableCell>
-                      {formatCurrency(investment.currentValue)}
-                    </TableCell>
-                    <TableCell>
-                      {formatCurrency(investment.distributions)}
-                    </TableCell>
-                    <TableCell>
-                      {formatPercentage(investment.ownershipPercentage)}
-                    </TableCell>
-                    <TableCell>
-                      {formatDate(investment.committedDate)}
-                    </TableCell>
+                    <TableCell>{formatDate(inv.committedDate)}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedInvestment(investment);
-                          setIsUpdateDialogOpen(true);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        {ADVANCE_LABEL[inv.status] ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isAdvancing}
+                            onClick={() =>
+                              advanceStatus({ investmentId: inv.id })
+                            }
+                          >
+                            <ArrowRight className="mr-1 h-3 w-3" />
+                            {ADVANCE_LABEL[inv.status]}
+                          </Button>
+                        ) : null}
+                        {inv.status !== "funded" &&
+                        inv.status !== "transferred" &&
+                        inv.status !== "liquidated" &&
+                        inv.status !== "written_off" ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedInvestment(inv);
+                              setFundAmount(
+                                inv.fundedAmount || inv.committedAmount || "",
+                              );
+                              setIsFundDialogOpen(true);
+                            }}
+                          >
+                            <DollarSign className="mr-1 h-3 w-3" />
+                            Fund
+                          </Button>
+                        ) : null}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedInvestment(inv);
+                            setIsUpdateDialogOpen(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -602,51 +634,77 @@ export function InvestmentManagement({
         </div>
       </section>
 
-      {/* Update Investment Dialog */}
+      <Dialog open={isFundDialogOpen} onOpenChange={setIsFundDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Funding</DialogTitle>
+            <DialogDescription>
+              Enter the amount wired. Status will move to Funded.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedInvestment ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm font-medium">
+                  {selectedInvestment.user.name} —{" "}
+                  {formatCurrency(selectedInvestment.committedAmount)} committed
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="fundAmount">Funded Amount *</Label>
+                <Input
+                  id="fundAmount"
+                  type="number"
+                  value={fundAmount}
+                  onChange={(e) => setFundAmount(e.target.value)}
+                  min="0"
+                  step="1000"
+                />
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsFundDialogOpen(false);
+                setSelectedInvestment(null);
+                setFundAmount("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleRecordFunding} disabled={isFunding}>
+              {isFunding ? "Recording..." : "Record Funding"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Update Investment</DialogTitle>
             <DialogDescription>
-              Update investment details. Leave fields empty to keep current
-              values.
+              Update NAV, distributions, ownership, or exit status. Use Advance
+              / Fund actions for the commitment lifecycle.
             </DialogDescription>
           </DialogHeader>
-          {selectedInvestment && (
+          {selectedInvestment ? (
             <div className="space-y-4">
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm font-medium">
-                  {selectedInvestment.user.name} -{" "}
+                  {selectedInvestment.user.name} —{" "}
                   {formatCurrency(selectedInvestment.committedAmount)} committed
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Current Status: {selectedInvestment.status.replace(/_/g, " ")}
+                  Current Status:{" "}
+                  {investmentStatusLabels[selectedInvestment.status] ??
+                    selectedInvestment.status}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="fundedAmount">Funded Amount</Label>
-                  <Input
-                    id="fundedAmount"
-                    type="number"
-                    placeholder={selectedInvestment.fundedAmount || "0"}
-                    value={updateForm.fundedAmount}
-                    onChange={(e) =>
-                      setUpdateForm({
-                        ...updateForm,
-                        fundedAmount: e.target.value,
-                      })
-                    }
-                    min="0"
-                    step="1000"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Amount actually wired. Status will auto-update to "active"
-                    if amount &gt; 0.
-                  </p>
-                </div>
-
                 <div>
                   <Label htmlFor="currentValue">Current Value (NAV)</Label>
                   <Input
@@ -663,9 +721,6 @@ export function InvestmentManagement({
                     min="0"
                     step="1000"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Net Asset Value - updated periodically
-                  </p>
                 </div>
 
                 <div>
@@ -684,9 +739,6 @@ export function InvestmentManagement({
                     min="0"
                     step="1000"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Cash returned to investor
-                  </p>
                 </div>
 
                 <div>
@@ -702,7 +754,9 @@ export function InvestmentManagement({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="committed">Committed</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="funded">Funded</SelectItem>
                       <SelectItem value="transferred">Transferred</SelectItem>
                       <SelectItem value="liquidated">Liquidated</SelectItem>
                       <SelectItem value="written_off">Written Off</SelectItem>
@@ -710,14 +764,16 @@ export function InvestmentManagement({
                   </Select>
                 </div>
 
-                <div className="col-span-2">
+                <div>
                   <Label htmlFor="ownershipPercentage">
                     Ownership Percentage
                   </Label>
                   <Input
                     id="ownershipPercentage"
                     type="number"
-                    placeholder={selectedInvestment.ownershipPercentage || "0"}
+                    placeholder={
+                      selectedInvestment.ownershipPercentage || "0"
+                    }
                     value={updateForm.ownershipPercentage}
                     onChange={(e) =>
                       setUpdateForm({
@@ -732,7 +788,7 @@ export function InvestmentManagement({
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
           <DialogFooter>
             <Button
               variant="outline"
@@ -743,7 +799,9 @@ export function InvestmentManagement({
             >
               Cancel
             </Button>
-            <Button onClick={handleUpdateInvestment}>Update Investment</Button>
+            <Button onClick={handleUpdateInvestment} disabled={isUpdating}>
+              {isUpdating ? "Updating..." : "Update Investment"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
