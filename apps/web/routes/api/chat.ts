@@ -18,26 +18,17 @@ import {
   streamText,
   toUIMessageStream,
   validateUIMessages,
+  type InferUIMessageChunk,
   type ToolSet,
 } from "ai";
 import { waitUntil } from "cloudflare:workers";
 import { authSession } from "@/lib/auth/session-from-request";
 import { chatStreamErrorMessage } from "@/lib/chat/chat-stream-error";
 import { loadChat, saveChat } from "@/lib/chat/chat-store";
-import { chatCatalog } from "@/lib/json-render/catalog";
+import { stripOpenAIItemIds } from "@/lib/chat/strip-openai-item-ids";
+import { chatCatalogPrompt } from "@/lib/json-render/catalog";
 
-const chatInstructions = [
-  chatbotSystemPrompt,
-  chatCatalog.prompt({
-    mode: "inline",
-    customRules: [
-      "Prefer UI specs for structured data (weather, metrics, short explainers).",
-      "Never invent investor portfolio balances, deal terms, or compliance decisions.",
-      "When displayWeather returns data, summarize briefly then emit a Weather/Metric Card UI.",
-      "Do not use viewport height classes; UI sits inside the chat pane.",
-    ],
-  }),
-].join("\n\n");
+const chatInstructions = [chatbotSystemPrompt, chatCatalogPrompt].join("\n\n");
 
 export const Route = createFileRoute("/api/chat")({
   server: {
@@ -111,12 +102,15 @@ export const Route = createFileRoute("/api/chat")({
           });
           const sendReasoning = modelSupportsReasoning(modelId);
 
+          const modelMessages = await convertToModelMessages(
+            stripOpenAIItemIds(validatedMessages),
+            { tools },
+          );
+
           const result = streamText({
             model,
             instructions: chatInstructions,
-            messages: await convertToModelMessages(validatedMessages, {
-              tools,
-            }),
+            messages: modelMessages,
             tools: chatbotTools,
             stopWhen: isStepCount(5),
             onError: ({ error }) => {
@@ -137,10 +131,14 @@ export const Route = createFileRoute("/api/chat")({
             onError: chatStreamErrorMessage,
           });
 
-          const stream = createUIMessageStream({
+          const stream = createUIMessageStream<ChatbotUIMessage>({
             originalMessages: validatedMessages,
             execute: async ({ writer }) => {
-              writer.merge(pipeJsonRender(uiStream));
+              writer.merge(
+                pipeJsonRender(uiStream) as ReadableStream<
+                  InferUIMessageChunk<ChatbotUIMessage>
+                >,
+              );
             },
             onError: chatStreamErrorMessage,
             onEnd: ({ messages: nextMessages }) => {
@@ -148,7 +146,7 @@ export const Route = createFileRoute("/api/chat")({
                 saveChat({
                   chatId,
                   userId: session.user.id,
-                  messages: nextMessages as ChatbotUIMessage[],
+                  messages: nextMessages,
                   model: modelId,
                 }),
               );

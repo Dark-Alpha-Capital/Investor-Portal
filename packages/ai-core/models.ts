@@ -61,7 +61,10 @@ export function resolveModel(modelId: string): LanguageModel {
 
   switch (option.provider) {
     case "openai":
-      return openai(option.id);
+      // Use Chat Completions for multi-turn tool chats. The Responses API
+      // requires paired reasoning items that break when history is reloaded
+      // without those opaque reasoning parts.
+      return openai.chat(option.id);
     case "deepseek":
       return deepSeek(option.id);
     default: {

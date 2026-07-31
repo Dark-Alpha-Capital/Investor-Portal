@@ -42,10 +42,12 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
-import { Weather } from "@/components/chatbot/weather";
+import { renderDedicatedToolPart } from "@/components/chatbot/tool-ui";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { configureAiSdkClientWarnings } from "@/lib/ai/configure-sdk-warnings";
 import { ChatJsonRenderer } from "@/lib/json-render/renderer";
+import { cn } from "@/lib/utils";
 
 type ChatViewProps = {
   chatId: string;
@@ -65,6 +67,44 @@ function removeFailedTurn(messages: ChatbotUIMessage[]): ChatbotUIMessage[] {
     : messages.slice(0, -1);
 }
 
+function assistantHasVisibleContent(message: ChatbotUIMessage | undefined) {
+  if (message?.role !== "assistant") {
+    return false;
+  }
+
+  return message.parts.some((part) => {
+    if (part.type === "text") {
+      return part.text.trim().length > 0;
+    }
+    if (part.type === "reasoning") {
+      return part.text.trim().length > 0;
+    }
+    if (part.type.startsWith("tool-") || part.type === "dynamic-tool") {
+      return part.state !== "input-streaming";
+    }
+    if (part.type.startsWith("data-")) {
+      return true;
+    }
+    return false;
+  });
+}
+
+function ChatThinkingIndicator({ className }: { className?: string }) {
+  return (
+    <Message className={cn("animate-in fade-in duration-200", className)} from="assistant">
+      <MessageContent>
+        <div
+          aria-live="polite"
+          className="flex items-center gap-2 text-sm text-muted-foreground"
+        >
+          <Spinner className="size-4" />
+          <span>Thinking…</span>
+        </div>
+      </MessageContent>
+    </Message>
+  );
+}
+
 function ChatMessage({
   message,
   isStreaming,
@@ -80,68 +120,33 @@ function ChatMessage({
     <Message from={message.role}>
       <MessageContent>
         {message.parts.map((part, index) => {
+          const partKey = `${message.id}-part-${index}`;
+
           if (part.type === "text") {
             return (
-              <MessageResponse key={`${message.id}-text-${index}`}>
-                {part.text}
-              </MessageResponse>
+              <MessageResponse key={partKey}>{part.text}</MessageResponse>
             );
           }
 
           if (part.type === "reasoning") {
             return (
-              <Reasoning
-                isStreaming={isStreaming}
-                key={`${message.id}-reasoning-${index}`}
-              >
+              <Reasoning isStreaming={isStreaming} key={partKey}>
                 <ReasoningTrigger />
                 <ReasoningContent>{part.text}</ReasoningContent>
               </Reasoning>
             );
           }
 
-          if (part.type === "tool-displayWeather") {
-            const weatherKey = `${message.id}-weather-${index}`;
-            switch (part.state) {
-              case "input-streaming":
-              case "input-available":
-              case "approval-requested":
-              case "approval-responded":
-                return (
-                  <div
-                    className="text-sm text-muted-foreground"
-                    key={weatherKey}
-                  >
-                    Loading weather…
-                  </div>
-                );
-              case "output-available":
-                return <Weather key={weatherKey} {...part.output} />;
-              case "output-error":
-                return (
-                  <div className="text-sm text-destructive" key={weatherKey}>
-                    Error: {part.errorText}
-                  </div>
-                );
-              case "output-denied":
-                return (
-                  <div
-                    className="text-sm text-muted-foreground"
-                    key={weatherKey}
-                  >
-                    Weather request denied.
-                  </div>
-                );
-              default: {
-                const _exhaustive: never = part;
-                return _exhaustive;
-              }
-            }
+          // 1) Dedicated tool UI (e.g. displayWeather → Weather)
+          const toolUi = renderDedicatedToolPart(part, partKey);
+          if (toolUi != null) {
+            return toolUi;
           }
 
-          // data-spec and other data parts are handled by useJsonRenderMessage
+          // 2) No dedicated tool UI — json-render / text handle the rest
           return null;
         })}
+        {/* Fallback generative UI for catalog specs (metrics, cards, etc.) */}
         {hasSpec ? (
           <ChatJsonRenderer loading={isStreaming} spec={spec} />
         ) : null}
@@ -204,6 +209,12 @@ export function ChatView({
 
   const isBusy = status === "submitted" || status === "streaming";
   const canSubmit = status === "ready" || error != null;
+  const lastMessage = messages.at(-1);
+  const showThinking =
+    isBusy &&
+    error == null &&
+    (lastMessage?.role === "user" ||
+      !assistantHasVisibleContent(lastMessage));
 
   const handleSubmit = (message: PromptInputMessage) => {
     const text = message.text.trim();
@@ -230,15 +241,18 @@ export function ChatView({
               title="Start a conversation"
             />
           ) : (
-            messages.map((message) => (
-              <ChatMessage
-                isStreaming={
-                  status === "streaming" && message.id === messages.at(-1)?.id
-                }
-                key={message.id}
-                message={message}
-              />
-            ))
+            <>
+              {messages.map((message) => (
+                <ChatMessage
+                  isStreaming={
+                    status === "streaming" && message.id === messages.at(-1)?.id
+                  }
+                  key={message.id}
+                  message={message}
+                />
+              ))}
+              {showThinking ? <ChatThinkingIndicator /> : null}
+            </>
           )}
         </ConversationContent>
         <ConversationScrollButton />
