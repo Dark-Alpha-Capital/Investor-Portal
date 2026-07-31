@@ -8,7 +8,7 @@ import {
   type ChatbotUIMessage,
   type ChatModelId,
 } from "@repo/ai-core";
-import { DefaultChatTransport, isToolUIPart } from "ai";
+import { DefaultChatTransport } from "ai";
 import { MessageSquare } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -41,13 +41,7 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
-} from "@/components/ai-elements/tool";
+import { Weather } from "@/components/chatbot/weather";
 import { Button } from "@/components/ui/button";
 import { configureAiSdkClientWarnings } from "@/lib/ai/configure-sdk-warnings";
 
@@ -176,45 +170,48 @@ export function ChatView({
                       );
                     }
 
-                    if (isToolUIPart(part)) {
-                      const toolHeader =
-                        part.type === "dynamic-tool" ? (
-                          <ToolHeader
-                            state={part.state}
-                            toolName={part.toolName}
-                            type="dynamic-tool"
-                          />
-                        ) : (
-                          <ToolHeader state={part.state} type={part.type} />
-                        );
-
-                      return (
-                        <Tool
-                          defaultOpen={part.state !== "output-available"}
-                          key={`${message.id}-tool-${index}`}
-                        >
-                          {toolHeader}
-                          <ToolContent>
-                            {"input" in part ? (
-                              <ToolInput input={part.input} />
-                            ) : null}
-                            <ToolOutput
-                              errorText={
-                                "errorText" in part ? part.errorText : undefined
-                              }
-                              output={
-                                "output" in part && part.output != null ? (
-                                  <MessageResponse>
-                                    {typeof part.output === "string"
-                                      ? part.output
-                                      : JSON.stringify(part.output, null, 2)}
-                                  </MessageResponse>
-                                ) : undefined
-                              }
-                            />
-                          </ToolContent>
-                        </Tool>
-                      );
+                    if (part.type === "tool-displayWeather") {
+                      const weatherKey = `${message.id}-weather-${index}`;
+                      switch (part.state) {
+                        case "input-streaming":
+                        case "input-available":
+                        case "approval-requested":
+                        case "approval-responded":
+                          return (
+                            <div
+                              className="text-sm text-muted-foreground"
+                              key={weatherKey}
+                            >
+                              Loading weather…
+                            </div>
+                          );
+                        case "output-available":
+                          return (
+                            <Weather key={weatherKey} {...part.output} />
+                          );
+                        case "output-error":
+                          return (
+                            <div
+                              className="text-sm text-destructive"
+                              key={weatherKey}
+                            >
+                              Error: {part.errorText}
+                            </div>
+                          );
+                        case "output-denied":
+                          return (
+                            <div
+                              className="text-sm text-muted-foreground"
+                              key={weatherKey}
+                            >
+                              Weather request denied.
+                            </div>
+                          );
+                        default: {
+                          const _exhaustive: never = part;
+                          return _exhaustive;
+                        }
+                      }
                     }
 
                     return null;

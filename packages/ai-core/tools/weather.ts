@@ -2,14 +2,22 @@ import { tool } from "ai";
 import { z } from "zod";
 
 export const weatherTool = tool({
-  description: "Get the current weather in a location",
+  description: "Display the weather for a location",
   inputSchema: z.object({
-    location: z.string().describe("City name to get the weather for"),
+    location: z.string().describe("The location to get the weather for"),
   }),
-  execute: async ({ location }) => ({
-    location,
-    temperature: 72 + Math.floor(Math.random() * 21) - 10,
-    unit: "fahrenheit" as const,
-    condition: "partly cloudy",
-  }),
+  execute: async ({ location }) => {
+    // Simulate a short fetch so the UI can show a loading state.
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    const conditions = ["Sunny", "Partly cloudy", "Cloudy", "Light rain"] as const;
+    const weather =
+      conditions[Math.floor(Math.random() * conditions.length)] ?? "Sunny";
+
+    return {
+      location,
+      weather,
+      temperature: 60 + Math.floor(Math.random() * 25),
+    };
+  },
 });

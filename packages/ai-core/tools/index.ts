@@ -4,5 +4,5 @@ import { weatherTool } from "./weather";
 export { weatherTool } from "./weather";
 
 export const chatbotTools = {
-  weather: weatherTool,
+  displayWeather: weatherTool,
 } satisfies ToolSet;
