@@ -7,10 +7,12 @@ import {
   resolveModel,
   type ChatbotUIMessage,
 } from "@repo/ai-core";
+import { pipeJsonRender } from "@json-render/core";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   convertToModelMessages,
   createIdGenerator,
+  createUIMessageStream,
   createUIMessageStreamResponse,
   isStepCount,
   streamText,
@@ -22,6 +24,20 @@ import { waitUntil } from "cloudflare:workers";
 import { authSession } from "@/lib/auth/session-from-request";
 import { chatStreamErrorMessage } from "@/lib/chat/chat-stream-error";
 import { loadChat, saveChat } from "@/lib/chat/chat-store";
+import { chatCatalog } from "@/lib/json-render/catalog";
+
+const chatInstructions = [
+  chatbotSystemPrompt,
+  chatCatalog.prompt({
+    mode: "inline",
+    customRules: [
+      "Prefer UI specs for structured data (weather, metrics, short explainers).",
+      "Never invent investor portfolio balances, deal terms, or compliance decisions.",
+      "When displayWeather returns data, summarize briefly then emit a Weather/Metric Card UI.",
+      "Do not use viewport height classes; UI sits inside the chat pane.",
+    ],
+  }),
+].join("\n\n");
 
 export const Route = createFileRoute("/api/chat")({
   server: {
@@ -97,7 +113,7 @@ export const Route = createFileRoute("/api/chat")({
 
           const result = streamText({
             model,
-            instructions: chatbotSystemPrompt,
+            instructions: chatInstructions,
             messages: await convertToModelMessages(validatedMessages, {
               tools,
             }),
@@ -110,30 +126,36 @@ export const Route = createFileRoute("/api/chat")({
 
           void result.consumeStream();
 
-          return createUIMessageStreamResponse({
-            stream: toUIMessageStream({
-              stream: result.stream,
-              originalMessages: validatedMessages,
-              tools: chatbotTools,
-              sendReasoning,
-              generateMessageId: createIdGenerator({
-                prefix: "msg",
-                size: 16,
-              }),
-              // Keep client-facing stream errors generic; log details server-side.
-              onError: chatStreamErrorMessage,
-              onEnd: ({ messages: nextMessages }) => {
-                waitUntil(
-                  saveChat({
-                    chatId,
-                    userId: session.user.id,
-                    messages: nextMessages as ChatbotUIMessage[],
-                    model: modelId,
-                  }),
-                );
-              },
+          const uiStream = toUIMessageStream({
+            stream: result.stream,
+            tools: chatbotTools,
+            sendReasoning,
+            generateMessageId: createIdGenerator({
+              prefix: "msg",
+              size: 16,
             }),
+            onError: chatStreamErrorMessage,
           });
+
+          const stream = createUIMessageStream({
+            originalMessages: validatedMessages,
+            execute: async ({ writer }) => {
+              writer.merge(pipeJsonRender(uiStream));
+            },
+            onError: chatStreamErrorMessage,
+            onEnd: ({ messages: nextMessages }) => {
+              waitUntil(
+                saveChat({
+                  chatId,
+                  userId: session.user.id,
+                  messages: nextMessages as ChatbotUIMessage[],
+                  model: modelId,
+                }),
+              );
+            },
+          });
+
+          return createUIMessageStreamResponse({ stream });
         } catch (error) {
           console.error("Chat API error:", error);
           return Response.json(

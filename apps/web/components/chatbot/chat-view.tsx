@@ -8,6 +8,7 @@ import {
   type ChatbotUIMessage,
   type ChatModelId,
 } from "@repo/ai-core";
+import { useJsonRenderMessage } from "@json-render/react";
 import { DefaultChatTransport } from "ai";
 import { MessageSquare } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -44,6 +45,7 @@ import {
 import { Weather } from "@/components/chatbot/weather";
 import { Button } from "@/components/ui/button";
 import { configureAiSdkClientWarnings } from "@/lib/ai/configure-sdk-warnings";
+import { ChatJsonRenderer } from "@/lib/json-render/renderer";
 
 type ChatViewProps = {
   chatId: string;
@@ -61,6 +63,91 @@ function removeFailedTurn(messages: ChatbotUIMessage[]): ChatbotUIMessage[] {
   return messages.at(-1)?.role === "assistant"
     ? messages.slice(0, -2)
     : messages.slice(0, -1);
+}
+
+function ChatMessage({
+  message,
+  isStreaming,
+}: {
+  message: ChatbotUIMessage;
+  isStreaming: boolean;
+}) {
+  const { spec, hasSpec } = useJsonRenderMessage(
+    message.parts as Parameters<typeof useJsonRenderMessage>[0],
+  );
+
+  return (
+    <Message from={message.role}>
+      <MessageContent>
+        {message.parts.map((part, index) => {
+          if (part.type === "text") {
+            return (
+              <MessageResponse key={`${message.id}-text-${index}`}>
+                {part.text}
+              </MessageResponse>
+            );
+          }
+
+          if (part.type === "reasoning") {
+            return (
+              <Reasoning
+                isStreaming={isStreaming}
+                key={`${message.id}-reasoning-${index}`}
+              >
+                <ReasoningTrigger />
+                <ReasoningContent>{part.text}</ReasoningContent>
+              </Reasoning>
+            );
+          }
+
+          if (part.type === "tool-displayWeather") {
+            const weatherKey = `${message.id}-weather-${index}`;
+            switch (part.state) {
+              case "input-streaming":
+              case "input-available":
+              case "approval-requested":
+              case "approval-responded":
+                return (
+                  <div
+                    className="text-sm text-muted-foreground"
+                    key={weatherKey}
+                  >
+                    Loading weather…
+                  </div>
+                );
+              case "output-available":
+                return <Weather key={weatherKey} {...part.output} />;
+              case "output-error":
+                return (
+                  <div className="text-sm text-destructive" key={weatherKey}>
+                    Error: {part.errorText}
+                  </div>
+                );
+              case "output-denied":
+                return (
+                  <div
+                    className="text-sm text-muted-foreground"
+                    key={weatherKey}
+                  >
+                    Weather request denied.
+                  </div>
+                );
+              default: {
+                const _exhaustive: never = part;
+                return _exhaustive;
+              }
+            }
+          }
+
+          // data-spec and other data parts are handled by useJsonRenderMessage
+          return null;
+        })}
+        {hasSpec ? (
+          <ChatJsonRenderer loading={isStreaming} spec={spec} />
+        ) : null}
+      </MessageContent>
+    </Message>
+  );
 }
 
 export function ChatView({
@@ -144,80 +231,13 @@ export function ChatView({
             />
           ) : (
             messages.map((message) => (
-              <Message from={message.role} key={message.id}>
-                <MessageContent>
-                  {message.parts.map((part, index) => {
-                    if (part.type === "text") {
-                      return (
-                        <MessageResponse key={`${message.id}-text-${index}`}>
-                          {part.text}
-                        </MessageResponse>
-                      );
-                    }
-
-                    if (part.type === "reasoning") {
-                      return (
-                        <Reasoning
-                          isStreaming={
-                            status === "streaming" &&
-                            message.id === messages.at(-1)?.id
-                          }
-                          key={`${message.id}-reasoning-${index}`}
-                        >
-                          <ReasoningTrigger />
-                          <ReasoningContent>{part.text}</ReasoningContent>
-                        </Reasoning>
-                      );
-                    }
-
-                    if (part.type === "tool-displayWeather") {
-                      const weatherKey = `${message.id}-weather-${index}`;
-                      switch (part.state) {
-                        case "input-streaming":
-                        case "input-available":
-                        case "approval-requested":
-                        case "approval-responded":
-                          return (
-                            <div
-                              className="text-sm text-muted-foreground"
-                              key={weatherKey}
-                            >
-                              Loading weather…
-                            </div>
-                          );
-                        case "output-available":
-                          return (
-                            <Weather key={weatherKey} {...part.output} />
-                          );
-                        case "output-error":
-                          return (
-                            <div
-                              className="text-sm text-destructive"
-                              key={weatherKey}
-                            >
-                              Error: {part.errorText}
-                            </div>
-                          );
-                        case "output-denied":
-                          return (
-                            <div
-                              className="text-sm text-muted-foreground"
-                              key={weatherKey}
-                            >
-                              Weather request denied.
-                            </div>
-                          );
-                        default: {
-                          const _exhaustive: never = part;
-                          return _exhaustive;
-                        }
-                      }
-                    }
-
-                    return null;
-                  })}
-                </MessageContent>
-              </Message>
+              <ChatMessage
+                isStreaming={
+                  status === "streaming" && message.id === messages.at(-1)?.id
+                }
+                key={message.id}
+                message={message}
+              />
             ))
           )}
         </ConversationContent>
