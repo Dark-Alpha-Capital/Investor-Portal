@@ -1,4 +1,4 @@
-import type { ClearanceStatus } from "@/lib/permissions";
+import type { ClearanceStatus } from "@/lib/auth/permissions";
 
 type PortfolioPayload = Awaited<
   ReturnType<typeof import("@repo/db/queries").getPortfolioData>

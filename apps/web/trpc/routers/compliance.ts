@@ -33,13 +33,13 @@ import {
   inArray,
 } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { after } from "@/lib/after-response";
+import { after } from "@/lib/helpers/after-response";
 import {
   logClearanceChange,
   logPermissionGrant,
   logPermissionRevoke,
 } from "@/lib/audit";
-import { authSession } from "@/lib/auth-session-from-request";
+import { authSession } from "@/lib/auth/session-from-request";
 
 // Clearance status types
 const clearanceStatusSchema = z.enum([

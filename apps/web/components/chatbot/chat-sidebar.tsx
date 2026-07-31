@@ -1,0 +1,135 @@
+"use client";
+
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { MessageSquare, Plus, Trash2 } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuAction,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+import {
+  createChatFn,
+  deleteChatFn,
+  fetchChatList,
+} from "@/lib/server-fns/chatbot-route-data";
+import type { ChatListItem } from "@/lib/chat/chat-store";
+import { DEFAULT_CHAT_MODEL_ID } from "@repo/ai-core";
+import { cn } from "@/lib/utils";
+
+export function ChatSidebar() {
+  const params = useParams({ strict: false }) as { chatId?: string };
+  const navigate = useNavigate();
+  const [chats, setChats] = useState<ChatListItem[]>([]);
+  const [isPending, startTransition] = useTransition();
+
+  const refresh = () => {
+    startTransition(async () => {
+      const result = await fetchChatList();
+      if (result.tag === "ok") {
+        setChats(result.chats);
+      }
+    });
+  };
+
+  useEffect(() => {
+    refresh();
+  }, [params.chatId]);
+
+  const handleNewChat = () => {
+    startTransition(async () => {
+      const result = await createChatFn({
+        data: { model: DEFAULT_CHAT_MODEL_ID },
+      });
+      if (result.tag === "ok") {
+        void navigate({
+          to: "/chat/$chatId",
+          params: { chatId: result.chatId },
+        });
+        refresh();
+      }
+    });
+  };
+
+  const handleDelete = (chatId: string) => {
+    startTransition(async () => {
+      const result = await deleteChatFn({ data: { chatId } });
+      if (result.tag !== "ok") {
+        return;
+      }
+      if (params.chatId === chatId) {
+        void navigate({ to: "/chat" });
+      }
+      refresh();
+    });
+  };
+
+  return (
+    <Sidebar collapsible="offcanvas" className="border-r">
+      <SidebarHeader className="gap-2 border-b p-3">
+        <div className="flex items-center gap-2 px-1">
+          <MessageSquare className="size-4" />
+          <span className="font-semibold tracking-tight">Chats</span>
+        </div>
+        <Button
+          className="w-full justify-start gap-2"
+          disabled={isPending}
+          onClick={handleNewChat}
+          size="sm"
+          type="button"
+          variant="secondary"
+        >
+          <Plus className="size-4" />
+          New chat
+        </Button>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>History</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {chats.length === 0 ? (
+                <p className="px-2 py-3 text-xs text-muted-foreground">
+                  No chats yet
+                </p>
+              ) : (
+                chats.map((chat) => (
+                  <SidebarMenuItem key={chat.id}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={params.chatId === chat.id}
+                      tooltip={chat.title}
+                    >
+                      <Link
+                        className={cn("truncate")}
+                        params={{ chatId: chat.id }}
+                        to="/chat/$chatId"
+                      >
+                        <span className="truncate">{chat.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                    <SidebarMenuAction
+                      aria-label={`Delete ${chat.title}`}
+                      onClick={() => handleDelete(chat.id)}
+                      showOnHover
+                    >
+                      <Trash2 className="size-4" />
+                    </SidebarMenuAction>
+                  </SidebarMenuItem>
+                ))
+              )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
+  );
+}

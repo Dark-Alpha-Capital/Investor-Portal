@@ -1,0 +1,31 @@
+{
+  "name": "@repo/ai-core",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./index.ts",
+    "./models": "./models.ts",
+    "./tools": "./tools/index.ts",
+    "./prompts": "./prompts/chatbot.ts",
+    "./types": "./types.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint .",
+    "check-types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@repo/typescript-config": "*"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@ai-sdk/deepseek": "^3.0.17",
+    "@ai-sdk/openai": "^4.0.25",
+    "ai": "^7.0.44",
+    "zod": "^4.2.1"
+  }
+}

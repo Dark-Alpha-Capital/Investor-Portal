@@ -10,6 +10,8 @@ NEXTCLOUD_URL=
 NEXTCLOUD_USER=
 NEXTCLOUD_PASSWORD=
 REVALIDATE_SECRET=
+OPENAI_API_KEY=
+DEEPSEEK_API_KEY=
 
 # Client-safe vars for Vite (also in `.env` at repo root or apps/web)
 # VITE_PUBLIC_BETTER_AUTH_URL=http://localhost:3000

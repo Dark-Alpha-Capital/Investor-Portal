@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { db } from "@repo/db";
 import { onboardingDocument, onboarding } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
-import { authSession } from "@/lib/auth-session-from-request";
+import { authSession } from "@/lib/auth/session-from-request";
 import {
   createNextcloudClientFromEnv,
   fileExists,

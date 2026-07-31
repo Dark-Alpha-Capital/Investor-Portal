@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { redirectToPreviewURL } from "@/lib/prismic-preview";
+import { redirectToPreviewURL } from "@/lib/marketing/prismic-preview";
 import { createClient } from "@/prismicio";
 
 export const Route = createFileRoute("/api/preview")({

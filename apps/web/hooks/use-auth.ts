@@ -1,16 +1,22 @@
-
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "@/hooks/use-app-navigation";
 import { toast } from "sonner";
 
-import { authClient } from "@/lib/auth-client";
-import { getClientSession } from "@/lib/get-client-session";
-import { getAppHomePath } from "@/lib/user-role-guards";
+import { authClient } from "@/lib/auth/client";
+import {
+  getAuthErrorMessage,
+  isEmailNotVerifiedError,
+  SignInError,
+  type AuthClientError,
+} from "@/lib/auth/errors";
+import { getClientSession } from "@/lib/auth/get-client-session";
+import { getAppHomePath } from "@/lib/auth/user-role-guards";
+import type { LoginFormValues } from "@/lib/schemas/auth";
 
-type SignInEmailInput = {
-  email: string;
-  password: string;
-};
+type SignInEmailInput = LoginFormValues;
+
+const VERIFY_EMAIL_SUCCESS_URL = () =>
+  `${window.location.origin}/verify-email?verified=true`;
 
 type SignUpEmailInput = {
   name: string;
@@ -35,24 +41,48 @@ type ResetPasswordInput = {
 };
 
 /**
- * Hook for email/password sign in
+ * Hook for email/password sign in.
+ * Maps Better Auth error codes (INVALID_EMAIL_OR_PASSWORD, EMAIL_NOT_VERIFIED, …)
+ * to user-facing messages without leaking whether an email is registered.
  */
 export function useSignInEmail() {
   const router = useRouter();
 
   return useMutation({
     mutationFn: async (input: SignInEmailInput) => {
-      const result = await authClient.signIn.email({
-        email: input.email,
-        password: input.password,
-      });
+      try {
+        const result = await authClient.signIn.email({
+          email: input.email,
+          password: input.password,
+        });
 
-      if (result.error) {
-        // Include email in error for redirect purposes
-        throw { ...result.error, email: input.email };
+        if (result.error) {
+          throw new SignInError(result.error as AuthClientError, {
+            email: input.email,
+          });
+        }
+
+        return result;
+      } catch (error) {
+        if (error instanceof SignInError) throw error;
+
+        // Fallback when the Cloudflare Vite/miniflare bridge swallows the
+        // auth JSON body (POST→401 "fetch failed" in older plugin versions).
+        const message =
+          error instanceof Error ? error.message : "Failed to sign in";
+        const bridgeFailure = /fetch failed|failed to fetch/i.test(message);
+
+        throw new SignInError(
+          {
+            code: bridgeFailure ? "INVALID_EMAIL_OR_PASSWORD" : undefined,
+            message: bridgeFailure
+              ? "Invalid email or password"
+              : message,
+            status: bridgeFailure ? 401 : undefined,
+          },
+          { email: input.email },
+        );
       }
-
-      return result;
     },
     onSuccess: async () => {
       toast.success("Signed in successfully");
@@ -61,16 +91,38 @@ export function useSignInEmail() {
       router.push(home);
       router.refresh();
     },
-    onError: (error: { status?: number; message?: string; email?: string }) => {
-      if (error.status === 403) {
-        toast.error("Please verify your email address before signing in.");
-        const emailParam = error.email
-          ? `&email=${encodeURIComponent(error.email)}`
+    onError: (error: unknown) => {
+      const signInError =
+        error instanceof SignInError
+          ? error
+          : new SignInError(
+            {
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to sign in",
+            },
+            {
+              email:
+                typeof error === "object" &&
+                  error &&
+                  "email" in error &&
+                  typeof error.email === "string"
+                  ? error.email
+                  : undefined,
+            },
+          );
+
+      if (isEmailNotVerifiedError(signInError)) {
+        toast.error(getAuthErrorMessage(signInError));
+        const emailParam = signInError.email
+          ? `&email=${encodeURIComponent(signInError.email)}`
           : "";
         router.push(`/verify-email?pending=true${emailParam}`);
-      } else {
-        toast.error(error.message || "Failed to sign in");
+        return;
       }
+
+      toast.error(getAuthErrorMessage(signInError, "Failed to sign in"));
     },
   });
 }
@@ -87,8 +139,8 @@ export function useSignUpEmail() {
         email: input.email,
         password: input.password,
         name: input.name,
-        callbackURL:
-          input.callbackURL || `${window.location.origin}/verify-email`,
+        // After the email link verifies, Better Auth redirects here.
+        callbackURL: input.callbackURL || VERIFY_EMAIL_SUCCESS_URL(),
       });
 
       if (result.error) {
@@ -140,7 +192,6 @@ export function useGoogleAuth() {
       return result;
     },
     onSuccess: async () => {
-      toast.success("Signed in successfully");
       const session = await getClientSession();
       const home = session?.user ? getAppHomePath(session.user) : "/dashboard";
       router.push(home);
@@ -161,8 +212,7 @@ export function useResendVerificationEmail() {
     mutationFn: async (input: ResendVerificationEmailInput) => {
       const result = await authClient.sendVerificationEmail({
         email: input.email,
-        callbackURL:
-          input.callbackURL || `${window.location.origin}/verify-email`,
+        callbackURL: input.callbackURL || VERIFY_EMAIL_SUCCESS_URL(),
       });
 
       if (result.error) {

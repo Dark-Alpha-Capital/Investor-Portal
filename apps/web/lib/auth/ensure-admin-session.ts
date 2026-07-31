@@ -1,4 +1,4 @@
-import { authSession } from "@/lib/auth-session-from-request";
+import { authSession } from "@/lib/auth/session-from-request";
 
 export type AdminSessionRedirectTo = "/login" | "/dashboard" | "/admin/deals";
 

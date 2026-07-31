@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { usePathname } from "@/hooks/use-app-navigation";
-import type { Session } from "@/lib/session-types";
+import type { Session } from "@/lib/auth/session-types";
 import { getDashboardHomePath } from "./dashboard-nav-links";
 import { UserNav } from "./user-nav";
 

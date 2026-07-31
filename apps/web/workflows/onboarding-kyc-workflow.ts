@@ -7,8 +7,8 @@ import {
 import {
   assertOnboardingKycPayload,
   fetchOutboxQueuePayload,
-} from "../lib/workflow-outbox";
-import type { QueuePayload } from "../lib/side-effect-payload";
+} from "../lib/workflows/workflow-outbox";
+import type { QueuePayload } from "../lib/queues/side-effect-payload";
 import {
   runOnboardingKycUpload,
   type OnboardingKycUploadData,

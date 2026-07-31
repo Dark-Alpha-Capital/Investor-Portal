@@ -8,7 +8,7 @@ import {
   assertDealFolderPayload,
   assertOutboundEmailPayload,
   fetchOutboxQueuePayload,
-} from "../workflow-outbox";
+} from "../workflows/workflow-outbox";
 import { runOutboundEmailSend } from "../handlers/outbound-email-send";
 import { runDealFolderSync } from "../handlers/deal-folder-sync";
 import type { EmailJobData } from "@repo/mail";

@@ -1,13 +1,13 @@
-import type { ClearanceStatus } from "@/lib/permissions";
-import type { AuthedSession } from "@/lib/route-auth";
-import { authSession } from "@/lib/auth-session-from-request";
+import type { ClearanceStatus } from "@/lib/auth/permissions";
+import type { AuthedSession } from "@/lib/auth/route-auth";
+import { authSession } from "@/lib/auth/session-from-request";
 import type {
   DashboardLoaderData,
   DealDetailLoaderData,
   DealsLoaderData,
 } from "@/lib/types/investor-route-loaders";
 import type { DealIdInput, RouteSearchStringInput } from "@/lib/schemas/server-fn/inputs";
-import { isAdminUser } from "@/lib/user-role-guards";
+import { isAdminUser } from "@/lib/auth/user-role-guards";
 import {
   getClearanceData,
   getDealForView,
@@ -17,7 +17,7 @@ import {
   getUserWithKycStatus,
 } from "@repo/db/queries";
 
-/** `(dashboard)` layout `beforeLoad` — must use server fn (loaders/layout modules run on client too). */
+/** `_dashboard` layout `beforeLoad` — must use server fn (loaders/layout modules run on client too). */
 export type RouteSessionGuardResult =
   | { tag: "ok"; session: AuthedSession; isOnboardingCompleted: boolean }
   | { tag: "redirect"; to: "/login" };

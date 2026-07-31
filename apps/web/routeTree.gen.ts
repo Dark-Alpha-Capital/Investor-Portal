@@ -9,56 +9,64 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as mainSiteRouteRouteImport } from './routes/(main-site)/route'
-import { Route as dashboardRouteRouteImport } from './routes/(dashboard)/route'
-import { Route as authRouteRouteImport } from './routes/(auth)/route'
+import { Route as MainSiteRouteRouteImport } from './routes/_main-site/route'
+import { Route as DashboardRouteRouteImport } from './routes/_dashboard/route'
+import { Route as ChatbotRouteRouteImport } from './routes/_chatbot/route'
+import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as SliceSimulatorIndexRouteImport } from './routes/slice-simulator/index'
-import { Route as mainSiteIndexRouteImport } from './routes/(main-site)/index'
+import { Route as MainSiteIndexRouteImport } from './routes/_main-site/index'
 import { Route as ApiRevalidateRouteImport } from './routes/api/revalidate'
 import { Route as ApiPreviewRouteImport } from './routes/api/preview'
 import { Route as ApiExitPreviewRouteImport } from './routes/api/exit-preview'
-import { Route as dashboardadminRouteRouteImport } from './routes/(dashboard)/(admin)/route'
-import { Route as mainSiteUidIndexRouteImport } from './routes/(main-site)/$uid/index'
-import { Route as dashboardOnboardingIndexRouteImport } from './routes/(dashboard)/onboarding/index'
-import { Route as dashboardDealsIndexRouteImport } from './routes/(dashboard)/deals/index'
-import { Route as dashboardDashboardIndexRouteImport } from './routes/(dashboard)/dashboard/index'
-import { Route as authVerifyEmailIndexRouteImport } from './routes/(auth)/verify-email/index'
-import { Route as authResetPasswordIndexRouteImport } from './routes/(auth)/reset-password/index'
-import { Route as authRegisterIndexRouteImport } from './routes/(auth)/register/index'
-import { Route as authLoginIndexRouteImport } from './routes/(auth)/login/index'
-import { Route as authForgotPasswordIndexRouteImport } from './routes/(auth)/forgot-password/index'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as DashboardAdminRouteRouteImport } from './routes/_dashboard/_admin/route'
+import { Route as MainSiteUidIndexRouteImport } from './routes/_main-site/$uid/index'
+import { Route as DashboardOnboardingIndexRouteImport } from './routes/_dashboard/onboarding/index'
+import { Route as DashboardDealsIndexRouteImport } from './routes/_dashboard/deals/index'
+import { Route as DashboardDashboardIndexRouteImport } from './routes/_dashboard/dashboard/index'
+import { Route as ChatbotChatIndexRouteImport } from './routes/_chatbot/chat/index'
+import { Route as AuthVerifyEmailIndexRouteImport } from './routes/_auth/verify-email/index'
+import { Route as AuthResetPasswordIndexRouteImport } from './routes/_auth/reset-password/index'
+import { Route as AuthRegisterIndexRouteImport } from './routes/_auth/register/index'
+import { Route as AuthLoginIndexRouteImport } from './routes/_auth/login/index'
+import { Route as AuthForgotPasswordIndexRouteImport } from './routes/_auth/forgot-password/index'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
 import { Route as ApiOnboardingSubmitRouteImport } from './routes/api/onboarding/submit'
 import { Route as ApiDocumentsDownloadRouteImport } from './routes/api/documents/download'
 import { Route as ApiDocumentsAccessRouteImport } from './routes/api/documents/access'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
-import { Route as mainSiteSectorsSectorIndexRouteImport } from './routes/(main-site)/sectors/$sector/index'
-import { Route as mainSiteInvestmentsTypeIndexRouteImport } from './routes/(main-site)/investments/$type/index'
-import { Route as dashboardProfileEditOnboardingIndexRouteImport } from './routes/(dashboard)/profile/edit-onboarding/index'
-import { Route as dashboardProfileUserIdIndexRouteImport } from './routes/(dashboard)/profile/$userId/index'
-import { Route as dashboardOnboardingEditIndexRouteImport } from './routes/(dashboard)/onboarding/edit/index'
-import { Route as dashboardDealsDealIdIndexRouteImport } from './routes/(dashboard)/deals/$dealId/index'
-import { Route as dashboardadminAdminIndexRouteImport } from './routes/(dashboard)/(admin)/admin/index'
+import { Route as ChatbotChatChatIdRouteImport } from './routes/_chatbot/chat/$chatId'
+import { Route as MainSiteSectorsSectorIndexRouteImport } from './routes/_main-site/sectors/$sector/index'
+import { Route as MainSiteInvestmentsTypeIndexRouteImport } from './routes/_main-site/investments/$type/index'
+import { Route as DashboardProfileEditOnboardingIndexRouteImport } from './routes/_dashboard/profile/edit-onboarding/index'
+import { Route as DashboardProfileUserIdIndexRouteImport } from './routes/_dashboard/profile/$userId/index'
+import { Route as DashboardOnboardingEditIndexRouteImport } from './routes/_dashboard/onboarding/edit/index'
+import { Route as DashboardDealsDealIdIndexRouteImport } from './routes/_dashboard/deals/$dealId/index'
+import { Route as DashboardAdminAdminIndexRouteImport } from './routes/_dashboard/_admin/admin/index'
 import { Route as ApiOnboardingOnboardingIdStatusRouteImport } from './routes/api/onboarding/$onboardingId/status'
 import { Route as ApiDocumentsDocumentIdStatusRouteImport } from './routes/api/documents/$documentId/status'
-import { Route as dashboardadminAdminDealsIndexRouteImport } from './routes/(dashboard)/(admin)/admin/deals/index'
-import { Route as dashboardadminAdminComplianceIndexRouteImport } from './routes/(dashboard)/(admin)/admin/compliance/index'
-import { Route as dashboardadminAdminDealsNewIndexRouteImport } from './routes/(dashboard)/(admin)/admin/deals/new/index'
-import { Route as dashboardadminAdminDealsDealIdIndexRouteImport } from './routes/(dashboard)/(admin)/admin/deals/$dealId/index'
-import { Route as dashboardadminAdminDealsDealIdEditIndexRouteImport } from './routes/(dashboard)/(admin)/admin/deals/$dealId/edit/index'
-import { Route as dashboardadminAdminDealsDealIdCurateIndexRouteImport } from './routes/(dashboard)/(admin)/admin/deals/$dealId/curate/index'
-import { Route as dashboardadminAdminComplianceInvestorsIdIndexRouteImport } from './routes/(dashboard)/(admin)/admin/compliance/investors/$id/index'
+import { Route as DashboardAdminAdminDealsIndexRouteImport } from './routes/_dashboard/_admin/admin/deals/index'
+import { Route as DashboardAdminAdminComplianceIndexRouteImport } from './routes/_dashboard/_admin/admin/compliance/index'
+import { Route as DashboardAdminAdminDealsNewIndexRouteImport } from './routes/_dashboard/_admin/admin/deals/new/index'
+import { Route as DashboardAdminAdminDealsDealIdIndexRouteImport } from './routes/_dashboard/_admin/admin/deals/$dealId/index'
+import { Route as DashboardAdminAdminDealsDealIdEditIndexRouteImport } from './routes/_dashboard/_admin/admin/deals/$dealId/edit/index'
+import { Route as DashboardAdminAdminDealsDealIdCurateIndexRouteImport } from './routes/_dashboard/_admin/admin/deals/$dealId/curate/index'
+import { Route as DashboardAdminAdminComplianceInvestorsIdIndexRouteImport } from './routes/_dashboard/_admin/admin/compliance/investors/$id/index'
 
-const mainSiteRouteRoute = mainSiteRouteRouteImport.update({
-  id: '/(main-site)',
+const MainSiteRouteRoute = MainSiteRouteRouteImport.update({
+  id: '/_main-site',
   getParentRoute: () => rootRouteImport,
 } as any)
-const dashboardRouteRoute = dashboardRouteRouteImport.update({
-  id: '/(dashboard)',
+const DashboardRouteRoute = DashboardRouteRouteImport.update({
+  id: '/_dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const authRouteRoute = authRouteRouteImport.update({
-  id: '/(auth)',
+const ChatbotRouteRoute = ChatbotRouteRouteImport.update({
+  id: '/_chatbot',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRouteRoute = AuthRouteRouteImport.update({
+  id: '/_auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SliceSimulatorIndexRoute = SliceSimulatorIndexRouteImport.update({
@@ -66,10 +74,10 @@ const SliceSimulatorIndexRoute = SliceSimulatorIndexRouteImport.update({
   path: '/slice-simulator/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const mainSiteIndexRoute = mainSiteIndexRouteImport.update({
+const MainSiteIndexRoute = MainSiteIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => mainSiteRouteRoute,
+  getParentRoute: () => MainSiteRouteRoute,
 } as any)
 const ApiRevalidateRoute = ApiRevalidateRouteImport.update({
   id: '/api/revalidate',
@@ -86,55 +94,65 @@ const ApiExitPreviewRoute = ApiExitPreviewRouteImport.update({
   path: '/api/exit-preview',
   getParentRoute: () => rootRouteImport,
 } as any)
-const dashboardadminRouteRoute = dashboardadminRouteRouteImport.update({
-  id: '/(admin)',
-  getParentRoute: () => dashboardRouteRoute,
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const mainSiteUidIndexRoute = mainSiteUidIndexRouteImport.update({
+const DashboardAdminRouteRoute = DashboardAdminRouteRouteImport.update({
+  id: '/_admin',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const MainSiteUidIndexRoute = MainSiteUidIndexRouteImport.update({
   id: '/$uid/',
   path: '/$uid/',
-  getParentRoute: () => mainSiteRouteRoute,
+  getParentRoute: () => MainSiteRouteRoute,
 } as any)
-const dashboardOnboardingIndexRoute =
-  dashboardOnboardingIndexRouteImport.update({
+const DashboardOnboardingIndexRoute =
+  DashboardOnboardingIndexRouteImport.update({
     id: '/onboarding/',
     path: '/onboarding/',
-    getParentRoute: () => dashboardRouteRoute,
+    getParentRoute: () => DashboardRouteRoute,
   } as any)
-const dashboardDealsIndexRoute = dashboardDealsIndexRouteImport.update({
+const DashboardDealsIndexRoute = DashboardDealsIndexRouteImport.update({
   id: '/deals/',
   path: '/deals/',
-  getParentRoute: () => dashboardRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
-const dashboardDashboardIndexRoute = dashboardDashboardIndexRouteImport.update({
+const DashboardDashboardIndexRoute = DashboardDashboardIndexRouteImport.update({
   id: '/dashboard/',
   path: '/dashboard/',
-  getParentRoute: () => dashboardRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
-const authVerifyEmailIndexRoute = authVerifyEmailIndexRouteImport.update({
+const ChatbotChatIndexRoute = ChatbotChatIndexRouteImport.update({
+  id: '/chat/',
+  path: '/chat/',
+  getParentRoute: () => ChatbotRouteRoute,
+} as any)
+const AuthVerifyEmailIndexRoute = AuthVerifyEmailIndexRouteImport.update({
   id: '/verify-email/',
   path: '/verify-email/',
-  getParentRoute: () => authRouteRoute,
+  getParentRoute: () => AuthRouteRoute,
 } as any)
-const authResetPasswordIndexRoute = authResetPasswordIndexRouteImport.update({
+const AuthResetPasswordIndexRoute = AuthResetPasswordIndexRouteImport.update({
   id: '/reset-password/',
   path: '/reset-password/',
-  getParentRoute: () => authRouteRoute,
+  getParentRoute: () => AuthRouteRoute,
 } as any)
-const authRegisterIndexRoute = authRegisterIndexRouteImport.update({
+const AuthRegisterIndexRoute = AuthRegisterIndexRouteImport.update({
   id: '/register/',
   path: '/register/',
-  getParentRoute: () => authRouteRoute,
+  getParentRoute: () => AuthRouteRoute,
 } as any)
-const authLoginIndexRoute = authLoginIndexRouteImport.update({
+const AuthLoginIndexRoute = AuthLoginIndexRouteImport.update({
   id: '/login/',
   path: '/login/',
-  getParentRoute: () => authRouteRoute,
+  getParentRoute: () => AuthRouteRoute,
 } as any)
-const authForgotPasswordIndexRoute = authForgotPasswordIndexRouteImport.update({
+const AuthForgotPasswordIndexRoute = AuthForgotPasswordIndexRouteImport.update({
   id: '/forgot-password/',
   path: '/forgot-password/',
-  getParentRoute: () => authRouteRoute,
+  getParentRoute: () => AuthRouteRoute,
 } as any)
 const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
   id: '/api/trpc/$',
@@ -161,47 +179,52 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const mainSiteSectorsSectorIndexRoute =
-  mainSiteSectorsSectorIndexRouteImport.update({
+const ChatbotChatChatIdRoute = ChatbotChatChatIdRouteImport.update({
+  id: '/chat/$chatId',
+  path: '/chat/$chatId',
+  getParentRoute: () => ChatbotRouteRoute,
+} as any)
+const MainSiteSectorsSectorIndexRoute =
+  MainSiteSectorsSectorIndexRouteImport.update({
     id: '/sectors/$sector/',
     path: '/sectors/$sector/',
-    getParentRoute: () => mainSiteRouteRoute,
+    getParentRoute: () => MainSiteRouteRoute,
   } as any)
-const mainSiteInvestmentsTypeIndexRoute =
-  mainSiteInvestmentsTypeIndexRouteImport.update({
+const MainSiteInvestmentsTypeIndexRoute =
+  MainSiteInvestmentsTypeIndexRouteImport.update({
     id: '/investments/$type/',
     path: '/investments/$type/',
-    getParentRoute: () => mainSiteRouteRoute,
+    getParentRoute: () => MainSiteRouteRoute,
   } as any)
-const dashboardProfileEditOnboardingIndexRoute =
-  dashboardProfileEditOnboardingIndexRouteImport.update({
+const DashboardProfileEditOnboardingIndexRoute =
+  DashboardProfileEditOnboardingIndexRouteImport.update({
     id: '/profile/edit-onboarding/',
     path: '/profile/edit-onboarding/',
-    getParentRoute: () => dashboardRouteRoute,
+    getParentRoute: () => DashboardRouteRoute,
   } as any)
-const dashboardProfileUserIdIndexRoute =
-  dashboardProfileUserIdIndexRouteImport.update({
+const DashboardProfileUserIdIndexRoute =
+  DashboardProfileUserIdIndexRouteImport.update({
     id: '/profile/$userId/',
     path: '/profile/$userId/',
-    getParentRoute: () => dashboardRouteRoute,
+    getParentRoute: () => DashboardRouteRoute,
   } as any)
-const dashboardOnboardingEditIndexRoute =
-  dashboardOnboardingEditIndexRouteImport.update({
+const DashboardOnboardingEditIndexRoute =
+  DashboardOnboardingEditIndexRouteImport.update({
     id: '/onboarding/edit/',
     path: '/onboarding/edit/',
-    getParentRoute: () => dashboardRouteRoute,
+    getParentRoute: () => DashboardRouteRoute,
   } as any)
-const dashboardDealsDealIdIndexRoute =
-  dashboardDealsDealIdIndexRouteImport.update({
+const DashboardDealsDealIdIndexRoute =
+  DashboardDealsDealIdIndexRouteImport.update({
     id: '/deals/$dealId/',
     path: '/deals/$dealId/',
-    getParentRoute: () => dashboardRouteRoute,
+    getParentRoute: () => DashboardRouteRoute,
   } as any)
-const dashboardadminAdminIndexRoute =
-  dashboardadminAdminIndexRouteImport.update({
+const DashboardAdminAdminIndexRoute =
+  DashboardAdminAdminIndexRouteImport.update({
     id: '/admin/',
     path: '/admin/',
-    getParentRoute: () => dashboardadminRouteRoute,
+    getParentRoute: () => DashboardAdminRouteRoute,
   } as any)
 const ApiOnboardingOnboardingIdStatusRoute =
   ApiOnboardingOnboardingIdStatusRouteImport.update({
@@ -215,173 +238,185 @@ const ApiDocumentsDocumentIdStatusRoute =
     path: '/api/documents/$documentId/status',
     getParentRoute: () => rootRouteImport,
   } as any)
-const dashboardadminAdminDealsIndexRoute =
-  dashboardadminAdminDealsIndexRouteImport.update({
+const DashboardAdminAdminDealsIndexRoute =
+  DashboardAdminAdminDealsIndexRouteImport.update({
     id: '/admin/deals/',
     path: '/admin/deals/',
-    getParentRoute: () => dashboardadminRouteRoute,
+    getParentRoute: () => DashboardAdminRouteRoute,
   } as any)
-const dashboardadminAdminComplianceIndexRoute =
-  dashboardadminAdminComplianceIndexRouteImport.update({
+const DashboardAdminAdminComplianceIndexRoute =
+  DashboardAdminAdminComplianceIndexRouteImport.update({
     id: '/admin/compliance/',
     path: '/admin/compliance/',
-    getParentRoute: () => dashboardadminRouteRoute,
+    getParentRoute: () => DashboardAdminRouteRoute,
   } as any)
-const dashboardadminAdminDealsNewIndexRoute =
-  dashboardadminAdminDealsNewIndexRouteImport.update({
+const DashboardAdminAdminDealsNewIndexRoute =
+  DashboardAdminAdminDealsNewIndexRouteImport.update({
     id: '/admin/deals/new/',
     path: '/admin/deals/new/',
-    getParentRoute: () => dashboardadminRouteRoute,
+    getParentRoute: () => DashboardAdminRouteRoute,
   } as any)
-const dashboardadminAdminDealsDealIdIndexRoute =
-  dashboardadminAdminDealsDealIdIndexRouteImport.update({
+const DashboardAdminAdminDealsDealIdIndexRoute =
+  DashboardAdminAdminDealsDealIdIndexRouteImport.update({
     id: '/admin/deals/$dealId/',
     path: '/admin/deals/$dealId/',
-    getParentRoute: () => dashboardadminRouteRoute,
+    getParentRoute: () => DashboardAdminRouteRoute,
   } as any)
-const dashboardadminAdminDealsDealIdEditIndexRoute =
-  dashboardadminAdminDealsDealIdEditIndexRouteImport.update({
+const DashboardAdminAdminDealsDealIdEditIndexRoute =
+  DashboardAdminAdminDealsDealIdEditIndexRouteImport.update({
     id: '/admin/deals/$dealId/edit/',
     path: '/admin/deals/$dealId/edit/',
-    getParentRoute: () => dashboardadminRouteRoute,
+    getParentRoute: () => DashboardAdminRouteRoute,
   } as any)
-const dashboardadminAdminDealsDealIdCurateIndexRoute =
-  dashboardadminAdminDealsDealIdCurateIndexRouteImport.update({
+const DashboardAdminAdminDealsDealIdCurateIndexRoute =
+  DashboardAdminAdminDealsDealIdCurateIndexRouteImport.update({
     id: '/admin/deals/$dealId/curate/',
     path: '/admin/deals/$dealId/curate/',
-    getParentRoute: () => dashboardadminRouteRoute,
+    getParentRoute: () => DashboardAdminRouteRoute,
   } as any)
-const dashboardadminAdminComplianceInvestorsIdIndexRoute =
-  dashboardadminAdminComplianceInvestorsIdIndexRouteImport.update({
+const DashboardAdminAdminComplianceInvestorsIdIndexRoute =
+  DashboardAdminAdminComplianceInvestorsIdIndexRouteImport.update({
     id: '/admin/compliance/investors/$id/',
     path: '/admin/compliance/investors/$id/',
-    getParentRoute: () => dashboardadminRouteRoute,
+    getParentRoute: () => DashboardAdminRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof MainSiteIndexRoute
+  '/api/chat': typeof ApiChatRoute
   '/api/exit-preview': typeof ApiExitPreviewRoute
   '/api/preview': typeof ApiPreviewRoute
   '/api/revalidate': typeof ApiRevalidateRoute
-  '/': typeof mainSiteIndexRoute
   '/slice-simulator/': typeof SliceSimulatorIndexRoute
+  '/chat/$chatId': typeof ChatbotChatChatIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/documents/access': typeof ApiDocumentsAccessRoute
   '/api/documents/download': typeof ApiDocumentsDownloadRoute
   '/api/onboarding/submit': typeof ApiOnboardingSubmitRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
-  '/forgot-password/': typeof authForgotPasswordIndexRoute
-  '/login/': typeof authLoginIndexRoute
-  '/register/': typeof authRegisterIndexRoute
-  '/reset-password/': typeof authResetPasswordIndexRoute
-  '/verify-email/': typeof authVerifyEmailIndexRoute
-  '/dashboard/': typeof dashboardDashboardIndexRoute
-  '/deals/': typeof dashboardDealsIndexRoute
-  '/onboarding/': typeof dashboardOnboardingIndexRoute
-  '/$uid/': typeof mainSiteUidIndexRoute
+  '/forgot-password/': typeof AuthForgotPasswordIndexRoute
+  '/login/': typeof AuthLoginIndexRoute
+  '/register/': typeof AuthRegisterIndexRoute
+  '/reset-password/': typeof AuthResetPasswordIndexRoute
+  '/verify-email/': typeof AuthVerifyEmailIndexRoute
+  '/chat/': typeof ChatbotChatIndexRoute
+  '/dashboard/': typeof DashboardDashboardIndexRoute
+  '/deals/': typeof DashboardDealsIndexRoute
+  '/onboarding/': typeof DashboardOnboardingIndexRoute
+  '/$uid/': typeof MainSiteUidIndexRoute
   '/api/documents/$documentId/status': typeof ApiDocumentsDocumentIdStatusRoute
   '/api/onboarding/$onboardingId/status': typeof ApiOnboardingOnboardingIdStatusRoute
-  '/admin/': typeof dashboardadminAdminIndexRoute
-  '/deals/$dealId/': typeof dashboardDealsDealIdIndexRoute
-  '/onboarding/edit/': typeof dashboardOnboardingEditIndexRoute
-  '/profile/$userId/': typeof dashboardProfileUserIdIndexRoute
-  '/profile/edit-onboarding/': typeof dashboardProfileEditOnboardingIndexRoute
-  '/investments/$type/': typeof mainSiteInvestmentsTypeIndexRoute
-  '/sectors/$sector/': typeof mainSiteSectorsSectorIndexRoute
-  '/admin/compliance/': typeof dashboardadminAdminComplianceIndexRoute
-  '/admin/deals/': typeof dashboardadminAdminDealsIndexRoute
-  '/admin/deals/$dealId/': typeof dashboardadminAdminDealsDealIdIndexRoute
-  '/admin/deals/new/': typeof dashboardadminAdminDealsNewIndexRoute
-  '/admin/compliance/investors/$id/': typeof dashboardadminAdminComplianceInvestorsIdIndexRoute
-  '/admin/deals/$dealId/curate/': typeof dashboardadminAdminDealsDealIdCurateIndexRoute
-  '/admin/deals/$dealId/edit/': typeof dashboardadminAdminDealsDealIdEditIndexRoute
+  '/admin/': typeof DashboardAdminAdminIndexRoute
+  '/deals/$dealId/': typeof DashboardDealsDealIdIndexRoute
+  '/onboarding/edit/': typeof DashboardOnboardingEditIndexRoute
+  '/profile/$userId/': typeof DashboardProfileUserIdIndexRoute
+  '/profile/edit-onboarding/': typeof DashboardProfileEditOnboardingIndexRoute
+  '/investments/$type/': typeof MainSiteInvestmentsTypeIndexRoute
+  '/sectors/$sector/': typeof MainSiteSectorsSectorIndexRoute
+  '/admin/compliance/': typeof DashboardAdminAdminComplianceIndexRoute
+  '/admin/deals/': typeof DashboardAdminAdminDealsIndexRoute
+  '/admin/deals/$dealId/': typeof DashboardAdminAdminDealsDealIdIndexRoute
+  '/admin/deals/new/': typeof DashboardAdminAdminDealsNewIndexRoute
+  '/admin/compliance/investors/$id/': typeof DashboardAdminAdminComplianceInvestorsIdIndexRoute
+  '/admin/deals/$dealId/curate/': typeof DashboardAdminAdminDealsDealIdCurateIndexRoute
+  '/admin/deals/$dealId/edit/': typeof DashboardAdminAdminDealsDealIdEditIndexRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof MainSiteIndexRoute
+  '/api/chat': typeof ApiChatRoute
   '/api/exit-preview': typeof ApiExitPreviewRoute
   '/api/preview': typeof ApiPreviewRoute
   '/api/revalidate': typeof ApiRevalidateRoute
-  '/': typeof mainSiteIndexRoute
   '/slice-simulator': typeof SliceSimulatorIndexRoute
+  '/chat/$chatId': typeof ChatbotChatChatIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/documents/access': typeof ApiDocumentsAccessRoute
   '/api/documents/download': typeof ApiDocumentsDownloadRoute
   '/api/onboarding/submit': typeof ApiOnboardingSubmitRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
-  '/forgot-password': typeof authForgotPasswordIndexRoute
-  '/login': typeof authLoginIndexRoute
-  '/register': typeof authRegisterIndexRoute
-  '/reset-password': typeof authResetPasswordIndexRoute
-  '/verify-email': typeof authVerifyEmailIndexRoute
-  '/dashboard': typeof dashboardDashboardIndexRoute
-  '/deals': typeof dashboardDealsIndexRoute
-  '/onboarding': typeof dashboardOnboardingIndexRoute
-  '/$uid': typeof mainSiteUidIndexRoute
+  '/forgot-password': typeof AuthForgotPasswordIndexRoute
+  '/login': typeof AuthLoginIndexRoute
+  '/register': typeof AuthRegisterIndexRoute
+  '/reset-password': typeof AuthResetPasswordIndexRoute
+  '/verify-email': typeof AuthVerifyEmailIndexRoute
+  '/chat': typeof ChatbotChatIndexRoute
+  '/dashboard': typeof DashboardDashboardIndexRoute
+  '/deals': typeof DashboardDealsIndexRoute
+  '/onboarding': typeof DashboardOnboardingIndexRoute
+  '/$uid': typeof MainSiteUidIndexRoute
   '/api/documents/$documentId/status': typeof ApiDocumentsDocumentIdStatusRoute
   '/api/onboarding/$onboardingId/status': typeof ApiOnboardingOnboardingIdStatusRoute
-  '/admin': typeof dashboardadminAdminIndexRoute
-  '/deals/$dealId': typeof dashboardDealsDealIdIndexRoute
-  '/onboarding/edit': typeof dashboardOnboardingEditIndexRoute
-  '/profile/$userId': typeof dashboardProfileUserIdIndexRoute
-  '/profile/edit-onboarding': typeof dashboardProfileEditOnboardingIndexRoute
-  '/investments/$type': typeof mainSiteInvestmentsTypeIndexRoute
-  '/sectors/$sector': typeof mainSiteSectorsSectorIndexRoute
-  '/admin/compliance': typeof dashboardadminAdminComplianceIndexRoute
-  '/admin/deals': typeof dashboardadminAdminDealsIndexRoute
-  '/admin/deals/$dealId': typeof dashboardadminAdminDealsDealIdIndexRoute
-  '/admin/deals/new': typeof dashboardadminAdminDealsNewIndexRoute
-  '/admin/compliance/investors/$id': typeof dashboardadminAdminComplianceInvestorsIdIndexRoute
-  '/admin/deals/$dealId/curate': typeof dashboardadminAdminDealsDealIdCurateIndexRoute
-  '/admin/deals/$dealId/edit': typeof dashboardadminAdminDealsDealIdEditIndexRoute
+  '/admin': typeof DashboardAdminAdminIndexRoute
+  '/deals/$dealId': typeof DashboardDealsDealIdIndexRoute
+  '/onboarding/edit': typeof DashboardOnboardingEditIndexRoute
+  '/profile/$userId': typeof DashboardProfileUserIdIndexRoute
+  '/profile/edit-onboarding': typeof DashboardProfileEditOnboardingIndexRoute
+  '/investments/$type': typeof MainSiteInvestmentsTypeIndexRoute
+  '/sectors/$sector': typeof MainSiteSectorsSectorIndexRoute
+  '/admin/compliance': typeof DashboardAdminAdminComplianceIndexRoute
+  '/admin/deals': typeof DashboardAdminAdminDealsIndexRoute
+  '/admin/deals/$dealId': typeof DashboardAdminAdminDealsDealIdIndexRoute
+  '/admin/deals/new': typeof DashboardAdminAdminDealsNewIndexRoute
+  '/admin/compliance/investors/$id': typeof DashboardAdminAdminComplianceInvestorsIdIndexRoute
+  '/admin/deals/$dealId/curate': typeof DashboardAdminAdminDealsDealIdCurateIndexRoute
+  '/admin/deals/$dealId/edit': typeof DashboardAdminAdminDealsDealIdEditIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/(auth)': typeof authRouteRouteWithChildren
-  '/(dashboard)': typeof dashboardRouteRouteWithChildren
-  '/(main-site)': typeof mainSiteRouteRouteWithChildren
-  '/(dashboard)/(admin)': typeof dashboardadminRouteRouteWithChildren
+  '/_auth': typeof AuthRouteRouteWithChildren
+  '/_chatbot': typeof ChatbotRouteRouteWithChildren
+  '/_dashboard': typeof DashboardRouteRouteWithChildren
+  '/_main-site': typeof MainSiteRouteRouteWithChildren
+  '/_dashboard/_admin': typeof DashboardAdminRouteRouteWithChildren
+  '/api/chat': typeof ApiChatRoute
   '/api/exit-preview': typeof ApiExitPreviewRoute
   '/api/preview': typeof ApiPreviewRoute
   '/api/revalidate': typeof ApiRevalidateRoute
-  '/(main-site)/': typeof mainSiteIndexRoute
+  '/_main-site/': typeof MainSiteIndexRoute
   '/slice-simulator/': typeof SliceSimulatorIndexRoute
+  '/_chatbot/chat/$chatId': typeof ChatbotChatChatIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/documents/access': typeof ApiDocumentsAccessRoute
   '/api/documents/download': typeof ApiDocumentsDownloadRoute
   '/api/onboarding/submit': typeof ApiOnboardingSubmitRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
-  '/(auth)/forgot-password/': typeof authForgotPasswordIndexRoute
-  '/(auth)/login/': typeof authLoginIndexRoute
-  '/(auth)/register/': typeof authRegisterIndexRoute
-  '/(auth)/reset-password/': typeof authResetPasswordIndexRoute
-  '/(auth)/verify-email/': typeof authVerifyEmailIndexRoute
-  '/(dashboard)/dashboard/': typeof dashboardDashboardIndexRoute
-  '/(dashboard)/deals/': typeof dashboardDealsIndexRoute
-  '/(dashboard)/onboarding/': typeof dashboardOnboardingIndexRoute
-  '/(main-site)/$uid/': typeof mainSiteUidIndexRoute
+  '/_auth/forgot-password/': typeof AuthForgotPasswordIndexRoute
+  '/_auth/login/': typeof AuthLoginIndexRoute
+  '/_auth/register/': typeof AuthRegisterIndexRoute
+  '/_auth/reset-password/': typeof AuthResetPasswordIndexRoute
+  '/_auth/verify-email/': typeof AuthVerifyEmailIndexRoute
+  '/_chatbot/chat/': typeof ChatbotChatIndexRoute
+  '/_dashboard/dashboard/': typeof DashboardDashboardIndexRoute
+  '/_dashboard/deals/': typeof DashboardDealsIndexRoute
+  '/_dashboard/onboarding/': typeof DashboardOnboardingIndexRoute
+  '/_main-site/$uid/': typeof MainSiteUidIndexRoute
   '/api/documents/$documentId/status': typeof ApiDocumentsDocumentIdStatusRoute
   '/api/onboarding/$onboardingId/status': typeof ApiOnboardingOnboardingIdStatusRoute
-  '/(dashboard)/(admin)/admin/': typeof dashboardadminAdminIndexRoute
-  '/(dashboard)/deals/$dealId/': typeof dashboardDealsDealIdIndexRoute
-  '/(dashboard)/onboarding/edit/': typeof dashboardOnboardingEditIndexRoute
-  '/(dashboard)/profile/$userId/': typeof dashboardProfileUserIdIndexRoute
-  '/(dashboard)/profile/edit-onboarding/': typeof dashboardProfileEditOnboardingIndexRoute
-  '/(main-site)/investments/$type/': typeof mainSiteInvestmentsTypeIndexRoute
-  '/(main-site)/sectors/$sector/': typeof mainSiteSectorsSectorIndexRoute
-  '/(dashboard)/(admin)/admin/compliance/': typeof dashboardadminAdminComplianceIndexRoute
-  '/(dashboard)/(admin)/admin/deals/': typeof dashboardadminAdminDealsIndexRoute
-  '/(dashboard)/(admin)/admin/deals/$dealId/': typeof dashboardadminAdminDealsDealIdIndexRoute
-  '/(dashboard)/(admin)/admin/deals/new/': typeof dashboardadminAdminDealsNewIndexRoute
-  '/(dashboard)/(admin)/admin/compliance/investors/$id/': typeof dashboardadminAdminComplianceInvestorsIdIndexRoute
-  '/(dashboard)/(admin)/admin/deals/$dealId/curate/': typeof dashboardadminAdminDealsDealIdCurateIndexRoute
-  '/(dashboard)/(admin)/admin/deals/$dealId/edit/': typeof dashboardadminAdminDealsDealIdEditIndexRoute
+  '/_dashboard/_admin/admin/': typeof DashboardAdminAdminIndexRoute
+  '/_dashboard/deals/$dealId/': typeof DashboardDealsDealIdIndexRoute
+  '/_dashboard/onboarding/edit/': typeof DashboardOnboardingEditIndexRoute
+  '/_dashboard/profile/$userId/': typeof DashboardProfileUserIdIndexRoute
+  '/_dashboard/profile/edit-onboarding/': typeof DashboardProfileEditOnboardingIndexRoute
+  '/_main-site/investments/$type/': typeof MainSiteInvestmentsTypeIndexRoute
+  '/_main-site/sectors/$sector/': typeof MainSiteSectorsSectorIndexRoute
+  '/_dashboard/_admin/admin/compliance/': typeof DashboardAdminAdminComplianceIndexRoute
+  '/_dashboard/_admin/admin/deals/': typeof DashboardAdminAdminDealsIndexRoute
+  '/_dashboard/_admin/admin/deals/$dealId/': typeof DashboardAdminAdminDealsDealIdIndexRoute
+  '/_dashboard/_admin/admin/deals/new/': typeof DashboardAdminAdminDealsNewIndexRoute
+  '/_dashboard/_admin/admin/compliance/investors/$id/': typeof DashboardAdminAdminComplianceInvestorsIdIndexRoute
+  '/_dashboard/_admin/admin/deals/$dealId/curate/': typeof DashboardAdminAdminDealsDealIdCurateIndexRoute
+  '/_dashboard/_admin/admin/deals/$dealId/edit/': typeof DashboardAdminAdminDealsDealIdEditIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
+    | '/api/chat'
     | '/api/exit-preview'
     | '/api/preview'
     | '/api/revalidate'
-    | '/'
     | '/slice-simulator/'
+    | '/chat/$chatId'
     | '/api/auth/$'
     | '/api/documents/access'
     | '/api/documents/download'
@@ -392,6 +427,7 @@ export interface FileRouteTypes {
     | '/register/'
     | '/reset-password/'
     | '/verify-email/'
+    | '/chat/'
     | '/dashboard/'
     | '/deals/'
     | '/onboarding/'
@@ -414,11 +450,13 @@ export interface FileRouteTypes {
     | '/admin/deals/$dealId/edit/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
+    | '/api/chat'
     | '/api/exit-preview'
     | '/api/preview'
     | '/api/revalidate'
-    | '/'
     | '/slice-simulator'
+    | '/chat/$chatId'
     | '/api/auth/$'
     | '/api/documents/access'
     | '/api/documents/download'
@@ -429,6 +467,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/verify-email'
+    | '/chat'
     | '/dashboard'
     | '/deals'
     | '/onboarding'
@@ -451,51 +490,57 @@ export interface FileRouteTypes {
     | '/admin/deals/$dealId/edit'
   id:
     | '__root__'
-    | '/(auth)'
-    | '/(dashboard)'
-    | '/(main-site)'
-    | '/(dashboard)/(admin)'
+    | '/_auth'
+    | '/_chatbot'
+    | '/_dashboard'
+    | '/_main-site'
+    | '/_dashboard/_admin'
+    | '/api/chat'
     | '/api/exit-preview'
     | '/api/preview'
     | '/api/revalidate'
-    | '/(main-site)/'
+    | '/_main-site/'
     | '/slice-simulator/'
+    | '/_chatbot/chat/$chatId'
     | '/api/auth/$'
     | '/api/documents/access'
     | '/api/documents/download'
     | '/api/onboarding/submit'
     | '/api/trpc/$'
-    | '/(auth)/forgot-password/'
-    | '/(auth)/login/'
-    | '/(auth)/register/'
-    | '/(auth)/reset-password/'
-    | '/(auth)/verify-email/'
-    | '/(dashboard)/dashboard/'
-    | '/(dashboard)/deals/'
-    | '/(dashboard)/onboarding/'
-    | '/(main-site)/$uid/'
+    | '/_auth/forgot-password/'
+    | '/_auth/login/'
+    | '/_auth/register/'
+    | '/_auth/reset-password/'
+    | '/_auth/verify-email/'
+    | '/_chatbot/chat/'
+    | '/_dashboard/dashboard/'
+    | '/_dashboard/deals/'
+    | '/_dashboard/onboarding/'
+    | '/_main-site/$uid/'
     | '/api/documents/$documentId/status'
     | '/api/onboarding/$onboardingId/status'
-    | '/(dashboard)/(admin)/admin/'
-    | '/(dashboard)/deals/$dealId/'
-    | '/(dashboard)/onboarding/edit/'
-    | '/(dashboard)/profile/$userId/'
-    | '/(dashboard)/profile/edit-onboarding/'
-    | '/(main-site)/investments/$type/'
-    | '/(main-site)/sectors/$sector/'
-    | '/(dashboard)/(admin)/admin/compliance/'
-    | '/(dashboard)/(admin)/admin/deals/'
-    | '/(dashboard)/(admin)/admin/deals/$dealId/'
-    | '/(dashboard)/(admin)/admin/deals/new/'
-    | '/(dashboard)/(admin)/admin/compliance/investors/$id/'
-    | '/(dashboard)/(admin)/admin/deals/$dealId/curate/'
-    | '/(dashboard)/(admin)/admin/deals/$dealId/edit/'
+    | '/_dashboard/_admin/admin/'
+    | '/_dashboard/deals/$dealId/'
+    | '/_dashboard/onboarding/edit/'
+    | '/_dashboard/profile/$userId/'
+    | '/_dashboard/profile/edit-onboarding/'
+    | '/_main-site/investments/$type/'
+    | '/_main-site/sectors/$sector/'
+    | '/_dashboard/_admin/admin/compliance/'
+    | '/_dashboard/_admin/admin/deals/'
+    | '/_dashboard/_admin/admin/deals/$dealId/'
+    | '/_dashboard/_admin/admin/deals/new/'
+    | '/_dashboard/_admin/admin/compliance/investors/$id/'
+    | '/_dashboard/_admin/admin/deals/$dealId/curate/'
+    | '/_dashboard/_admin/admin/deals/$dealId/edit/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  authRouteRoute: typeof authRouteRouteWithChildren
-  dashboardRouteRoute: typeof dashboardRouteRouteWithChildren
-  mainSiteRouteRoute: typeof mainSiteRouteRouteWithChildren
+  AuthRouteRoute: typeof AuthRouteRouteWithChildren
+  ChatbotRouteRoute: typeof ChatbotRouteRouteWithChildren
+  DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
+  MainSiteRouteRoute: typeof MainSiteRouteRouteWithChildren
+  ApiChatRoute: typeof ApiChatRoute
   ApiExitPreviewRoute: typeof ApiExitPreviewRoute
   ApiPreviewRoute: typeof ApiPreviewRoute
   ApiRevalidateRoute: typeof ApiRevalidateRoute
@@ -511,25 +556,32 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/(main-site)': {
-      id: '/(main-site)'
+    '/_main-site': {
+      id: '/_main-site'
       path: ''
-      fullPath: ''
-      preLoaderRoute: typeof mainSiteRouteRouteImport
+      fullPath: '/'
+      preLoaderRoute: typeof MainSiteRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/(dashboard)': {
-      id: '/(dashboard)'
+    '/_dashboard': {
+      id: '/_dashboard'
       path: ''
-      fullPath: ''
-      preLoaderRoute: typeof dashboardRouteRouteImport
+      fullPath: '/'
+      preLoaderRoute: typeof DashboardRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/(auth)': {
-      id: '/(auth)'
+    '/_chatbot': {
+      id: '/_chatbot'
       path: ''
-      fullPath: ''
-      preLoaderRoute: typeof authRouteRouteImport
+      fullPath: '/'
+      preLoaderRoute: typeof ChatbotRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_auth': {
+      id: '/_auth'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/slice-simulator/': {
@@ -539,12 +591,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SliceSimulatorIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/(main-site)/': {
-      id: '/(main-site)/'
+    '/_main-site/': {
+      id: '/_main-site/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof mainSiteIndexRouteImport
-      parentRoute: typeof mainSiteRouteRoute
+      preLoaderRoute: typeof MainSiteIndexRouteImport
+      parentRoute: typeof MainSiteRouteRoute
     }
     '/api/revalidate': {
       id: '/api/revalidate'
@@ -567,75 +619,89 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExitPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/(dashboard)/(admin)': {
-      id: '/(dashboard)/(admin)'
-      path: ''
-      fullPath: ''
-      preLoaderRoute: typeof dashboardadminRouteRouteImport
-      parentRoute: typeof dashboardRouteRoute
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/(main-site)/$uid/': {
-      id: '/(main-site)/$uid/'
+    '/_dashboard/_admin': {
+      id: '/_dashboard/_admin'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof DashboardAdminRouteRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/_main-site/$uid/': {
+      id: '/_main-site/$uid/'
       path: '/$uid'
       fullPath: '/$uid/'
-      preLoaderRoute: typeof mainSiteUidIndexRouteImport
-      parentRoute: typeof mainSiteRouteRoute
+      preLoaderRoute: typeof MainSiteUidIndexRouteImport
+      parentRoute: typeof MainSiteRouteRoute
     }
-    '/(dashboard)/onboarding/': {
-      id: '/(dashboard)/onboarding/'
+    '/_dashboard/onboarding/': {
+      id: '/_dashboard/onboarding/'
       path: '/onboarding'
       fullPath: '/onboarding/'
-      preLoaderRoute: typeof dashboardOnboardingIndexRouteImport
-      parentRoute: typeof dashboardRouteRoute
+      preLoaderRoute: typeof DashboardOnboardingIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/(dashboard)/deals/': {
-      id: '/(dashboard)/deals/'
+    '/_dashboard/deals/': {
+      id: '/_dashboard/deals/'
       path: '/deals'
       fullPath: '/deals/'
-      preLoaderRoute: typeof dashboardDealsIndexRouteImport
-      parentRoute: typeof dashboardRouteRoute
+      preLoaderRoute: typeof DashboardDealsIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/(dashboard)/dashboard/': {
-      id: '/(dashboard)/dashboard/'
+    '/_dashboard/dashboard/': {
+      id: '/_dashboard/dashboard/'
       path: '/dashboard'
       fullPath: '/dashboard/'
-      preLoaderRoute: typeof dashboardDashboardIndexRouteImport
-      parentRoute: typeof dashboardRouteRoute
+      preLoaderRoute: typeof DashboardDashboardIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/(auth)/verify-email/': {
-      id: '/(auth)/verify-email/'
+    '/_chatbot/chat/': {
+      id: '/_chatbot/chat/'
+      path: '/chat'
+      fullPath: '/chat/'
+      preLoaderRoute: typeof ChatbotChatIndexRouteImport
+      parentRoute: typeof ChatbotRouteRoute
+    }
+    '/_auth/verify-email/': {
+      id: '/_auth/verify-email/'
       path: '/verify-email'
       fullPath: '/verify-email/'
-      preLoaderRoute: typeof authVerifyEmailIndexRouteImport
-      parentRoute: typeof authRouteRoute
+      preLoaderRoute: typeof AuthVerifyEmailIndexRouteImport
+      parentRoute: typeof AuthRouteRoute
     }
-    '/(auth)/reset-password/': {
-      id: '/(auth)/reset-password/'
+    '/_auth/reset-password/': {
+      id: '/_auth/reset-password/'
       path: '/reset-password'
       fullPath: '/reset-password/'
-      preLoaderRoute: typeof authResetPasswordIndexRouteImport
-      parentRoute: typeof authRouteRoute
+      preLoaderRoute: typeof AuthResetPasswordIndexRouteImport
+      parentRoute: typeof AuthRouteRoute
     }
-    '/(auth)/register/': {
-      id: '/(auth)/register/'
+    '/_auth/register/': {
+      id: '/_auth/register/'
       path: '/register'
       fullPath: '/register/'
-      preLoaderRoute: typeof authRegisterIndexRouteImport
-      parentRoute: typeof authRouteRoute
+      preLoaderRoute: typeof AuthRegisterIndexRouteImport
+      parentRoute: typeof AuthRouteRoute
     }
-    '/(auth)/login/': {
-      id: '/(auth)/login/'
+    '/_auth/login/': {
+      id: '/_auth/login/'
       path: '/login'
       fullPath: '/login/'
-      preLoaderRoute: typeof authLoginIndexRouteImport
-      parentRoute: typeof authRouteRoute
+      preLoaderRoute: typeof AuthLoginIndexRouteImport
+      parentRoute: typeof AuthRouteRoute
     }
-    '/(auth)/forgot-password/': {
-      id: '/(auth)/forgot-password/'
+    '/_auth/forgot-password/': {
+      id: '/_auth/forgot-password/'
       path: '/forgot-password'
       fullPath: '/forgot-password/'
-      preLoaderRoute: typeof authForgotPasswordIndexRouteImport
-      parentRoute: typeof authRouteRoute
+      preLoaderRoute: typeof AuthForgotPasswordIndexRouteImport
+      parentRoute: typeof AuthRouteRoute
     }
     '/api/trpc/$': {
       id: '/api/trpc/$'
@@ -672,54 +738,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/(main-site)/sectors/$sector/': {
-      id: '/(main-site)/sectors/$sector/'
+    '/_chatbot/chat/$chatId': {
+      id: '/_chatbot/chat/$chatId'
+      path: '/chat/$chatId'
+      fullPath: '/chat/$chatId'
+      preLoaderRoute: typeof ChatbotChatChatIdRouteImport
+      parentRoute: typeof ChatbotRouteRoute
+    }
+    '/_main-site/sectors/$sector/': {
+      id: '/_main-site/sectors/$sector/'
       path: '/sectors/$sector'
       fullPath: '/sectors/$sector/'
-      preLoaderRoute: typeof mainSiteSectorsSectorIndexRouteImport
-      parentRoute: typeof mainSiteRouteRoute
+      preLoaderRoute: typeof MainSiteSectorsSectorIndexRouteImport
+      parentRoute: typeof MainSiteRouteRoute
     }
-    '/(main-site)/investments/$type/': {
-      id: '/(main-site)/investments/$type/'
+    '/_main-site/investments/$type/': {
+      id: '/_main-site/investments/$type/'
       path: '/investments/$type'
       fullPath: '/investments/$type/'
-      preLoaderRoute: typeof mainSiteInvestmentsTypeIndexRouteImport
-      parentRoute: typeof mainSiteRouteRoute
+      preLoaderRoute: typeof MainSiteInvestmentsTypeIndexRouteImport
+      parentRoute: typeof MainSiteRouteRoute
     }
-    '/(dashboard)/profile/edit-onboarding/': {
-      id: '/(dashboard)/profile/edit-onboarding/'
+    '/_dashboard/profile/edit-onboarding/': {
+      id: '/_dashboard/profile/edit-onboarding/'
       path: '/profile/edit-onboarding'
       fullPath: '/profile/edit-onboarding/'
-      preLoaderRoute: typeof dashboardProfileEditOnboardingIndexRouteImport
-      parentRoute: typeof dashboardRouteRoute
+      preLoaderRoute: typeof DashboardProfileEditOnboardingIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/(dashboard)/profile/$userId/': {
-      id: '/(dashboard)/profile/$userId/'
+    '/_dashboard/profile/$userId/': {
+      id: '/_dashboard/profile/$userId/'
       path: '/profile/$userId'
       fullPath: '/profile/$userId/'
-      preLoaderRoute: typeof dashboardProfileUserIdIndexRouteImport
-      parentRoute: typeof dashboardRouteRoute
+      preLoaderRoute: typeof DashboardProfileUserIdIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/(dashboard)/onboarding/edit/': {
-      id: '/(dashboard)/onboarding/edit/'
+    '/_dashboard/onboarding/edit/': {
+      id: '/_dashboard/onboarding/edit/'
       path: '/onboarding/edit'
       fullPath: '/onboarding/edit/'
-      preLoaderRoute: typeof dashboardOnboardingEditIndexRouteImport
-      parentRoute: typeof dashboardRouteRoute
+      preLoaderRoute: typeof DashboardOnboardingEditIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/(dashboard)/deals/$dealId/': {
-      id: '/(dashboard)/deals/$dealId/'
+    '/_dashboard/deals/$dealId/': {
+      id: '/_dashboard/deals/$dealId/'
       path: '/deals/$dealId'
       fullPath: '/deals/$dealId/'
-      preLoaderRoute: typeof dashboardDealsDealIdIndexRouteImport
-      parentRoute: typeof dashboardRouteRoute
+      preLoaderRoute: typeof DashboardDealsDealIdIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/(dashboard)/(admin)/admin/': {
-      id: '/(dashboard)/(admin)/admin/'
+    '/_dashboard/_admin/admin/': {
+      id: '/_dashboard/_admin/admin/'
       path: '/admin'
       fullPath: '/admin/'
-      preLoaderRoute: typeof dashboardadminAdminIndexRouteImport
-      parentRoute: typeof dashboardadminRouteRoute
+      preLoaderRoute: typeof DashboardAdminAdminIndexRouteImport
+      parentRoute: typeof DashboardAdminRouteRoute
     }
     '/api/onboarding/$onboardingId/status': {
       id: '/api/onboarding/$onboardingId/status'
@@ -735,157 +808,173 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDocumentsDocumentIdStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/(dashboard)/(admin)/admin/deals/': {
-      id: '/(dashboard)/(admin)/admin/deals/'
+    '/_dashboard/_admin/admin/deals/': {
+      id: '/_dashboard/_admin/admin/deals/'
       path: '/admin/deals'
       fullPath: '/admin/deals/'
-      preLoaderRoute: typeof dashboardadminAdminDealsIndexRouteImport
-      parentRoute: typeof dashboardadminRouteRoute
+      preLoaderRoute: typeof DashboardAdminAdminDealsIndexRouteImport
+      parentRoute: typeof DashboardAdminRouteRoute
     }
-    '/(dashboard)/(admin)/admin/compliance/': {
-      id: '/(dashboard)/(admin)/admin/compliance/'
+    '/_dashboard/_admin/admin/compliance/': {
+      id: '/_dashboard/_admin/admin/compliance/'
       path: '/admin/compliance'
       fullPath: '/admin/compliance/'
-      preLoaderRoute: typeof dashboardadminAdminComplianceIndexRouteImport
-      parentRoute: typeof dashboardadminRouteRoute
+      preLoaderRoute: typeof DashboardAdminAdminComplianceIndexRouteImport
+      parentRoute: typeof DashboardAdminRouteRoute
     }
-    '/(dashboard)/(admin)/admin/deals/new/': {
-      id: '/(dashboard)/(admin)/admin/deals/new/'
+    '/_dashboard/_admin/admin/deals/new/': {
+      id: '/_dashboard/_admin/admin/deals/new/'
       path: '/admin/deals/new'
       fullPath: '/admin/deals/new/'
-      preLoaderRoute: typeof dashboardadminAdminDealsNewIndexRouteImport
-      parentRoute: typeof dashboardadminRouteRoute
+      preLoaderRoute: typeof DashboardAdminAdminDealsNewIndexRouteImport
+      parentRoute: typeof DashboardAdminRouteRoute
     }
-    '/(dashboard)/(admin)/admin/deals/$dealId/': {
-      id: '/(dashboard)/(admin)/admin/deals/$dealId/'
+    '/_dashboard/_admin/admin/deals/$dealId/': {
+      id: '/_dashboard/_admin/admin/deals/$dealId/'
       path: '/admin/deals/$dealId'
       fullPath: '/admin/deals/$dealId/'
-      preLoaderRoute: typeof dashboardadminAdminDealsDealIdIndexRouteImport
-      parentRoute: typeof dashboardadminRouteRoute
+      preLoaderRoute: typeof DashboardAdminAdminDealsDealIdIndexRouteImport
+      parentRoute: typeof DashboardAdminRouteRoute
     }
-    '/(dashboard)/(admin)/admin/deals/$dealId/edit/': {
-      id: '/(dashboard)/(admin)/admin/deals/$dealId/edit/'
+    '/_dashboard/_admin/admin/deals/$dealId/edit/': {
+      id: '/_dashboard/_admin/admin/deals/$dealId/edit/'
       path: '/admin/deals/$dealId/edit'
       fullPath: '/admin/deals/$dealId/edit/'
-      preLoaderRoute: typeof dashboardadminAdminDealsDealIdEditIndexRouteImport
-      parentRoute: typeof dashboardadminRouteRoute
+      preLoaderRoute: typeof DashboardAdminAdminDealsDealIdEditIndexRouteImport
+      parentRoute: typeof DashboardAdminRouteRoute
     }
-    '/(dashboard)/(admin)/admin/deals/$dealId/curate/': {
-      id: '/(dashboard)/(admin)/admin/deals/$dealId/curate/'
+    '/_dashboard/_admin/admin/deals/$dealId/curate/': {
+      id: '/_dashboard/_admin/admin/deals/$dealId/curate/'
       path: '/admin/deals/$dealId/curate'
       fullPath: '/admin/deals/$dealId/curate/'
-      preLoaderRoute: typeof dashboardadminAdminDealsDealIdCurateIndexRouteImport
-      parentRoute: typeof dashboardadminRouteRoute
+      preLoaderRoute: typeof DashboardAdminAdminDealsDealIdCurateIndexRouteImport
+      parentRoute: typeof DashboardAdminRouteRoute
     }
-    '/(dashboard)/(admin)/admin/compliance/investors/$id/': {
-      id: '/(dashboard)/(admin)/admin/compliance/investors/$id/'
+    '/_dashboard/_admin/admin/compliance/investors/$id/': {
+      id: '/_dashboard/_admin/admin/compliance/investors/$id/'
       path: '/admin/compliance/investors/$id'
       fullPath: '/admin/compliance/investors/$id/'
-      preLoaderRoute: typeof dashboardadminAdminComplianceInvestorsIdIndexRouteImport
-      parentRoute: typeof dashboardadminRouteRoute
+      preLoaderRoute: typeof DashboardAdminAdminComplianceInvestorsIdIndexRouteImport
+      parentRoute: typeof DashboardAdminRouteRoute
     }
   }
 }
 
-interface authRouteRouteChildren {
-  authForgotPasswordIndexRoute: typeof authForgotPasswordIndexRoute
-  authLoginIndexRoute: typeof authLoginIndexRoute
-  authRegisterIndexRoute: typeof authRegisterIndexRoute
-  authResetPasswordIndexRoute: typeof authResetPasswordIndexRoute
-  authVerifyEmailIndexRoute: typeof authVerifyEmailIndexRoute
+interface AuthRouteRouteChildren {
+  AuthForgotPasswordIndexRoute: typeof AuthForgotPasswordIndexRoute
+  AuthLoginIndexRoute: typeof AuthLoginIndexRoute
+  AuthRegisterIndexRoute: typeof AuthRegisterIndexRoute
+  AuthResetPasswordIndexRoute: typeof AuthResetPasswordIndexRoute
+  AuthVerifyEmailIndexRoute: typeof AuthVerifyEmailIndexRoute
 }
 
-const authRouteRouteChildren: authRouteRouteChildren = {
-  authForgotPasswordIndexRoute: authForgotPasswordIndexRoute,
-  authLoginIndexRoute: authLoginIndexRoute,
-  authRegisterIndexRoute: authRegisterIndexRoute,
-  authResetPasswordIndexRoute: authResetPasswordIndexRoute,
-  authVerifyEmailIndexRoute: authVerifyEmailIndexRoute,
+const AuthRouteRouteChildren: AuthRouteRouteChildren = {
+  AuthForgotPasswordIndexRoute: AuthForgotPasswordIndexRoute,
+  AuthLoginIndexRoute: AuthLoginIndexRoute,
+  AuthRegisterIndexRoute: AuthRegisterIndexRoute,
+  AuthResetPasswordIndexRoute: AuthResetPasswordIndexRoute,
+  AuthVerifyEmailIndexRoute: AuthVerifyEmailIndexRoute,
 }
 
-const authRouteRouteWithChildren = authRouteRoute._addFileChildren(
-  authRouteRouteChildren,
+const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
+  AuthRouteRouteChildren,
 )
 
-interface dashboardadminRouteRouteChildren {
-  dashboardadminAdminIndexRoute: typeof dashboardadminAdminIndexRoute
-  dashboardadminAdminComplianceIndexRoute: typeof dashboardadminAdminComplianceIndexRoute
-  dashboardadminAdminDealsIndexRoute: typeof dashboardadminAdminDealsIndexRoute
-  dashboardadminAdminDealsDealIdIndexRoute: typeof dashboardadminAdminDealsDealIdIndexRoute
-  dashboardadminAdminDealsNewIndexRoute: typeof dashboardadminAdminDealsNewIndexRoute
-  dashboardadminAdminComplianceInvestorsIdIndexRoute: typeof dashboardadminAdminComplianceInvestorsIdIndexRoute
-  dashboardadminAdminDealsDealIdCurateIndexRoute: typeof dashboardadminAdminDealsDealIdCurateIndexRoute
-  dashboardadminAdminDealsDealIdEditIndexRoute: typeof dashboardadminAdminDealsDealIdEditIndexRoute
+interface ChatbotRouteRouteChildren {
+  ChatbotChatChatIdRoute: typeof ChatbotChatChatIdRoute
+  ChatbotChatIndexRoute: typeof ChatbotChatIndexRoute
 }
 
-const dashboardadminRouteRouteChildren: dashboardadminRouteRouteChildren = {
-  dashboardadminAdminIndexRoute: dashboardadminAdminIndexRoute,
-  dashboardadminAdminComplianceIndexRoute:
-    dashboardadminAdminComplianceIndexRoute,
-  dashboardadminAdminDealsIndexRoute: dashboardadminAdminDealsIndexRoute,
-  dashboardadminAdminDealsDealIdIndexRoute:
-    dashboardadminAdminDealsDealIdIndexRoute,
-  dashboardadminAdminDealsNewIndexRoute: dashboardadminAdminDealsNewIndexRoute,
-  dashboardadminAdminComplianceInvestorsIdIndexRoute:
-    dashboardadminAdminComplianceInvestorsIdIndexRoute,
-  dashboardadminAdminDealsDealIdCurateIndexRoute:
-    dashboardadminAdminDealsDealIdCurateIndexRoute,
-  dashboardadminAdminDealsDealIdEditIndexRoute:
-    dashboardadminAdminDealsDealIdEditIndexRoute,
+const ChatbotRouteRouteChildren: ChatbotRouteRouteChildren = {
+  ChatbotChatChatIdRoute: ChatbotChatChatIdRoute,
+  ChatbotChatIndexRoute: ChatbotChatIndexRoute,
 }
 
-const dashboardadminRouteRouteWithChildren =
-  dashboardadminRouteRoute._addFileChildren(dashboardadminRouteRouteChildren)
-
-interface dashboardRouteRouteChildren {
-  dashboardadminRouteRoute: typeof dashboardadminRouteRouteWithChildren
-  dashboardDashboardIndexRoute: typeof dashboardDashboardIndexRoute
-  dashboardDealsIndexRoute: typeof dashboardDealsIndexRoute
-  dashboardOnboardingIndexRoute: typeof dashboardOnboardingIndexRoute
-  dashboardDealsDealIdIndexRoute: typeof dashboardDealsDealIdIndexRoute
-  dashboardOnboardingEditIndexRoute: typeof dashboardOnboardingEditIndexRoute
-  dashboardProfileUserIdIndexRoute: typeof dashboardProfileUserIdIndexRoute
-  dashboardProfileEditOnboardingIndexRoute: typeof dashboardProfileEditOnboardingIndexRoute
-}
-
-const dashboardRouteRouteChildren: dashboardRouteRouteChildren = {
-  dashboardadminRouteRoute: dashboardadminRouteRouteWithChildren,
-  dashboardDashboardIndexRoute: dashboardDashboardIndexRoute,
-  dashboardDealsIndexRoute: dashboardDealsIndexRoute,
-  dashboardOnboardingIndexRoute: dashboardOnboardingIndexRoute,
-  dashboardDealsDealIdIndexRoute: dashboardDealsDealIdIndexRoute,
-  dashboardOnboardingEditIndexRoute: dashboardOnboardingEditIndexRoute,
-  dashboardProfileUserIdIndexRoute: dashboardProfileUserIdIndexRoute,
-  dashboardProfileEditOnboardingIndexRoute:
-    dashboardProfileEditOnboardingIndexRoute,
-}
-
-const dashboardRouteRouteWithChildren = dashboardRouteRoute._addFileChildren(
-  dashboardRouteRouteChildren,
+const ChatbotRouteRouteWithChildren = ChatbotRouteRoute._addFileChildren(
+  ChatbotRouteRouteChildren,
 )
 
-interface mainSiteRouteRouteChildren {
-  mainSiteIndexRoute: typeof mainSiteIndexRoute
-  mainSiteUidIndexRoute: typeof mainSiteUidIndexRoute
-  mainSiteInvestmentsTypeIndexRoute: typeof mainSiteInvestmentsTypeIndexRoute
-  mainSiteSectorsSectorIndexRoute: typeof mainSiteSectorsSectorIndexRoute
+interface DashboardAdminRouteRouteChildren {
+  DashboardAdminAdminIndexRoute: typeof DashboardAdminAdminIndexRoute
+  DashboardAdminAdminComplianceIndexRoute: typeof DashboardAdminAdminComplianceIndexRoute
+  DashboardAdminAdminDealsIndexRoute: typeof DashboardAdminAdminDealsIndexRoute
+  DashboardAdminAdminDealsDealIdIndexRoute: typeof DashboardAdminAdminDealsDealIdIndexRoute
+  DashboardAdminAdminDealsNewIndexRoute: typeof DashboardAdminAdminDealsNewIndexRoute
+  DashboardAdminAdminComplianceInvestorsIdIndexRoute: typeof DashboardAdminAdminComplianceInvestorsIdIndexRoute
+  DashboardAdminAdminDealsDealIdCurateIndexRoute: typeof DashboardAdminAdminDealsDealIdCurateIndexRoute
+  DashboardAdminAdminDealsDealIdEditIndexRoute: typeof DashboardAdminAdminDealsDealIdEditIndexRoute
 }
 
-const mainSiteRouteRouteChildren: mainSiteRouteRouteChildren = {
-  mainSiteIndexRoute: mainSiteIndexRoute,
-  mainSiteUidIndexRoute: mainSiteUidIndexRoute,
-  mainSiteInvestmentsTypeIndexRoute: mainSiteInvestmentsTypeIndexRoute,
-  mainSiteSectorsSectorIndexRoute: mainSiteSectorsSectorIndexRoute,
+const DashboardAdminRouteRouteChildren: DashboardAdminRouteRouteChildren = {
+  DashboardAdminAdminIndexRoute: DashboardAdminAdminIndexRoute,
+  DashboardAdminAdminComplianceIndexRoute:
+    DashboardAdminAdminComplianceIndexRoute,
+  DashboardAdminAdminDealsIndexRoute: DashboardAdminAdminDealsIndexRoute,
+  DashboardAdminAdminDealsDealIdIndexRoute:
+    DashboardAdminAdminDealsDealIdIndexRoute,
+  DashboardAdminAdminDealsNewIndexRoute: DashboardAdminAdminDealsNewIndexRoute,
+  DashboardAdminAdminComplianceInvestorsIdIndexRoute:
+    DashboardAdminAdminComplianceInvestorsIdIndexRoute,
+  DashboardAdminAdminDealsDealIdCurateIndexRoute:
+    DashboardAdminAdminDealsDealIdCurateIndexRoute,
+  DashboardAdminAdminDealsDealIdEditIndexRoute:
+    DashboardAdminAdminDealsDealIdEditIndexRoute,
 }
 
-const mainSiteRouteRouteWithChildren = mainSiteRouteRoute._addFileChildren(
-  mainSiteRouteRouteChildren,
+const DashboardAdminRouteRouteWithChildren =
+  DashboardAdminRouteRoute._addFileChildren(DashboardAdminRouteRouteChildren)
+
+interface DashboardRouteRouteChildren {
+  DashboardAdminRouteRoute: typeof DashboardAdminRouteRouteWithChildren
+  DashboardDashboardIndexRoute: typeof DashboardDashboardIndexRoute
+  DashboardDealsIndexRoute: typeof DashboardDealsIndexRoute
+  DashboardOnboardingIndexRoute: typeof DashboardOnboardingIndexRoute
+  DashboardDealsDealIdIndexRoute: typeof DashboardDealsDealIdIndexRoute
+  DashboardOnboardingEditIndexRoute: typeof DashboardOnboardingEditIndexRoute
+  DashboardProfileUserIdIndexRoute: typeof DashboardProfileUserIdIndexRoute
+  DashboardProfileEditOnboardingIndexRoute: typeof DashboardProfileEditOnboardingIndexRoute
+}
+
+const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
+  DashboardAdminRouteRoute: DashboardAdminRouteRouteWithChildren,
+  DashboardDashboardIndexRoute: DashboardDashboardIndexRoute,
+  DashboardDealsIndexRoute: DashboardDealsIndexRoute,
+  DashboardOnboardingIndexRoute: DashboardOnboardingIndexRoute,
+  DashboardDealsDealIdIndexRoute: DashboardDealsDealIdIndexRoute,
+  DashboardOnboardingEditIndexRoute: DashboardOnboardingEditIndexRoute,
+  DashboardProfileUserIdIndexRoute: DashboardProfileUserIdIndexRoute,
+  DashboardProfileEditOnboardingIndexRoute:
+    DashboardProfileEditOnboardingIndexRoute,
+}
+
+const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
+  DashboardRouteRouteChildren,
+)
+
+interface MainSiteRouteRouteChildren {
+  MainSiteIndexRoute: typeof MainSiteIndexRoute
+  MainSiteUidIndexRoute: typeof MainSiteUidIndexRoute
+  MainSiteInvestmentsTypeIndexRoute: typeof MainSiteInvestmentsTypeIndexRoute
+  MainSiteSectorsSectorIndexRoute: typeof MainSiteSectorsSectorIndexRoute
+}
+
+const MainSiteRouteRouteChildren: MainSiteRouteRouteChildren = {
+  MainSiteIndexRoute: MainSiteIndexRoute,
+  MainSiteUidIndexRoute: MainSiteUidIndexRoute,
+  MainSiteInvestmentsTypeIndexRoute: MainSiteInvestmentsTypeIndexRoute,
+  MainSiteSectorsSectorIndexRoute: MainSiteSectorsSectorIndexRoute,
+}
+
+const MainSiteRouteRouteWithChildren = MainSiteRouteRoute._addFileChildren(
+  MainSiteRouteRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
-  authRouteRoute: authRouteRouteWithChildren,
-  dashboardRouteRoute: dashboardRouteRouteWithChildren,
-  mainSiteRouteRoute: mainSiteRouteRouteWithChildren,
+  AuthRouteRoute: AuthRouteRouteWithChildren,
+  ChatbotRouteRoute: ChatbotRouteRouteWithChildren,
+  DashboardRouteRoute: DashboardRouteRouteWithChildren,
+  MainSiteRouteRoute: MainSiteRouteRouteWithChildren,
+  ApiChatRoute: ApiChatRoute,
   ApiExitPreviewRoute: ApiExitPreviewRoute,
   ApiPreviewRoute: ApiPreviewRoute,
   ApiRevalidateRoute: ApiRevalidateRoute,

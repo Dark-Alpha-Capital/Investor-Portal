@@ -13,7 +13,7 @@ import {
 import { adminProcedure, baseProcedure, createTRPCRouter } from "../init";
 import slugify from "slugify";
 import { createDealSchema } from "@/lib/schemas/create-deal-schema";
-import { dispatchPendingOutbox } from "@/lib/outbox";
+import { dispatchPendingOutbox } from "@/lib/queues/outbox";
 import {
   desc,
   eq,
@@ -35,7 +35,7 @@ import {
   sanitizeUploadFileName,
   sanitizeDealFolderSegment,
 } from "@repo/nextcloud";
-import { authSession } from "@/lib/auth-session-from-request";
+import { authSession } from "@/lib/auth/session-from-request";
 
 const parseNumericField = (value: string | undefined | null): number | null => {
   if (!value) return null;

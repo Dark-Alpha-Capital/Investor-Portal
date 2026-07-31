@@ -14,8 +14,8 @@ import {
 import { and, eq, desc, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { TRPCError } from "@trpc/server";
-import { mapWorkflowStatusToJobProgress } from "@/lib/map-workflow-job-status";
-import { dispatchPendingOutbox } from "@/lib/outbox";
+import { mapWorkflowStatusToJobProgress } from "@/lib/workflows/map-workflow-job-status";
+import { dispatchPendingOutbox } from "@/lib/queues/outbox";
 import {
   EMAIL_CONFIG,
   type OnboardingInvestorConfirmationJobData,

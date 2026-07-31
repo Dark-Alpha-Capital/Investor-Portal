@@ -1,6 +1,6 @@
-import { authSession } from "@/lib/auth-session-from-request";
-import { getUserClearance } from "@/lib/permissions";
-import { isAdminUser } from "@/lib/user-role-guards";
+import { authSession } from "@/lib/auth/session-from-request";
+import { getUserClearance } from "@/lib/auth/permissions";
+import { isAdminUser } from "@/lib/auth/user-role-guards";
 import { getUserById, getUserWithKycAndClearance } from "@repo/db/queries";
 
 export type ProfilePageDataResult = Promise<

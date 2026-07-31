@@ -54,7 +54,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { useClientSession } from "@/lib/get-client-session";
+import { useClientSession } from "@/lib/auth/get-client-session";
 import { badgeVariants } from "@/components/ui/badge";
 import type { VariantProps } from "class-variance-authority";
 
