@@ -1,8 +1,8 @@
 import { TRPCError, initTRPC } from "@trpc/server";
 import { db } from "@repo/db";
 import superjson from "superjson";
-import { authSessionFromHeaders } from "@/lib/auth-session";
-import type { Session } from "@/lib/session-types";
+import { authSessionFromHeaders } from "@/lib/auth/session";
+import type { Session } from "@/lib/auth/session-types";
 
 /** Session guaranteed non-null with a user (set by `enforceUserIsAuthed`). */
 export type SessionWithUser = Exclude<Session, null>;

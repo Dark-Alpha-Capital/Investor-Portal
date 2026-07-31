@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { createAuthMiddleware } from "better-auth/api";
 import { admin, customSession } from "better-auth/plugins";
+import { waitUntil } from "cloudflare:workers";
 import { sendEmailDirect } from "@repo/mail";
 import {
   user as usersTable,
@@ -14,6 +15,20 @@ import {
   session as sessionsTable,
   verification as verificationsTable,
 } from "@repo/db/schema";
+
+async function sendAuthEmail(
+  kind: "verification" | "password-reset",
+  to: string,
+  subject: string,
+  html: string,
+): Promise<void> {
+  try {
+    await sendEmailDirect(to, subject, html);
+  } catch (error) {
+    console.error(`[auth] Failed to send ${kind} email to ${to}:`, error);
+    throw error;
+  }
+}
 
 
 // Type definitions for database hooks
@@ -47,6 +62,14 @@ export const auth = betterAuth({
     "https://investors.darkalphacapital.com",
     "http://localhost:3000",
   ],
+  // Keep email sends alive on Cloudflare Workers after the auth response.
+  // advanced: {
+  //   backgroundTasks: {
+  //     handler: (promise) => {
+  //       waitUntil(promise);
+  //     },
+  //   },
+  // },
   database: drizzleAdapter(db, {
     provider: "sqlite",
     schema: {
@@ -59,40 +82,45 @@ export const auth = betterAuth({
   emailAndPassword: {
     requireEmailVerification: true,
     enabled: true,
-    sendResetPassword: async (
-      {
-        user,
-        url,
-        token,
-      }: { user: { email: string }; url: string; token: string },
-      request?: unknown
-    ) => {
-      void sendEmailDirect(
+    sendResetPassword: async ({
+      user,
+      url,
+    }: {
+      user: { email: string };
+      url: string;
+      token: string;
+    }) => {
+      await sendAuthEmail(
+        "password-reset",
         user.email,
         "Reset your password",
         `<p>Click the link to reset your password: <a href="${url}">${url}</a></p>
          <p>This link will expire in 1 hour.</p>
-         <p>If you didn't request this, please ignore this email.</p>`
+         <p>If you didn't request this, please ignore this email.</p>`,
       );
     },
-    onPasswordReset: async ({ user }, request) => {
-      // Log password reset for security monitoring
-      console.log(`Password reset completed for user: ${user.email}`);
+    onPasswordReset: async ({ user }) => {
+      console.log(`[auth] Password reset completed for ${user.email}`);
     },
   },
   emailVerification: {
-    sendVerificationEmail: async (
-      {
-        user,
-        url,
-        token,
-      }: { user: { email: string }; url: string; token: string },
-      request?: unknown
-    ) => {
-      void sendEmailDirect(
+    sendOnSignUp: true,
+    sendOnSignIn: true,
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async ({
+      user,
+      url,
+    }: {
+      user: { email: string };
+      url: string;
+      token: string;
+    }) => {
+      await sendAuthEmail(
+        "verification",
         user.email,
         "Verify your email address",
-        `<p>Click the link to verify your email: <a href="${url}">${url}</a></p>`
+        `<p>Click the link to verify your email: <a href="${url}">${url}</a></p>
+         <p>If you didn't create an account, you can ignore this email.</p>`,
       );
     },
   },
@@ -106,6 +134,17 @@ export const auth = betterAuth({
 
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
+      // Skip failed auth responses — only enrich successful sign-ins.
+      const returned = ctx.context.returned;
+      if (
+        returned &&
+        typeof returned === "object" &&
+        ("statusCode" in returned ||
+          (returned as { name?: string }).name === "APIError")
+      ) {
+        return;
+      }
+
       // After sign-in endpoints, ensure user has a role set
       if (ctx.path === "/sign-in/email" || ctx.path === "/sign-in/social") {
         const newSession = ctx.context.newSession;

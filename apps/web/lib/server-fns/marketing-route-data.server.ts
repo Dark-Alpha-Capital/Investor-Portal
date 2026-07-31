@@ -9,7 +9,7 @@ import {
 import {
   generateFinancialServiceJsonLd,
   generateWebPageJsonLd,
-} from "@/lib/seo";
+} from "@/lib/marketing/seo";
 import type {
   InvestmentTypePageInput,
   SectorPageInput,

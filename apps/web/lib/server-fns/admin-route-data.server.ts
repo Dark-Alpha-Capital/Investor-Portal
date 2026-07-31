@@ -14,7 +14,7 @@ import {
   getInvestorComplianceDetails,
   getAllActiveDealsBasic,
 } from "@repo/db/queries";
-import { getDealFilesByDealId } from "@/lib/list-deal-files";
+import { getDealFilesByDealId } from "@/lib/deals/list-deal-files";
 
 export type AdminHomeOk = {
   tag: "ok";

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TRPCError } from "@trpc/server";
-import { authSession } from "@/lib/auth-session-from-request";
+import { authSession } from "@/lib/auth/session-from-request";
 import { onboardingSubmitSchema } from "@/trpc/routers/onboarding";
 import { getTrpcCaller } from "@/trpc/caller-from-request";
 

@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "@/types/metadata";
 import { createClient } from "@/prismicio";
-import { siteConfig } from "@/lib/seo";
+import { siteConfig } from "@/lib/marketing/seo";
 import { getAllSectorSlugs } from "@/lib/constants/sectors";
 import { getAllInvestmentTypeSlugs } from "@/lib/constants/investment-types";
 

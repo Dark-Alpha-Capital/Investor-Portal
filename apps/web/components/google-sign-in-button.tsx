@@ -2,7 +2,7 @@
 import React from "react";
 import { FcGoogle } from "react-icons/fc";
 import { Button } from "./ui/button";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth/client";
 import { toast } from "sonner";
 
 const GoogleSignInButton = () => {

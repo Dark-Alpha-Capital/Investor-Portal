@@ -38,12 +38,16 @@ const getResendClient = () => {
  * Send an email directly using Resend (uses RESEND_API_KEY env var)
  * This is a simple utility for sending emails without a pre-configured client.
  * Useful for auth emails, password resets, verification emails, etc.
+ *
+ * Always await this — fire-and-forget (`void sendEmailDirect(...)`) is dropped
+ * on Cloudflare Workers when the request ends.
  */
 export const sendEmailDirect = async (
   to: string,
   subject: string,
   html: string
 ) => {
+  console.log(`[mail] Sending "${subject}" to ${to}`);
   const client = getResendClient();
   const response = await client.emails.send({
     from: EMAIL_CONFIG.from,
@@ -51,7 +55,16 @@ export const sendEmailDirect = async (
     subject,
     html,
   });
-  return response;
+
+  if (response.error) {
+    console.error(`[mail] Resend error for ${to}:`, response.error);
+    throw new Error(
+      `Failed to send email to ${to}: ${response.error.message}`,
+    );
+  }
+
+  console.log(`[mail] Sent "${subject}" to ${to} id=${response.data?.id ?? "unknown"}`);
+  return response.data;
 };
 
 /**

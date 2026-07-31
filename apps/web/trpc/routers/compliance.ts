@@ -33,13 +33,13 @@ import {
   inArray,
 } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { after } from "@/lib/after-response";
+import { after } from "@/lib/helpers/after-response";
 import {
   logClearanceChange,
   logPermissionGrant,
   logPermissionRevoke,
 } from "@/lib/audit";
-import { authSession } from "@/lib/auth-session-from-request";
+import { authSession } from "@/lib/auth/session-from-request";
 
 // Clearance status types
 const clearanceStatusSchema = z.enum([
@@ -918,15 +918,37 @@ export const complianceRouter = createTRPCRouter({
         });
       }
 
+      // Latest clearance per user (SQLite-compatible; D1 has no DISTINCT ON)
+      const latestClearanceTimestamps = ctx.db
+        .select({
+          userId: investorClearance.userId,
+          maxCreatedAt:
+            sql<(typeof investorClearance.$inferSelect)["createdAt"]>`max(${investorClearance.createdAt})`.as(
+              "max_created_at"
+            ),
+        })
+        .from(investorClearance)
+        .groupBy(investorClearance.userId)
+        .as("latest_clearance_timestamps_bulk_grant");
+
       // Get cleared investors and existing permissions in parallel
       const [clearedInvestorsRaw, existingPermissions] = await Promise.all([
         ctx.db
-          .selectDistinctOn([investorClearance.userId], {
+          .select({
             userId: investorClearance.userId,
             status: investorClearance.status,
           })
           .from(investorClearance)
-          .orderBy(investorClearance.userId, desc(investorClearance.createdAt)),
+          .innerJoin(
+            latestClearanceTimestamps,
+            and(
+              eq(investorClearance.userId, latestClearanceTimestamps.userId),
+              eq(
+                investorClearance.createdAt,
+                latestClearanceTimestamps.maxCreatedAt
+              )
+            )
+          ),
         ctx.db
           .select({
             userId: vehiclePermission.userId,

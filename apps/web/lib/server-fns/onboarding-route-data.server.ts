@@ -1,4 +1,4 @@
-import { authSession } from "@/lib/auth-session-from-request";
+import { authSession } from "@/lib/auth/session-from-request";
 import {
   getUserOnboardingStatus,
   getOnboardingWithEditHistory,
@@ -7,7 +7,7 @@ import {
 import {
   getOnboardingRestrictedRedirectPath,
   isOnboardingAdminRestrictedUser,
-} from "@/lib/user-role-guards";
+} from "@/lib/auth/user-role-guards";
 
 type AuthRedirect = { tag: "redirect"; to: "/login" | "/admin" | "/dashboard" };
 

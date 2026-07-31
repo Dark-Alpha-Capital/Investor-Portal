@@ -7,8 +7,8 @@ import {
 import {
   assertOnboardingKycPayload,
   fetchOutboxQueuePayload,
-} from "../lib/workflow-outbox";
-import type { QueuePayload } from "../lib/side-effect-payload";
+} from "../lib/workflows/workflow-outbox";
+import type { QueuePayload } from "../lib/queues/side-effect-payload";
 import {
   runOnboardingKycUpload,
   type OnboardingKycUploadData,
@@ -28,12 +28,22 @@ export class OnboardingKycWorkflow extends WorkflowEntrypoint<
     step: WorkflowStep,
   ): Promise<unknown> {
     const { outboxId } = event.payload;
+    console.log(
+      `[OnboardingKycWorkflow] start instanceId=${event.instanceId} outboxId=${outboxId}`,
+    );
 
     const payload = await step.do(
       "load-onboarding-kyc-outbox",
       async (_ctx: WorkflowStepContext) => {
         const p = await fetchOutboxQueuePayload(outboxId);
         assertOnboardingKycPayload(p);
+        console.log(
+          `[OnboardingKycWorkflow] loaded outbox jobId=${p.jobId} files=${
+            Array.isArray((p.data as { files?: unknown }).files)
+              ? (p.data as { files: unknown[] }).files.length
+              : "?"
+          }`,
+        );
         return structuredClone(p) as never;
       },
     );
@@ -49,9 +59,17 @@ export class OnboardingKycWorkflow extends WorkflowEntrypoint<
       },
       async (_ctx: WorkflowStepContext) => {
         const p = payload as QueuePayload;
-        return (await runOnboardingKycUpload(
+        console.log(
+          `[OnboardingKycWorkflow] uploading KYC files jobId=${p.jobId}`,
+        );
+        const result = (await runOnboardingKycUpload(
           p.data as unknown as OnboardingKycUploadData,
         )) as never;
+        console.log(
+          `[OnboardingKycWorkflow] upload step finished jobId=${p.jobId}`,
+          result,
+        );
+        return result;
       },
     );
   }

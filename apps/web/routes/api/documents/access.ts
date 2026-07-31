@@ -3,7 +3,7 @@ import { db } from "@repo/db";
 import { onboardingDocument, onboarding } from "@repo/db/schema";
 import { createNextcloudClientFromEnv, fileExists } from "@repo/nextcloud";
 import { eq } from "drizzle-orm";
-import { authSession } from "@/lib/auth-session-from-request";
+import { authSession } from "@/lib/auth/session-from-request";
 
 export const Route = createFileRoute("/api/documents/access")({
   server: {

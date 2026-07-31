@@ -4,6 +4,7 @@ import {
   ChartBar,
   ChevronRight,
   FileText,
+  MessageSquare,
   Shield,
   User,
   UserCheck,
@@ -27,9 +28,9 @@ import {
   getAppHomePath,
   isAdminUser,
   isOnboardingAdminRestrictedUser,
-} from "@/lib/user-role-guards";
+} from "@/lib/auth/user-role-guards";
 import { cn } from "@/lib/utils";
-import type { Session } from "@/lib/session-types";
+import type { Session } from "@/lib/auth/session-types";
 import type { OpenSectionsState } from "./dashboard-siderbar";
 
 type NavItem = {
@@ -57,6 +58,7 @@ function buildInvestorNavItems(isOnboardingCompleted: boolean): NavItem[] {
       icon: isOnboardingCompleted ? FileText : User,
     },
     { title: "Deals", url: "/deals", icon: Briefcase },
+    { title: "Chat", url: "/chat", icon: MessageSquare },
   ];
 
   return items;
@@ -68,6 +70,7 @@ function buildAdminNavItems(): NavItem[] {
     { title: "Compliance", url: "/admin/compliance", icon: UserCheck },
     { title: "Admin Deals", url: "/admin/deals", icon: Briefcase },
     { title: "Deals", url: "/deals", icon: Briefcase },
+    { title: "Chat", url: "/chat", icon: MessageSquare },
   ];
 }
 

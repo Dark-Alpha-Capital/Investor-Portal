@@ -4,8 +4,10 @@
   "type": "module",
   "private": true,
   "devDependencies": {
-    "@types/bun": "latest",
     "@repo/typescript-config": "*",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/bun": "latest",
+    "better-sqlite3": "^13.0.2",
     "drizzle-kit": "^0.31.7"
   },
   "exports": {
@@ -20,8 +22,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "cd ../../apps/web && wrangler d1 migrations apply dac-investor-portal --local",
     "db:migrate:remote": "cd ../../apps/web && wrangler d1 migrations apply dac-investor-portal --remote",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:push": "bun run scripts/with-local-d1.ts push",
+    "db:studio": "bun run scripts/with-local-d1.ts studio",
+    "db:setup:local": "bun run db:migrate:local"
   },
   "peerDependencies": {
     "typescript": "^5"

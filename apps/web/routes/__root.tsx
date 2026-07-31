@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import appCss from "@/routes/globals.css?url";
 import { JsonLd } from "@/components/seo/json-ld";
-import { generateOrganizationJsonLd, siteConfig } from "@/lib/seo";
+import { generateOrganizationJsonLd, siteConfig } from "@/lib/marketing/seo";
 
 export const Route = createRootRoute({
   notFoundComponent: NotFoundComponent,

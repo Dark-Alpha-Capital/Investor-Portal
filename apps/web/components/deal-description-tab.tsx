@@ -1,4 +1,4 @@
-import { sanitizeHtml } from "@/lib/sanitize-html";
+import { sanitizeHtml } from "@/lib/helpers/sanitize-html";
 
 type Deal = {
   description: string | null;

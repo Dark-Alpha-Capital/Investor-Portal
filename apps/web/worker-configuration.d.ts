@@ -19,6 +19,8 @@ interface __BaseEnv_Env {
 	NEXTCLOUD_USER: string;
 	NEXTCLOUD_PASSWORD: string;
 	POSTGRES_URL: string;
+	OPENAI_API_KEY: string;
+	DEEPSEEK_API_KEY: string;
 	ONBOARDING_KYC_WORKFLOW: Workflow<Parameters<import("./cloudflare-worker").OnboardingKycWorkflow['run']>[0]['payload']>;
 }
 declare namespace Cloudflare {
@@ -32,7 +34,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "VITE_PUBLIC_BETTER_AUTH_URL" | "VITE_PUBLIC_PRISMIC_ENVIRONMENT" | "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL" | "NEXT_PUBLIC_BETTER_AUTH_URL" | "DATABASE_URL" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "REDIS_URL" | "RESEND_API_KEY" | "NEXTCLOUD_URL" | "NEXTCLOUD_USER" | "NEXTCLOUD_PASSWORD" | "POSTGRES_URL">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "VITE_PUBLIC_BETTER_AUTH_URL" | "VITE_PUBLIC_PRISMIC_ENVIRONMENT" | "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL" | "NEXT_PUBLIC_BETTER_AUTH_URL" | "DATABASE_URL" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "REDIS_URL" | "RESEND_API_KEY" | "NEXTCLOUD_URL" | "NEXTCLOUD_USER" | "NEXTCLOUD_PASSWORD" | "POSTGRES_URL" | "OPENAI_API_KEY" | "DEEPSEEK_API_KEY">> {}
 }
 
 // Begin runtime types

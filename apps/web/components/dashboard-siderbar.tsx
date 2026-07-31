@@ -10,7 +10,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { DashboardNavLinks } from "./dashboard-nav-links";
-import type { Session } from "@/lib/session-types";
+import type { Session } from "@/lib/auth/session-types";
 
 const OPEN_SECTIONS_KEY = "app-sidebar-open-sections";
 const HOVER_COLLAPSE_DELAY_MS = 300;

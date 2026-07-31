@@ -1,6 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import { useTheme } from "next-themes";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "@/hooks/use-app-navigation";
-import type { Session } from "@/lib/session-types";
+import type { Session } from "@/lib/auth/session-types";
 
 export function UserNav({ session }: { session: Session }) {
   const router = useRouter();

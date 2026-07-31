@@ -146,10 +146,34 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)]
 );
 
+export const chat = pgTable(
+  "chat",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    title: text("title").notNull().default("New chat"),
+    model: text("model").notNull(),
+    messages: jsonb("messages").$type<unknown[]>().notNull().default([]),
+    createdAt: timestamp("created_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+    updatedAt: timestamp("updated_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("chat_userId_updatedAt_idx").on(table.userId, table.updatedAt),
+  ]
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
   onboardings: many(onboarding),
+  chats: many(chat),
   // Portfolio & Deals
   investments: many(investment), // "My Portfolio"
   dealInterests: many(dealInterest), // "My Watchlist"
@@ -160,6 +184,13 @@ export const userRelations = relations(user, ({ many }) => ({
   vehiclePermissions: many(vehiclePermission), // Deal-level access
   bankingVerifications: many(bankingVerification), // Banking changes
   capitalNoticeRecipients: many(capitalNoticeRecipient), // Capital notices
+}));
+
+export const chatRelations = relations(chat, ({ one }) => ({
+  user: one(user, {
+    fields: [chat.userId],
+    references: [user.id],
+  }),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({

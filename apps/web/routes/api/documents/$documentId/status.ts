@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { authSession } from "@/lib/auth-session-from-request";
+import { authSession } from "@/lib/auth/session-from-request";
 import { db } from "@repo/db";
 import { onboardingDocument } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
