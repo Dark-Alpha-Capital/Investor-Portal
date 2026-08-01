@@ -867,7 +867,6 @@ function buildDeal(index: number) {
     sponsor_equity: financials.sponsorEquity,
     lp_equity: financials.lpEquity,
     status,
-    cover_image_url: null,
     launch_date: launchDate,
     close_date: closeDate,
     created_at: daysAgo(randInt(1, 500)),
@@ -904,7 +903,7 @@ function main() {
       target_company, revenue, ebitda, hold_period,
       investment_thesis, risks,
       purchase_price, debt, sponsor_equity, lp_equity,
-      status, cover_image_url,
+      status,
       launch_date, close_date, created_at, updated_at
     ) VALUES (
       $id, $name, $slug, $description, $teaser_summary,
@@ -913,7 +912,7 @@ function main() {
       $target_company, $revenue, $ebitda, $hold_period,
       $investment_thesis, $risks,
       $purchase_price, $debt, $sponsor_equity, $lp_equity,
-      $status, $cover_image_url,
+      $status,
       $launch_date, $close_date, $created_at, $updated_at
     )
   `);
@@ -946,7 +945,6 @@ function main() {
         $sponsor_equity: deal.sponsor_equity,
         $lp_equity: deal.lp_equity,
         $status: deal.status,
-        $cover_image_url: deal.cover_image_url,
         $launch_date: deal.launch_date,
         $close_date: deal.close_date,
         $created_at: deal.created_at,

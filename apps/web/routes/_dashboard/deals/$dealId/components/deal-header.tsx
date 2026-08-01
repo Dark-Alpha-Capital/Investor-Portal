@@ -9,7 +9,6 @@ type Deal = {
   description: string | null;
   teaserSummary: string | null;
   status: string;
-  coverImageUrl: string | null;
 };
 
 type DealHeaderProps = {
@@ -29,16 +28,6 @@ const statusColors: Record<string, string> = {
 export function DealHeader({ deal, curationNote }: DealHeaderProps) {
   return (
     <div className="space-y-6">
-      {deal.coverImageUrl && (
-        <div className="relative w-full h-64 md:h-96 overflow-hidden rounded-lg">
-          <img
-            src={deal.coverImageUrl}
-            alt={deal.name}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      )}
-
       <div className="space-y-4">
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-3xl font-bold">{deal.name}</h1>

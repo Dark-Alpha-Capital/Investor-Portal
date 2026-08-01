@@ -8,7 +8,6 @@ export type DealKanbanCard = {
   targetRaise: string | null;
   targetIrr: string | null;
   targetMoic: string | null;
-  coverImageUrl: string | null;
   createdAt: string;
   updatedAt: string | null;
 };

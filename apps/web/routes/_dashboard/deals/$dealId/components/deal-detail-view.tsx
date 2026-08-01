@@ -38,7 +38,6 @@ type Deal = {
   targetIrr: string | null;
   targetMoic: string | null;
   status: string;
-  coverImageUrl: string | null;
   launchDate: string | null;
   closeDate: string | null;
   createdAt: string;
@@ -263,15 +262,6 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
     <div className="space-y-6">
       {/* Header Card */}
       <section>
-        {deal.coverImageUrl && (
-          <div className="relative w-full h-64 md:h-96 overflow-hidden rounded-t-xl">
-            <img
-              src={deal.coverImageUrl}
-              alt={deal.name}
-              className="w-full h-full object-cover"
-            />
-          </div>
-        )}
         <div>
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-2 flex-1">

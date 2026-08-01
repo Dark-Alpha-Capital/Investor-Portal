@@ -667,8 +667,6 @@ export const deal = pgTable("deal", {
   // State — marketplace access is invite + status (see deal-marketplace.ts)
   status: deal_status_enum("status").default("draft").notNull(),
 
-  coverImageUrl: text("cover_image_url"),
-
   launchDate: timestamp("launch_date"),
   closeDate: timestamp("close_date"),
   createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),

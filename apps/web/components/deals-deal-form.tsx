@@ -26,9 +26,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { createDealSchema } from "@/lib/schemas/create-deal-schema";
+import { formatIntegerInput } from "@/lib/utils";
 
 type DealFormValues = z.infer<typeof createDealSchema>;
 
@@ -89,12 +91,11 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
       sector: initialData?.sector || "",
       geography: initialData?.geography || "",
       dealType: initialData?.dealType || "",
-      targetRaise: initialData?.targetRaise || "",
-      minInvestment: initialData?.minInvestment || "",
+      targetRaise: formatIntegerInput(initialData?.targetRaise),
+      minInvestment: formatIntegerInput(initialData?.minInvestment),
       targetIrr: initialData?.targetIrr || "",
       targetMoic: initialData?.targetMoic || "",
       status: (initialData?.status as DealFormValues["status"]) || "draft",
-      coverImageUrl: initialData?.coverImageUrl || "",
       launchDate: initialData?.launchDate
         ? new Date(initialData.launchDate).toISOString().split("T")[0]
         : "",
@@ -102,15 +103,15 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
         ? new Date(initialData.closeDate).toISOString().split("T")[0]
         : "",
       targetCompany: initialData?.targetCompany || "",
-      revenue: initialData?.revenue || "",
-      ebitda: initialData?.ebitda || "",
+      revenue: formatIntegerInput(initialData?.revenue),
+      ebitda: formatIntegerInput(initialData?.ebitda),
       holdPeriod: initialData?.holdPeriod || "",
       investmentThesis: initialData?.investmentThesis || "",
       risks: initialData?.risks || "",
-      purchasePrice: initialData?.purchasePrice || "",
-      debt: initialData?.debt || "",
-      sponsorEquity: initialData?.sponsorEquity || "",
-      lpEquity: initialData?.lpEquity || "",
+      purchasePrice: formatIntegerInput(initialData?.purchasePrice),
+      debt: formatIntegerInput(initialData?.debt),
+      sponsorEquity: formatIntegerInput(initialData?.sponsorEquity),
+      lpEquity: formatIntegerInput(initialData?.lpEquity),
     },
   });
 
@@ -162,7 +163,6 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
         key: "settings",
         fields: [
           "status",
-          "coverImageUrl",
           "launchDate",
           "closeDate",
         ],
@@ -348,7 +348,14 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
                     <FormItem>
                       <FormLabel>Target Raise *</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="1000000" {...field} />
+                        <MoneyInput
+                          placeholder="1,000,000"
+                          name={field.name}
+                          ref={field.ref}
+                          onBlur={field.onBlur}
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
                       </FormControl>
                       <FormDescription>
                         Total amount to be raised (in USD)
@@ -365,7 +372,14 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
                     <FormItem>
                       <FormLabel>Minimum Investment *</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="50000" {...field} />
+                        <MoneyInput
+                          placeholder="50,000"
+                          name={field.name}
+                          ref={field.ref}
+                          onBlur={field.onBlur}
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
                       </FormControl>
                       <FormDescription>
                         Minimum investment amount required (in USD)
@@ -426,7 +440,14 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
                     <FormItem>
                       <FormLabel>Revenue</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="25000000" {...field} />
+                        <MoneyInput
+                          placeholder="25,000,000"
+                          name={field.name}
+                          ref={field.ref}
+                          onBlur={field.onBlur}
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
                       </FormControl>
                       <FormDescription>LTM / latest revenue (USD)</FormDescription>
                       <FormMessage />
@@ -441,7 +462,14 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
                     <FormItem>
                       <FormLabel>EBITDA</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="7500000" {...field} />
+                        <MoneyInput
+                          placeholder="7,500,000"
+                          name={field.name}
+                          ref={field.ref}
+                          onBlur={field.onBlur}
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
                       </FormControl>
                       <FormDescription>LTM / latest EBITDA (USD)</FormDescription>
                       <FormMessage />
@@ -474,7 +502,14 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
                       <FormItem>
                         <FormLabel>Purchase Price</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="45000000" {...field} />
+                          <MoneyInput
+                            placeholder="45,000,000"
+                            name={field.name}
+                            ref={field.ref}
+                            onBlur={field.onBlur}
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -488,7 +523,14 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
                       <FormItem>
                         <FormLabel>Debt</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="25000000" {...field} />
+                          <MoneyInput
+                            placeholder="25,000,000"
+                            name={field.name}
+                            ref={field.ref}
+                            onBlur={field.onBlur}
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -502,7 +544,14 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
                       <FormItem>
                         <FormLabel>Sponsor Equity</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="10000000" {...field} />
+                          <MoneyInput
+                            placeholder="10,000,000"
+                            name={field.name}
+                            ref={field.ref}
+                            onBlur={field.onBlur}
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -516,7 +565,14 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
                       <FormItem>
                         <FormLabel>LP Equity</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="10000000" {...field} />
+                          <MoneyInput
+                            placeholder="10,000,000"
+                            name={field.name}
+                            ref={field.ref}
+                            onBlur={field.onBlur}
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -614,27 +670,6 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
                 />
 
               </div>
-
-              <FormField
-                control={form.control}
-                name="coverImageUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cover Image URL</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="url"
-                        placeholder="https://example.com/image.jpg"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      URL to the cover image for this deal
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField

@@ -126,7 +126,6 @@ export type AdminDealEditFormData = {
     | "funded"
     | "exited"
     | "cancelled";
-  coverImageUrl?: string;
   launchDate?: Date | string | null;
   closeDate?: Date | string | null;
   targetCompany?: string;
@@ -166,7 +165,6 @@ export async function runFetchAdminDealEditData(
     targetIrr: deal.targetIrr ?? undefined,
     targetMoic: deal.targetMoic ?? undefined,
     status: deal.status,
-    coverImageUrl: deal.coverImageUrl ?? undefined,
     launchDate: deal.launchDate ?? undefined,
     closeDate: deal.closeDate ?? undefined,
     targetCompany: deal.targetCompany ?? undefined,

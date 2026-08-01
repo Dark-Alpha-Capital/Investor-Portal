@@ -37,7 +37,6 @@ type Deal = {
   targetIrr: string | null;
   targetMoic: string | null;
   status: string;
-  coverImageUrl: string | null;
   launchDate: string | null;
   closeDate: string | null;
   createdAt: string;

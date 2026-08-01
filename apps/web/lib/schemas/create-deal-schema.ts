@@ -25,7 +25,6 @@ export const createDealSchema = z.object({
   targetIrr: z.string().min(1, "Target IRR is required"),
   targetMoic: z.string().min(1, "Target MOIC is required"),
   status: dealStatusEnum,
-  coverImageUrl: z.string().url().optional().or(z.literal("")),
   launchDate: z.string().min(1, "Launch date is required"),
   closeDate: z.string().min(1, "Close date is required"),
   targetCompany: optionalText,

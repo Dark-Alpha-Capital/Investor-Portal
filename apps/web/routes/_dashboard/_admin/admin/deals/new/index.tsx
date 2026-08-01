@@ -4,7 +4,7 @@ import dynamic from "@/lib/helpers/lazy-component";
 
 const DealForm = dynamic(
   () => import("@/components/deals-deal-form").then((m) => m.DealForm),
-  { ssr: false }
+  { ssr: false },
 );
 export const Route = createFileRoute("/_dashboard/_admin/admin/deals/new/")({
   component: NewDealPage,

@@ -41,7 +41,8 @@ import { getMarketplaceDeals as getMarketplaceDealsQuery } from "@repo/db/querie
 
 const parseNumericField = (value: string | undefined | null): number | null => {
   if (!value) return null;
-  const parsed = parseFloat(value);
+  // Accept typed money strings like "1,000,000"
+  const parsed = parseFloat(value.replace(/,/g, ""));
   return isNaN(parsed) ? null : parsed;
 };
 
@@ -107,7 +108,6 @@ export const dealsRouter = createTRPCRouter({
         sponsorEquity: parseNumericField(input.sponsorEquity),
         lpEquity: parseNumericField(input.lpEquity),
         status: input.status || "draft",
-        coverImageUrl: input.coverImageUrl || null,
         launchDate: input.launchDate ? new Date(input.launchDate) : null,
         closeDate: input.closeDate ? new Date(input.closeDate) : null,
       };
@@ -255,7 +255,6 @@ export const dealsRouter = createTRPCRouter({
         sponsorEquity: parseNumericField(updateData.sponsorEquity),
         lpEquity: parseNumericField(updateData.lpEquity),
         status: updateData.status || "draft",
-        coverImageUrl: updateData.coverImageUrl || null,
         launchDate: updateData.launchDate
           ? new Date(updateData.launchDate)
           : null,
@@ -1053,7 +1052,6 @@ export const dealsRouter = createTRPCRouter({
         geography: string | null;
         dealType: string | null;
         status: string;
-        coverImageUrl: string | null;
         createdAt: string;
         updatedAt: string | null;
         launchDate: string | null;
@@ -1121,7 +1119,6 @@ export const dealsRouter = createTRPCRouter({
         targetIrr: deal.targetIrr,
         targetMoic: deal.targetMoic,
         status: deal.status,
-        coverImageUrl: deal.coverImageUrl,
         launchDate: deal.launchDate,
         closeDate: deal.closeDate,
         createdAt: deal.createdAt,

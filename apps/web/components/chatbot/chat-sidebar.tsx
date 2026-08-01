@@ -87,6 +87,10 @@ export function ChatSidebar({ session }: { session: Session }) {
       const result = await createChatFn({
         data: { model: DEFAULT_CHAT_MODEL_ID },
       });
+      if (result.tag === "redirect") {
+        void navigate({ to: result.to });
+        return;
+      }
       if (result.tag === "ok") {
         void navigate({
           to: "/chat/$chatId",

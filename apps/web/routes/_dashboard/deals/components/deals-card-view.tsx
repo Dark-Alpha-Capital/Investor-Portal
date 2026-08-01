@@ -17,7 +17,6 @@ type Deal = {
   targetIrr: string | null;
   targetMoic: string | null;
   status: string;
-  coverImageUrl: string | null;
   launchDate: string | null;
   closeDate: string | null;
   createdAt: string;
@@ -50,15 +49,6 @@ function DealCardItem({ deal }: { deal: Deal }) {
   return (
     <Link href={`/deals/${deal.id}`} className="block group">
       <article className="h-full overflow-hidden rounded-lg border border-border/50 transition-all duration-200 hover:border-border">
-        {deal.coverImageUrl && (
-          <div className="relative w-full h-40 overflow-hidden bg-muted">
-            <img
-              src={deal.coverImageUrl}
-              alt={deal.name}
-              className="w-full h-full object-cover transition-transform group-hover:scale-105"
-            />
-          </div>
-        )}
         <div className="p-4 space-y-3">
           {/* Header */}
           <div className="space-y-1.5">

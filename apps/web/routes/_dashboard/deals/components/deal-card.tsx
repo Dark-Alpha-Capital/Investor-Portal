@@ -16,7 +16,6 @@ type Deal = {
   targetIrr: string | null;
   targetMoic: string | null;
   status: string;
-  coverImageUrl: string | null;
   launchDate: string | null;
   closeDate: string | null;
   createdAt: string;
@@ -55,36 +54,17 @@ export function DealCard({ deal }: DealCardProps) {
   return (
     <Link href={dealUrl} className="block h-full">
       <section className="group h-full cursor-pointer border-border/50 transition-all duration-200 hover:border-border">
-        {deal.coverImageUrl && (
-          <div className="relative w-full h-48 overflow-hidden rounded-t-lg">
-            <img
-              src={deal.coverImageUrl}
-              alt={deal.name}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-            />
-            <div className="absolute top-3 right-3">
-              <Badge
-                variant={(statusColors[deal.status] as any) || "secondary"}
-                className="backdrop-blur-sm bg-background/80"
-              >
-                {deal.status.replace(/_/g, " ")}
-              </Badge>
-            </div>
-          </div>
-        )}
-        <div className={deal.coverImageUrl ? "" : "pb-3"}>
+        <div className="pb-3">
           <div className="flex items-start justify-between gap-3">
             <h3 className="text-xl line-clamp-2 font-semibold group-hover:text-primary transition-colors flex-1">
               {deal.name}
             </h3>
-            {!deal.coverImageUrl && (
-              <Badge
-                variant={(statusColors[deal.status] as any) || "secondary"}
-                className="shrink-0"
-              >
-                {deal.status.replace(/_/g, " ")}
-              </Badge>
-            )}
+            <Badge
+              variant={(statusColors[deal.status] as any) || "secondary"}
+              className="shrink-0"
+            >
+              {deal.status.replace(/_/g, " ")}
+            </Badge>
           </div>
           {deal.teaserSummary && (
             <p className="line-clamp-2 text-sm mt-2">

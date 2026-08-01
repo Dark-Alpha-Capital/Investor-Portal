@@ -27,7 +27,6 @@ export type DealKanbanCard = {
   targetRaise: string | null;
   targetIrr: string | null;
   targetMoic: string | null;
-  coverImageUrl: string | null;
   createdAt: string;
   updatedAt: string | null;
 };
@@ -76,7 +75,6 @@ function mapDealRow(row: typeof deal.$inferSelect): DealKanbanCard {
     targetRaise: row.targetRaise?.toString() ?? null,
     targetIrr: row.targetIrr?.toString() ?? null,
     targetMoic: row.targetMoic?.toString() ?? null,
-    coverImageUrl: row.coverImageUrl,
     createdAt: row.createdAt.toISOString(),
     updatedAt: sortAt.toISOString(),
   };
