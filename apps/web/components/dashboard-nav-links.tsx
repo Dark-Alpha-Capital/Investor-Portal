@@ -42,7 +42,7 @@ type NavItem = {
 const adminNavItems: NavItem[] = [
   { title: "Admin", url: "/admin", icon: Shield },
   { title: "Compliance", url: "/admin/compliance", icon: UserCheck },
-  { title: "Admin Deals", url: "/admin/deals", icon: Briefcase },
+  { title: "Deals", url: "/admin/deals", icon: Briefcase },
 ];
 
 function isNavItemActive(pathname: string, url: string) {
@@ -68,8 +68,7 @@ function buildAdminNavItems(): NavItem[] {
   return [
     { title: "Admin", url: "/admin", icon: Shield },
     { title: "Compliance", url: "/admin/compliance", icon: UserCheck },
-    { title: "Admin Deals", url: "/admin/deals", icon: Briefcase },
-    { title: "Deals", url: "/deals", icon: Briefcase },
+    { title: "Deals", url: "/admin/deals", icon: Briefcase },
     { title: "Chat", url: "/chat", icon: MessageSquare },
   ];
 }

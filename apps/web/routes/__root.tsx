@@ -3,14 +3,15 @@ import {
   Link,
   Outlet,
   Scripts,
-  createRootRoute,
+  createRootRouteWithContext,
 } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import appCss from "@/routes/globals.css?url";
 import { JsonLd } from "@/components/seo/json-ld";
 import { generateOrganizationJsonLd, siteConfig } from "@/lib/marketing/seo";
+import type { RouterContext } from "@/router";
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<RouterContext>()({
   notFoundComponent: NotFoundComponent,
   head: () => ({
     meta: [

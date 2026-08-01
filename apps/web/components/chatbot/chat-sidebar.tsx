@@ -42,16 +42,12 @@ import {
 } from "@/lib/server-fns/chatbot-route-data";
 import type { ChatListItem } from "@/lib/chat/chat-store";
 import { DEFAULT_CHAT_MODEL_ID } from "@repo/ai-core";
-import { getAppHomePath } from "@/lib/auth/user-role-guards";
+import {
+  getAppHomePath,
+  isAdminUser,
+} from "@/lib/auth/user-role-guards";
 import type { Session } from "@/lib/auth/session-types";
 import { cn } from "@/lib/utils";
-
-const appNavItems = [
-  { title: "Home", url: "/", icon: Home },
-  { title: "Dashboard", url: "/dashboard", icon: ChartBar },
-  { title: "Docs", url: "/onboarding", icon: FileText },
-  { title: "Deals", url: "/deals", icon: Briefcase },
-] as const;
 
 export function ChatSidebar({ session }: { session: Session }) {
   const params = useParams({ strict: false }) as { chatId?: string };
@@ -61,8 +57,17 @@ export function ChatSidebar({ session }: { session: Session }) {
   const [chatToDelete, setChatToDelete] = useState<ChatListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const isAdmin = session?.user != null && isAdminUser(session.user);
   const dashboardPath =
     session?.user != null ? getAppHomePath(session.user) : "/dashboard";
+  const dealsPath = isAdmin ? "/admin/deals" : "/deals";
+
+  const appNavItems = [
+    { title: "Home", url: "/", icon: Home },
+    { title: "Dashboard", url: dashboardPath, icon: ChartBar },
+    { title: "Docs", url: "/onboarding", icon: FileText },
+    { title: "Deals", url: dealsPath, icon: Briefcase },
+  ] as const;
 
   const refresh = () => {
     startTransition(async () => {
@@ -177,26 +182,22 @@ export function ChatSidebar({ session }: { session: Session }) {
             New chat
           </Button>
           <div className="flex items-center gap-1">
-            {appNavItems.map((item) => {
-              const href =
-                item.title === "Dashboard" ? dashboardPath : item.url;
-              return (
-                <Button
-                  asChild
-                  className="h-8 flex-1"
-                  key={item.title}
-                  size="sm"
-                  title={item.title}
-                  type="button"
-                  variant="outline"
-                >
-                  <Link to={href}>
-                    <item.icon className="size-4" />
-                    <span className="sr-only">{item.title}</span>
-                  </Link>
-                </Button>
-              );
-            })}
+            {appNavItems.map((item) => (
+              <Button
+                asChild
+                className="h-8 flex-1"
+                key={item.title}
+                size="sm"
+                title={item.title}
+                type="button"
+                variant="outline"
+              >
+                <Link to={item.url}>
+                  <item.icon className="size-4" />
+                  <span className="sr-only">{item.title}</span>
+                </Link>
+              </Button>
+            ))}
           </div>
         </SidebarHeader>
         <SidebarContent>

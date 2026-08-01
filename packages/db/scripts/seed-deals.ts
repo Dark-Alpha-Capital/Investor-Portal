@@ -22,8 +22,6 @@ type DealStatus =
   | "exited"
   | "cancelled";
 
-type DealVisibility = "public" | "accredited" | "invite_only";
-
 type SectorTemplate = {
   sector: string;
   dealTypes: string[];
@@ -62,13 +60,6 @@ const STATUS_WEIGHTS: Array<{ status: DealStatus; weight: number }> = [
   { status: "exited", weight: 5 },
   { status: "cancelled", weight: 3 },
 ];
-
-const VISIBILITY_WEIGHTS: Array<{ visibility: DealVisibility; weight: number }> =
-  [
-    { visibility: "public", weight: 40 },
-    { visibility: "accredited", weight: 40 },
-    { visibility: "invite_only", weight: 20 },
-  ];
 
 const SECTORS: SectorTemplate[] = [
   {
@@ -808,10 +799,6 @@ function buildDeal(index: number) {
   const dealType = sector.dealTypes[index % sector.dealTypes.length]!;
   const geography = GEOGRAPHIES[index % GEOGRAPHIES.length]!;
   const status = pickWeighted(STATUS_WEIGHTS).status;
-  const visibility =
-    status === "draft"
-      ? "invite_only"
-      : pickWeighted(VISIBILITY_WEIGHTS).visibility;
   const financials = buildFinancials(status);
   const holdPeriod = HOLD_PERIODS[index % HOLD_PERIODS.length]!;
 
@@ -880,7 +867,6 @@ function buildDeal(index: number) {
     sponsor_equity: financials.sponsorEquity,
     lp_equity: financials.lpEquity,
     status,
-    visibility,
     cover_image_url: null,
     launch_date: launchDate,
     close_date: closeDate,
@@ -918,7 +904,7 @@ function main() {
       target_company, revenue, ebitda, hold_period,
       investment_thesis, risks,
       purchase_price, debt, sponsor_equity, lp_equity,
-      status, visibility, cover_image_url,
+      status, cover_image_url,
       launch_date, close_date, created_at, updated_at
     ) VALUES (
       $id, $name, $slug, $description, $teaser_summary,
@@ -927,7 +913,7 @@ function main() {
       $target_company, $revenue, $ebitda, $hold_period,
       $investment_thesis, $risks,
       $purchase_price, $debt, $sponsor_equity, $lp_equity,
-      $status, $visibility, $cover_image_url,
+      $status, $cover_image_url,
       $launch_date, $close_date, $created_at, $updated_at
     )
   `);
@@ -960,7 +946,6 @@ function main() {
         $sponsor_equity: deal.sponsor_equity,
         $lp_equity: deal.lp_equity,
         $status: deal.status,
-        $visibility: deal.visibility,
         $cover_image_url: deal.cover_image_url,
         $launch_date: deal.launch_date,
         $close_date: deal.close_date,

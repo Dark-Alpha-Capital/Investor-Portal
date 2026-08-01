@@ -499,13 +499,6 @@ export const deal_status_enum = pgEnum("deal_status", [
   "cancelled", // Hidden from marketplace; not investor-accessible
 ]);
 
-// 2. Visibility Level (For curation)
-export const deal_visibility_enum = pgEnum("deal_visibility", [
-  "public", // All registered users can see
-  "accredited", // Only users with accredited status
-  "invite_only", // Strictly curated (requires an entry in deal_invite)
-]);
-
 // 3. Status of a specific User's Investment (capital commitment lifecycle)
 export const investment_status_enum = pgEnum("investment_status", [
   "committed", // Investor submitted commitment amount
@@ -671,11 +664,8 @@ export const deal = pgTable("deal", {
   sponsorEquity: doublePrecision("sponsor_equity"),
   lpEquity: doublePrecision("lp_equity"),
 
-  // State
+  // State — marketplace access is invite + status (see deal-marketplace.ts)
   status: deal_status_enum("status").default("draft").notNull(),
-  visibility: deal_visibility_enum("visibility")
-    .default("invite_only")
-    .notNull(),
 
   coverImageUrl: text("cover_image_url"),
 

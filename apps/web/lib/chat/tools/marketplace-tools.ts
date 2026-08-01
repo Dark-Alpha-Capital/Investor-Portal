@@ -10,7 +10,7 @@ export function createMarketplaceChatTools(options: {
 
   const listMarketplaceDeals = tool({
     description:
-      "List deals currently visible in the deal marketplace for the signed-in user. Use when the user asks what deals are available, live, or in the marketplace. Respects the user's clearance and invite visibility.",
+      "List deals currently visible in the deal marketplace for the signed-in user. Use when the user asks what deals are available, live, or in the marketplace. Respects the user's clearance and deal invitations.",
     inputSchema: z.object({
       search: z
         .string()
@@ -59,7 +59,6 @@ export function createMarketplaceChatTools(options: {
           id: d.id,
           name: d.name,
           status: d.status,
-          visibility: d.visibility,
           sector: d.sector,
           geography: d.geography,
           teaserSummary: d.teaserSummary,

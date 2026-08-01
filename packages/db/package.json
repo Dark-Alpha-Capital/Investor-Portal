@@ -14,7 +14,10 @@
     ".": "./index.ts",
     "./schema": "./schema.ts",
     "./queries": "./queries.ts",
-    "./deal-marketplace": "./deal-marketplace.ts"
+    "./deal-marketplace": "./deal-marketplace.ts",
+    "./deal-status": "./deal-status.ts",
+    "./kanban-cursor": "./kanban-cursor.ts",
+    "./deal-kanban-queries": "./deal-kanban-queries.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

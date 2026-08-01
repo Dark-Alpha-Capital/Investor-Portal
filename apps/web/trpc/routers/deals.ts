@@ -37,6 +37,7 @@ import {
 } from "@repo/nextcloud";
 import { authSession } from "@/lib/auth/session-from-request";
 import { logDataRoomAccessRequest } from "@/lib/audit";
+import { getMarketplaceDeals as getMarketplaceDealsQuery } from "@repo/db/queries";
 
 const parseNumericField = (value: string | undefined | null): number | null => {
   if (!value) return null;
@@ -106,7 +107,6 @@ export const dealsRouter = createTRPCRouter({
         sponsorEquity: parseNumericField(input.sponsorEquity),
         lpEquity: parseNumericField(input.lpEquity),
         status: input.status || "draft",
-        visibility: input.visibility || "invite_only",
         coverImageUrl: input.coverImageUrl || null,
         launchDate: input.launchDate ? new Date(input.launchDate) : null,
         closeDate: input.closeDate ? new Date(input.closeDate) : null,
@@ -255,7 +255,6 @@ export const dealsRouter = createTRPCRouter({
         sponsorEquity: parseNumericField(updateData.sponsorEquity),
         lpEquity: parseNumericField(updateData.lpEquity),
         status: updateData.status || "draft",
-        visibility: updateData.visibility || "invite_only",
         coverImageUrl: updateData.coverImageUrl || null,
         launchDate: updateData.launchDate
           ? new Date(updateData.launchDate)
@@ -1031,7 +1030,7 @@ export const dealsRouter = createTRPCRouter({
       };
     }),
 
-  getPublicDeals: baseProcedure.query(async ({ ctx }) => {
+  getPublicDeals: baseProcedure.query(async () => {
     const session = await authSession();
 
     if (!session?.user) {
@@ -1041,53 +1040,29 @@ export const dealsRouter = createTRPCRouter({
       });
     }
 
-    // Get user's KYC status
-    const [userRecord] = await ctx.db
-      .select({ kycStatus: user.kycStatus })
-      .from(user)
-      .where(eq(user.id, session.user.id))
-      .limit(1);
-
-    const isAccredited = userRecord?.kycStatus === "approved";
-
-    // Build visibility filter
-    // Public deals: visible to everyone
-    // Accredited deals: only visible if user is accredited
-    const visibilityConditions = [eq(deal.visibility, "public")];
-
-    if (isAccredited) {
-      visibilityConditions.push(eq(deal.visibility, "accredited"));
-    }
-
-    // Fetch deals that are:
-    // 1. Not draft (exclude draft deals)
-    // 2. Public or (accredited if user is approved)
-    // 3. Not invite_only (those are handled separately)
-    const deals = await ctx.db
-      .select()
-      .from(deal)
-      .where(
-        and(
-          ne(deal.status, "draft"), // Exclude draft deals
-          ne(deal.visibility, "invite_only"), // Exclude invite-only deals
-          or(...visibilityConditions) // Public or accredited (if user is accredited)
-        )
-      )
-      .orderBy(desc(deal.createdAt));
-
+    // Public browse removed — marketplace is invite + live only.
     return {
-      success: true,
-      deals: deals.map((dealRecord) => ({
-        ...dealRecord,
-        createdAt: dealRecord.createdAt.toISOString(),
-        updatedAt: dealRecord.updatedAt?.toISOString() ?? null,
-        launchDate: dealRecord.launchDate?.toISOString() ?? null,
-        closeDate: dealRecord.closeDate?.toISOString() ?? null,
-        targetRaise: dealRecord.targetRaise?.toString() ?? null,
-        minInvestment: dealRecord.minInvestment?.toString() ?? null,
-        targetIrr: dealRecord.targetIrr?.toString() ?? null,
-        targetMoic: dealRecord.targetMoic?.toString() ?? null,
-      })),
+      success: true as const,
+      deals: [] as Array<{
+        id: string;
+        name: string;
+        slug: string | null;
+        description: string | null;
+        teaserSummary: string | null;
+        sector: string | null;
+        geography: string | null;
+        dealType: string | null;
+        status: string;
+        coverImageUrl: string | null;
+        createdAt: string;
+        updatedAt: string | null;
+        launchDate: string | null;
+        closeDate: string | null;
+        targetRaise: string | null;
+        minInvestment: string | null;
+        targetIrr: string | null;
+        targetMoic: string | null;
+      }>,
     };
   }),
 
@@ -1101,10 +1076,7 @@ export const dealsRouter = createTRPCRouter({
         sector: z.string().optional(),
       })
     )
-    .query(async ({ ctx, input }) => {
-      const { page, limit, search, status, sector } = input;
-      const offset = (page - 1) * limit;
-
+    .query(async ({ input }) => {
       const session = await authSession();
       if (!session?.user) {
         throw new TRPCError({
@@ -1113,142 +1085,14 @@ export const dealsRouter = createTRPCRouter({
         });
       }
 
-      // Get user's KYC status
-      const [userRecord] = await ctx.db
-        .select({ kycStatus: user.kycStatus })
-        .from(user)
-        .where(eq(user.id, session.user.id))
-        .limit(1);
-
-      const isAccredited = userRecord?.kycStatus === "approved";
-
-      // Get user's invited deal IDs
-      const invitedDeals = await ctx.db
-        .select({
-          dealId: dealInvite.dealId,
-          curationNote: dealInvite.curationNote,
-        })
-        .from(dealInvite)
-        .where(eq(dealInvite.userId, session.user.id));
-
-      const invitedDealIds = invitedDeals.map((d) => d.dealId);
-      const invitedDealNotes = new Map(
-        invitedDeals.map((d) => [d.dealId, d.curationNote])
-      );
-
-      // Build base conditions
-      const baseConditions = [ne(deal.status, "draft")];
-
-      // Add search filter
-      if (search && search.trim()) {
-        const searchTerm = `%${search.trim()}%`;
-        baseConditions.push(
-          or(
-            ilike(deal.name, searchTerm),
-            ilike(deal.teaserSummary, searchTerm),
-            ilike(deal.description, searchTerm),
-            ilike(deal.sector, searchTerm),
-            ilike(deal.geography, searchTerm)
-          )!
-        );
-      }
-
-      // Add status filter
-      if (status && status !== "all") {
-        baseConditions.push(
-          eq(
-            deal.status,
-            status as
-            | "draft"
-            | "coming_soon"
-            | "live"
-            | "closing"
-            | "funded"
-            | "exited"
-            | "cancelled"
-          )
-        );
-      }
-
-      // Add sector filter
-      if (sector && sector !== "all") {
-        baseConditions.push(ilike(deal.sector, sector));
-      }
-
-      // Build visibility conditions
-      // User can see: public deals, accredited deals (if approved), and deals they're invited to
-      const visibilityConditions = [eq(deal.visibility, "public")];
-
-      if (isAccredited) {
-        visibilityConditions.push(eq(deal.visibility, "accredited"));
-      }
-
-      if (invitedDealIds.length > 0) {
-        visibilityConditions.push(inArray(deal.id, invitedDealIds));
-      }
-
-      // Combine all conditions
-      const whereCondition = and(
-        ...baseConditions,
-        or(...visibilityConditions)
-      );
-
-      // Get total count
-      const [countResult] = await ctx.db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(deal)
-        .where(whereCondition);
-
-      const totalCount = countResult?.count ?? 0;
-      const totalPages = Math.ceil(totalCount / limit);
-
-      // Get paginated deals
-      const deals = await ctx.db
-        .select()
-        .from(deal)
-        .where(whereCondition)
-        .orderBy(desc(deal.createdAt))
-        .limit(limit)
-        .offset(offset);
-
-      // Get unique sectors for filter dropdown
-      const sectorsResult = await ctx.db
-        .selectDistinct({ sector: deal.sector })
-        .from(deal)
-        .where(and(ne(deal.status, "draft"), or(...visibilityConditions)));
-
-      const sectors = sectorsResult
-        .map((s) => s.sector)
-        .filter((s): s is string => s !== null)
-        .sort();
-
-      return {
-        success: true,
-        deals: deals.map((dealRecord) => ({
-          ...dealRecord,
-          createdAt: dealRecord.createdAt.toISOString(),
-          updatedAt: dealRecord.updatedAt?.toISOString() ?? null,
-          launchDate: dealRecord.launchDate?.toISOString() ?? null,
-          closeDate: dealRecord.closeDate?.toISOString() ?? null,
-          targetRaise: dealRecord.targetRaise?.toString() ?? null,
-          minInvestment: dealRecord.minInvestment?.toString() ?? null,
-          targetIrr: dealRecord.targetIrr?.toString() ?? null,
-          targetMoic: dealRecord.targetMoic?.toString() ?? null,
-          isCurated: invitedDealIds.includes(dealRecord.id),
-          curationNote: invitedDealNotes.get(dealRecord.id) ?? null,
-        })),
-        pagination: {
-          page,
-          limit,
-          totalCount,
-          totalPages,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1,
-        },
-        filters: {
-          sectors,
-        },
-      };
+      return getMarketplaceDealsQuery({
+        userId: session.user.id,
+        page: input.page,
+        limit: input.limit,
+        search: input.search,
+        status: input.status,
+        sector: input.sector,
+      });
     }),
 
   getCuratedDeals: baseProcedure.query(async ({ ctx }) => {
@@ -1277,7 +1121,6 @@ export const dealsRouter = createTRPCRouter({
         targetIrr: deal.targetIrr,
         targetMoic: deal.targetMoic,
         status: deal.status,
-        visibility: deal.visibility,
         coverImageUrl: deal.coverImageUrl,
         launchDate: deal.launchDate,
         closeDate: deal.closeDate,
@@ -1471,53 +1314,6 @@ export const dealsRouter = createTRPCRouter({
           });
         }
       }
-
-      // Prepare parallel access checks based on visibility
-      const accessChecks: Promise<unknown>[] = [];
-
-      if (dealRecord.visibility === "accredited") {
-        // Check if user is accredited
-        accessChecks.push(
-          ctx.db
-            .select({ kycStatus: user.kycStatus })
-            .from(user)
-            .where(eq(user.id, session.user.id))
-            .limit(1)
-            .then((r) => {
-              if (r[0]?.kycStatus !== "approved") {
-                throw new TRPCError({
-                  code: "FORBIDDEN",
-                  message:
-                    "This deal is only available to accredited investors",
-                });
-              }
-            })
-        );
-      } else if (dealRecord.visibility === "invite_only") {
-        // Check if user has been invited
-        accessChecks.push(
-          ctx.db
-            .select()
-            .from(dealInvite)
-            .where(
-              and(
-                eq(dealInvite.dealId, actualDealId),
-                eq(dealInvite.userId, session.user.id)
-              )
-            )
-            .limit(1)
-            .then((r) => {
-              if (r.length === 0) {
-                throw new TRPCError({
-                  code: "FORBIDDEN",
-                  message: "You do not have access to this deal",
-                });
-              }
-            })
-        );
-      }
-
-      await Promise.all(accessChecks);
 
       // Normalize legacy soft_commit / meeting → interested; keep pass.
       const normalizedStatus =

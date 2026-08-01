@@ -19,7 +19,6 @@ type Deal = {
   targetIrr: string | null;
   targetMoic: string | null;
   status: string;
-  visibility: string;
   coverImageUrl: string | null;
   launchDate: string | null;
   closeDate: string | null;
@@ -77,10 +76,6 @@ export function DealInformation({ deal }: DealInformationProps) {
           <TableRow>
             <TableCell className="font-medium">Status</TableCell>
             <TableCell>{deal.status.replace(/_/g, " ")}</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell className="font-medium">Visibility</TableCell>
-            <TableCell>{deal.visibility.replace(/_/g, " ")}</TableCell>
           </TableRow>
           <TableRow>
             <TableCell className="font-medium">Sector</TableCell>

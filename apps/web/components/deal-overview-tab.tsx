@@ -15,7 +15,6 @@ type Deal = {
   targetIrr: string | null;
   targetMoic: string | null;
   status: string;
-  visibility: string;
   coverImageUrl: string | null;
   launchDate: string | null;
   closeDate: string | null;
@@ -31,12 +30,6 @@ const statusColors: Record<string, string> = {
   funded: "default",
   exited: "default",
   cancelled: "destructive",
-};
-
-const visibilityColors: Record<string, string> = {
-  public: "default",
-  accredited: "default",
-  invite_only: "secondary",
 };
 
 const formatCurrency = (value: string | null | undefined): string => {
@@ -109,20 +102,6 @@ export function OverviewTab({ deal }: { deal: Deal }) {
                 className="text-xs"
               >
                 {deal.status.replace(/_/g, " ")}
-              </Badge>
-            </TableCell>
-          </TableRow>
-
-          <TableRow>
-            <TableCell className="font-medium text-muted-foreground">
-              Visibility
-            </TableCell>
-            <TableCell>
-              <Badge
-                variant={visibilityColors[deal.visibility] as any}
-                className="text-xs"
-              >
-                {deal.visibility.replace(/_/g, " ")}
               </Badge>
             </TableCell>
           </TableRow>

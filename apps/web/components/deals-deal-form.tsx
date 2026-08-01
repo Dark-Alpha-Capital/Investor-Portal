@@ -94,9 +94,6 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
       targetIrr: initialData?.targetIrr || "",
       targetMoic: initialData?.targetMoic || "",
       status: (initialData?.status as DealFormValues["status"]) || "draft",
-      visibility:
-        (initialData?.visibility as DealFormValues["visibility"]) ||
-        "invite_only",
       coverImageUrl: initialData?.coverImageUrl || "",
       launchDate: initialData?.launchDate
         ? new Date(initialData.launchDate).toISOString().split("T")[0]
@@ -165,7 +162,6 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
         key: "settings",
         fields: [
           "status",
-          "visibility",
           "coverImageUrl",
           "launchDate",
           "closeDate",
@@ -617,34 +613,6 @@ export function DealForm({ initialData, dealId }: DealFormProps) {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="visibility"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Visibility</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select visibility" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="public">Public</SelectItem>
-                          <SelectItem value="accredited">Accredited</SelectItem>
-                          <SelectItem value="invite_only">
-                            Invite Only
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>Who can view this deal</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
 
               <FormField

@@ -42,7 +42,6 @@ import {
  * @param limit Number of results per page
  * @param search Optional search term for name, description, or sector
  * @param status Optional status filter
- * @param visibility Optional visibility filter
  * @returns Paginated list of deals with formatted dates and pagination info
  */
 export const getAdminDeals = async ({
@@ -50,13 +49,11 @@ export const getAdminDeals = async ({
   limit,
   search,
   status,
-  visibility,
 }: {
   page: number;
   limit: number;
   search?: string;
   status?: string;
-  visibility?: string;
 }) => {
   try {
     const offset = (page - 1) * limit;
@@ -64,15 +61,15 @@ export const getAdminDeals = async ({
     // Build conditions
     const conditions: ReturnType<typeof eq>[] = [];
 
-    // Add search filter
+    // Add search filter (SQLite/D1: no ILIKE — use lower() + LIKE)
     if (search && search.trim()) {
-      const searchTerm = `%${search.trim()}%`;
+      const pattern = `%${search.trim().toLowerCase()}%`;
       conditions.push(
         or(
-          ilike(deal.name, searchTerm),
-          ilike(deal.description, searchTerm),
-          ilike(deal.sector, searchTerm)
-        )!
+          sql`lower(${deal.name}) like ${pattern}`,
+          sql`lower(coalesce(${deal.description}, '')) like ${pattern}`,
+          sql`lower(coalesce(${deal.sector}, '')) like ${pattern}`,
+        )!,
       );
     }
 
@@ -89,16 +86,6 @@ export const getAdminDeals = async ({
           | "funded"
           | "exited"
           | "cancelled"
-        )
-      );
-    }
-
-    // Add visibility filter
-    if (visibility && visibility !== "all") {
-      conditions.push(
-        eq(
-          deal.visibility,
-          visibility as "public" | "accredited" | "invite_only"
         )
       );
     }

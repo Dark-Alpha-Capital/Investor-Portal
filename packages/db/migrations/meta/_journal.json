@@ -57,6 +57,13 @@
       "when": 1785602000000,
       "tag": "0007_data_room_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1785603000000,
+      "tag": "0008_drop_deal_visibility",
+      "breakpoints": true
     }
   ]
 }

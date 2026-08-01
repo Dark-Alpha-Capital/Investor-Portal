@@ -1,34 +1,146 @@
+import {
+  keepPreviousData,
+  queryOptions,
+  useQuery,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { fetchAdminDealsListData } from "@/lib/server-fns/admin-route-data";
+import { Loader2, Plus, Search, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useDebouncedCallback } from "use-debounce";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import { DealsTable } from "@/components/deals-table";
-import { serializeRouteSearch } from "@/lib/helpers/serialize-route-search";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DealsViewWrapper } from "@/components/deals-view-wrapper";
+import {
+  dealsIndexSearchSchema,
+  loadDealsIndex,
+  type DealsIndexData,
+  type DealsIndexSearch,
+} from "@/lib/loaders/deals";
+import { dealLifecycleStatuses, dealLifecycleStatusLabels } from "@repo/db/deal-status";
 
-type AdminDealsPayload = Awaited<
-  ReturnType<typeof import("@repo/db/queries").getAdminDeals>
->;
+function parseDealsSearch(search: Record<string, unknown>): DealsIndexSearch {
+  return dealsIndexSearchSchema.parse(search);
+}
+
+function normalizeIndexDeps(search: DealsIndexSearch) {
+  return {
+    view: search.view ?? "kanban",
+    page: search.page ?? 1,
+    search: search.search || undefined,
+    status:
+      search.status && search.status !== "all" ? search.status : undefined,
+  };
+}
+
+function dealsIndexQueryOptions(deps: DealsIndexSearch) {
+  return queryOptions({
+    queryKey: ["deals", "index", normalizeIndexDeps(deps)],
+    queryFn: async (): Promise<DealsIndexData> =>
+      loadDealsIndex({ data: deps }),
+    placeholderData: keepPreviousData,
+  });
+}
 
 export const Route = createFileRoute("/_dashboard/_admin/admin/deals/")({
-  loader: async ({ location }) => {
-    const r = await fetchAdminDealsListData({
-      data: { search: serializeRouteSearch(location.search) },
-    });
-    return { initialData: r.initialData };
+  validateSearch: parseDealsSearch,
+  loader: async ({ context: { queryClient }, location }) => {
+    const search = parseDealsSearch(
+      location.search as Record<string, unknown>,
+    );
+    await queryClient.ensureQueryData(dealsIndexQueryOptions(search));
   },
   component: AdminDealsRoutePage,
 });
 
-function AdminDealsRoutePage() {
-  const { initialData } = Route.useLoaderData();
-  return <AdminDealsInner initialData={initialData} />;
+function DealsSearchField({
+  value,
+  onValueChange,
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  const debouncedChange = useDebouncedCallback((next: string) => {
+    onValueChange(next);
+  }, 300);
+
+  return (
+    <div className="relative flex-1 max-w-sm">
+      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        className={draft ? "pl-9 pr-9" : "pl-9"}
+        placeholder="Search deals..."
+        value={draft}
+        onChange={(e) => {
+          const next = e.target.value;
+          setDraft(next);
+          debouncedChange(next);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+      />
+      {draft ? (
+        <Button
+          className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 p-0"
+          onClick={() => {
+            setDraft("");
+            debouncedChange.cancel();
+            onValueChange("");
+          }}
+          variant="ghost"
+          size="icon"
+          type="button"
+        >
+          <X className="h-4 w-4 text-muted-foreground" />
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
-function AdminDealsInner({
-  initialData,
-}: {
-  initialData: AdminDealsPayload;
-}) {
+function AdminDealsRoutePage() {
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+
+  const { data, isLoading, isFetching }: UseQueryResult<DealsIndexData> =
+    useQuery(dealsIndexQueryOptions(search));
+
+  const viewMode = search.view ?? "kanban";
+  const status = search.status ?? "all";
+
+  const kanbanFilters = {
+    search: search.search,
+    status: status !== "all" ? [status] : undefined,
+  };
+
+  if (isLoading && !data) {
+    return (
+      <div className="container mx-auto max-w-7xl px-4 py-8 flex items-center justify-center min-h-[40vh]">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return null;
+  }
+
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
       <div className="mb-8 flex items-center justify-between">
@@ -46,7 +158,76 @@ function AdminDealsInner({
         </Link>
       </div>
 
-      <DealsTable initialData={initialData} />
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+            <DealsSearchField
+              value={search.search ?? ""}
+              onValueChange={(value) => {
+                void navigate({
+                  search: (current) => ({
+                    ...current,
+                    search: value.trim() ? value : undefined,
+                    page: 1,
+                  }),
+                });
+              }}
+            />
+
+            <Select
+              value={status}
+              onValueChange={(value) => {
+                void navigate({
+                  search: (current) => ({
+                    ...current,
+                    status: value === "all" ? undefined : value,
+                    page: 1,
+                  }),
+                });
+              }}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                {dealLifecycleStatuses.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {dealLifecycleStatusLabels[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {isFetching ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            ) : null}
+          </div>
+        </div>
+
+        <DealsViewWrapper
+          viewMode={viewMode}
+          onViewModeChange={(view) => {
+            void navigate({
+              search: (current) => ({
+                ...current,
+                view,
+                ...(view === "table" ? { page: current.page ?? 1 } : { page: undefined }),
+              }),
+            });
+          }}
+          data={data}
+          kanbanFilters={kanbanFilters}
+          onPageChange={(page) => {
+            void navigate({
+              search: (current) => ({
+                ...current,
+                page,
+              }),
+            });
+          }}
+        />
+      </div>
     </div>
   );
 }

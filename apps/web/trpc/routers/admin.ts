@@ -217,11 +217,10 @@ export const adminRouter = createTRPCRouter({
         limit: z.number().min(1).max(50).default(12),
         search: z.string().optional(),
         status: z.string().optional(),
-        visibility: z.string().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
-      const { page, limit, search, status, visibility } = input;
+      const { page, limit, search, status } = input;
       const offset = (page - 1) * limit;
 
       // Build conditions
@@ -252,16 +251,6 @@ export const adminRouter = createTRPCRouter({
               | "funded"
               | "exited"
               | "cancelled"
-          )
-        );
-      }
-
-      // Add visibility filter
-      if (visibility && visibility !== "all") {
-        conditions.push(
-          eq(
-            deal.visibility,
-            visibility as "public" | "accredited" | "invite_only"
           )
         );
       }

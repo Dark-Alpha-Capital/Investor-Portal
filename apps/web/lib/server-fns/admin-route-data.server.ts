@@ -67,17 +67,12 @@ export async function runFetchAdminDealsListData(
     sp.get("dealsStatus") && sp.get("dealsStatus") !== "all"
       ? sp.get("dealsStatus")!
       : undefined;
-  const visibility =
-    sp.get("dealsVisibility") && sp.get("dealsVisibility") !== "all"
-      ? sp.get("dealsVisibility")!
-      : undefined;
 
   const initialData = await getAdminDeals({
     page,
     limit: 12,
     search,
     status,
-    visibility,
   });
 
   return { tag: "ok", initialData };
@@ -123,8 +118,14 @@ export type AdminDealEditFormData = {
   minInvestment?: string;
   targetIrr?: string;
   targetMoic?: string;
-  status: string;
-  visibility: string;
+  status:
+    | "draft"
+    | "coming_soon"
+    | "live"
+    | "closing"
+    | "funded"
+    | "exited"
+    | "cancelled";
   coverImageUrl?: string;
   launchDate?: Date | string | null;
   closeDate?: Date | string | null;
@@ -165,7 +166,6 @@ export async function runFetchAdminDealEditData(
     targetIrr: deal.targetIrr ?? undefined,
     targetMoic: deal.targetMoic ?? undefined,
     status: deal.status,
-    visibility: deal.visibility,
     coverImageUrl: deal.coverImageUrl ?? undefined,
     launchDate: deal.launchDate ?? undefined,
     closeDate: deal.closeDate ?? undefined,
