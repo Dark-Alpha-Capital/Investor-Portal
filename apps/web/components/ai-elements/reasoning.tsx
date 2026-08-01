@@ -7,15 +7,13 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { cjk } from "@streamdown/cjk";
-import { code } from "@streamdown/code";
-import { math } from "@streamdown/math";
-import { mermaid } from "@streamdown/mermaid";
 import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import {
   createContext,
+  lazy,
   memo,
+  Suspense,
   useCallback,
   useContext,
   useEffect,
@@ -23,7 +21,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { Streamdown } from "streamdown";
 
 import { Shimmer } from "./shimmer";
 
@@ -204,7 +201,13 @@ export type ReasoningContentProps = ComponentProps<
   children: string;
 };
 
-const streamdownPlugins = { cjk, code, math, mermaid };
+const ReasoningMarkdownClient = import.meta.env.SSR
+  ? null
+  : lazy(() =>
+      import("./reasoning-content.client").then((m) => ({
+        default: m.ReasoningMarkdown,
+      }))
+    );
 
 export const ReasoningContent = memo(
   ({ className, children, ...props }: ReasoningContentProps) => (
@@ -216,7 +219,13 @@ export const ReasoningContent = memo(
       )}
       {...props}
     >
-      <Streamdown plugins={streamdownPlugins}>{children}</Streamdown>
+      {import.meta.env.SSR || !ReasoningMarkdownClient ? (
+        <div className="whitespace-pre-wrap">{children}</div>
+      ) : (
+        <Suspense fallback={<div className="whitespace-pre-wrap">{children}</div>}>
+          <ReasoningMarkdownClient>{children}</ReasoningMarkdownClient>
+        </Suspense>
+      )}
     </CollapsibleContent>
   )
 );

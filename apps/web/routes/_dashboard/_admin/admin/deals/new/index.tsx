@@ -1,7 +1,11 @@
 import { Suspense } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { DealForm } from "@/components/deals-deal-form";
+import dynamic from "@/lib/helpers/lazy-component";
 
+const DealForm = dynamic(
+  () => import("@/components/deals-deal-form").then((m) => m.DealForm),
+  { ssr: false }
+);
 export const Route = createFileRoute("/_dashboard/_admin/admin/deals/new/")({
   component: NewDealPage,
 });

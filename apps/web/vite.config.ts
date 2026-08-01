@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { cloudflare } from "@cloudflare/vite-plugin";
+import { stubHeavyClientPackagesForSsr } from "./lib/ssr-stubs/vite-plugin";
 
 export default defineConfig({
   server: {
@@ -11,7 +12,12 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  build: {
+    minify: true,
+  },
   plugins: [
+    // Must run before SSR resolves heavy client deps into the Worker graph.
+    stubHeavyClientPackagesForSsr(),
     cloudflare({ viteEnvironment: { name: "ssr" } }),
     tailwindcss(),
     tanstackStart({

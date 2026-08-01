@@ -15,6 +15,8 @@ function metaTitle(): string {
 }
 
 export const Route = createFileRoute("/_chatbot")({
+  // Auth/session on server; chat UI (streamdown/shiki) is client-rendered.
+  ssr: "data-only",
   beforeLoad: async () => {
     const r = await fetchSessionForChatbotLayout();
     if (r.tag === "redirect") {

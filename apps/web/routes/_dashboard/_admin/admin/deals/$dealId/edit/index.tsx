@@ -1,8 +1,14 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { fetchAdminDealEditData } from "@/lib/server-fns/admin-route-data";
 import BackButton from "@/components/back-button";
-import { DealForm } from "@/components/deals-deal-form";
+import dynamic from "@/lib/helpers/lazy-component";
 import type { AdminDealEditFormData } from "@/lib/server-fns/admin-route-data";
+import { Suspense } from "react";
+
+const DealForm = dynamic(
+  () => import("@/components/deals-deal-form").then((m) => m.DealForm),
+  { ssr: false }
+);
 
 export const Route = createFileRoute(
   "/_dashboard/_admin/admin/deals/$dealId/edit/",
@@ -39,7 +45,9 @@ function AdminDealEditInner({
         <p className="mt-2 text-muted-foreground">Update deal information</p>
       </div>
 
-      <DealForm dealId={dealId} initialData={formData} />
+      <Suspense fallback={null}>
+        <DealForm dealId={dealId} initialData={formData} />
+      </Suspense>
     </div>
   );
 }

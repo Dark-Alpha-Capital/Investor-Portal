@@ -12,23 +12,25 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { cjk } from "@streamdown/cjk";
-import { code } from "@streamdown/code";
-import { math } from "@streamdown/math";
-import { mermaid } from "@streamdown/mermaid";
 import type { UIMessage } from "ai";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
-import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
+import type {
+  ComponentProps,
+  HTMLAttributes,
+  ReactElement,
+  ReactNode,
+} from "react";
 import {
   createContext,
+  lazy,
   memo,
+  Suspense,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
 } from "react";
-import { Streamdown } from "streamdown";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -319,21 +321,43 @@ export const MessageBranchPage = ({
   );
 };
 
-export type MessageResponseProps = ComponentProps<typeof Streamdown>;
+export type MessageResponseProps = {
+  children?: ReactNode;
+  className?: string;
+  isAnimating?: boolean;
+};
 
-const streamdownPlugins = { cjk, code, math, mermaid };
+// Keep streamdown/shiki/mermaid out of the Worker SSR graph (3 MiB limit).
+const MessageResponseClient = import.meta.env.SSR
+  ? null
+  : lazy(() =>
+      import("./message-response.client").then((m) => ({
+        default: m.MessageResponse,
+      }))
+    );
+
+function MessageResponseFallback({
+  className,
+  children,
+}: MessageResponseProps) {
+  return (
+    <div className={cn("size-full whitespace-pre-wrap", className)}>
+      {children}
+    </div>
+  );
+}
 
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
-      className={cn(
-        "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-        className
-      )}
-      plugins={streamdownPlugins}
-      {...props}
-    />
-  ),
+  (props: MessageResponseProps) => {
+    if (import.meta.env.SSR || !MessageResponseClient) {
+      return <MessageResponseFallback {...props} />;
+    }
+    return (
+      <Suspense fallback={<MessageResponseFallback {...props} />}>
+        <MessageResponseClient {...props} />
+      </Suspense>
+    );
+  },
   (prevProps, nextProps) =>
     prevProps.children === nextProps.children &&
     nextProps.isAnimating === prevProps.isAnimating
