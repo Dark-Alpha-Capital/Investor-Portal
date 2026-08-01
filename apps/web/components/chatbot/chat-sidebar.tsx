@@ -98,23 +98,44 @@ export function ChatSidebar({ session }: { session: Session }) {
     }
 
     const deletingId = chatToDelete.id;
+    const wasActive = params.chatId === deletingId;
+    const remaining = chats.filter((chat) => chat.id !== deletingId);
     setIsDeleting(true);
 
-    startTransition(async () => {
+    void (async () => {
       try {
         const result = await deleteChatFn({ data: { chatId: deletingId } });
         switch (result.tag) {
           case "ok": {
-            setChats((prev) => prev.filter((chat) => chat.id !== deletingId));
+            setChats(remaining);
             toast.success("Chat deleted");
-            if (params.chatId === deletingId) {
-              void navigate({ to: "/chat" });
+            // /chat always creates a new empty chat — only go there when
+            // nothing remains. Otherwise jump to another existing chat.
+            if (wasActive) {
+              if (remaining[0]) {
+                void navigate({
+                  to: "/chat/$chatId",
+                  params: { chatId: remaining[0].id },
+                });
+              } else {
+                void navigate({ to: "/chat" });
+              }
             }
             break;
           }
           case "not_found": {
-            setChats((prev) => prev.filter((chat) => chat.id !== deletingId));
+            setChats(remaining);
             toast.error("Chat not found");
+            if (wasActive) {
+              if (remaining[0]) {
+                void navigate({
+                  to: "/chat/$chatId",
+                  params: { chatId: remaining[0].id },
+                });
+              } else {
+                void navigate({ to: "/chat" });
+              }
+            }
             break;
           }
           case "redirect": {
@@ -133,7 +154,7 @@ export function ChatSidebar({ session }: { session: Session }) {
         setIsDeleting(false);
         setChatToDelete(null);
       }
-    });
+    })();
   };
 
   return (
