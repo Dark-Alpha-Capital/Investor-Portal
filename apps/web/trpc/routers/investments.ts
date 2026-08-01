@@ -9,6 +9,7 @@ import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { randomUUID } from "crypto";
 import { getDealPermissions } from "@/lib/auth/permissions";
+import { isOpenForCommitments } from "@repo/db/deal-marketplace";
 
 const commitmentLifecycleStatuses = [
   "committed",
@@ -69,7 +70,11 @@ export const investmentsRouter = createTRPCRouter({
       }
 
       const [dealRow] = await ctx.db
-        .select({ id: deal.id, minInvestment: deal.minInvestment })
+        .select({
+          id: deal.id,
+          status: deal.status,
+          minInvestment: deal.minInvestment,
+        })
         .from(deal)
         .where(eq(deal.id, input.dealId))
         .limit(1);
@@ -78,6 +83,13 @@ export const investmentsRouter = createTRPCRouter({
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Deal not found",
+        });
+      }
+
+      if (!isAdmin && !isOpenForCommitments(dealRow)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This deal is not open for new commitments",
         });
       }
 

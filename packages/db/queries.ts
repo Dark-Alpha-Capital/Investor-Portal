@@ -14,6 +14,9 @@ import {
   authorizedSignatory,
   kycAttestation,
   auditLog,
+  knowledgeRequest,
+  knowledgeAnswer,
+  dealDocument,
 } from "./schema";
 import {
   and,
@@ -25,7 +28,13 @@ import {
   sql,
   ilike,
   inArray,
+  count,
 } from "drizzle-orm";
+import {
+  MARKETPLACE_VISIBLE_STATUSES,
+  isAccessibleDealDetail,
+  isOpenForCommitments,
+} from "./deal-marketplace";
 
 /**
  * Get paginated deals for admin with filtering
@@ -978,16 +987,13 @@ export const getClearanceData = async (userId: string) => {
 };
 
 /**
- * Get marketplace deals for a specific user with compliance-based access control
+ * Get marketplace deals for a specific user.
  *
- * Visibility Logic:
- * - Cleared investors see:
- *   - All public deals (deal.visibility = "public")
- *   - Accredited deals (deal.visibility = "accredited") if user is cleared
- *   - All deals they've been invited to (via dealInvite table)
+ * Two orthogonal gates (investors):
+ * 1. Deal lifecycle — {@link isVisibleInMarketplace} (MVP: live only)
+ * 2. Investor access — approved + active invitation
  *
- * Action Permissions:
- * - vehiclePermission still controls action permissions (canViewDocuments, canExpressInterest, canInvest)
+ * Admins see all non-draft deals (ops view).
  */
 export const getMarketplaceDeals = async ({
   userId,
@@ -1007,7 +1013,6 @@ export const getMarketplaceDeals = async ({
   try {
     const offset = (page - 1) * limit;
 
-    // Check user's role
     const [userRecord] = await db
       .select({ role: user.role })
       .from(user)
@@ -1016,7 +1021,6 @@ export const getMarketplaceDeals = async ({
 
     const isAdmin = userRecord?.role === "admin";
 
-    // Check user's clearance status (for verification/accreditation)
     const [clearanceRecord] = await db
       .select({ status: investorClearance.status })
       .from(investorClearance)
@@ -1025,39 +1029,13 @@ export const getMarketplaceDeals = async ({
       .limit(1);
 
     const clearanceStatus = clearanceRecord?.status ?? null;
-    const isCleared =
-      clearanceStatus === "cleared" ||
-      clearanceStatus === "cleared_with_conditions";
-    // User is "verified/accredited" if they are cleared
-    const isVerified = isCleared;
+    const isApproved = clearanceStatus === "approved";
 
-    // Get user's deal invites (for invite-only deals and curation notes)
     let invitedDealIds: string[] = [];
-    let inviteNotes = new Map<string, string | null>();
+    let invitationNotes = new Map<string, string | null>();
 
-    if (isCleared || isAdmin) {
-      const invites = await db
-        .select({
-          dealId: dealInvite.dealId,
-          curationNote: dealInvite.curationNote,
-        })
-        .from(dealInvite)
-        .where(eq(dealInvite.userId, userId));
-
-      invitedDealIds = invites.map((i) => i.dealId);
-      inviteNotes = new Map(
-        invites.map((i) => [i.dealId, i.curationNote ?? null])
-      );
-    }
-
-    // Get user's permitted deal IDs (where canViewTeaser = true and not revoked)
-    // Only fetch if user is cleared (or admin)
-    // This is used for action permissions (canViewDocuments, canExpressInterest, canInvest)
-    let permittedDealIds: string[] = [];
-    let permissionNotes = new Map<string, string | null>();
-
-    if (isCleared || isAdmin) {
-      const permissions = await db
+    if (isApproved || isAdmin) {
+      const invitations = await db
         .select({
           dealId: vehiclePermission.dealId,
           notes: vehiclePermission.notes,
@@ -1066,19 +1044,21 @@ export const getMarketplaceDeals = async ({
         .where(
           and(
             eq(vehiclePermission.userId, userId),
-            eq(vehiclePermission.canViewTeaser, true),
             isNull(vehiclePermission.revokedAt)
           )
         );
 
-      permittedDealIds = permissions.map((p) => p.dealId);
-      permissionNotes = new Map(permissions.map((p) => [p.dealId, p.notes]));
+      invitedDealIds = invitations.map((i) => i.dealId);
+      invitationNotes = new Map(
+        invitations.map((i) => [i.dealId, i.notes ?? null])
+      );
     }
 
-    // Build base conditions
-    const baseConditions = [ne(deal.status, "draft")];
+    // Investors: marketed deals only. Admins: any non-draft.
+    const baseConditions = isAdmin
+      ? [ne(deal.status, "draft")]
+      : [inArray(deal.status, [...MARKETPLACE_VISIBLE_STATUSES])];
 
-    // Add search filter
     if (search && search.trim()) {
       const searchTerm = `%${search.trim()}%`;
       baseConditions.push(
@@ -1092,59 +1072,33 @@ export const getMarketplaceDeals = async ({
       );
     }
 
-    // Add status filter
-    if (status && status !== "all") {
+    // Investor marketplace is live-only; ignore non-live status filters.
+    if (isAdmin && status && status !== "all") {
       baseConditions.push(
         eq(
           deal.status,
           status as
-          | "draft"
-          | "coming_soon"
-          | "live"
-          | "closing"
-          | "funded"
-          | "exited"
-          | "cancelled"
+            | "draft"
+            | "coming_soon"
+            | "live"
+            | "closing"
+            | "funded"
+            | "exited"
+            | "cancelled"
         )
       );
     }
 
-    // Add sector filter
     if (sector && sector !== "all") {
       baseConditions.push(ilike(deal.sector, sector));
     }
 
-    // Build visibility condition based on compliance clearance, deal visibility, and invites
-    // Admin sees all non-draft deals
-    // Cleared investors see:
-    //   - Public deals (deal.visibility = "public")
-    //   - Accredited deals (deal.visibility = "accredited" AND user is verified/cleared)
-    //   - Invited deals (user has dealInvite entry, regardless of visibility)
     let whereCondition;
 
     if (isAdmin) {
-      // Admins see all non-draft deals
       whereCondition = and(...baseConditions);
-    } else if (isCleared) {
-      // Build visibility conditions for cleared investors
-      const visibilityConditions: ReturnType<typeof or>[] = [];
-
-      // Public deals: visible to all cleared investors
-      visibilityConditions.push(eq(deal.visibility, "public"));
-
-      // Accredited deals: only visible if user is verified/cleared
-      if (isVerified) {
-        visibilityConditions.push(eq(deal.visibility, "accredited"));
-      }
-
-      // Invited deals: visible if user has an invite (regardless of visibility)
-      if (invitedDealIds.length > 0) {
-        visibilityConditions.push(inArray(deal.id, invitedDealIds));
-      }
-
-      // Combine visibility conditions with OR
-      // If no visibility conditions exist, user sees no deals
-      if (visibilityConditions.length === 0) {
+    } else if (isApproved) {
+      if (invitedDealIds.length === 0) {
         return {
           success: true,
           deals: [],
@@ -1163,10 +1117,11 @@ export const getMarketplaceDeals = async ({
         };
       }
 
-      whereCondition = and(...baseConditions, or(...visibilityConditions));
+      whereCondition = and(
+        ...baseConditions,
+        inArray(deal.id, invitedDealIds)
+      );
     } else {
-      // Not cleared = no deals
-      // Return empty result
       return {
         success: true,
         deals: [],
@@ -1185,7 +1140,6 @@ export const getMarketplaceDeals = async ({
       };
     }
 
-    // Get total count
     const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(deal)
@@ -1194,7 +1148,6 @@ export const getMarketplaceDeals = async ({
     const totalCount = countResult?.count ?? 0;
     const totalPages = Math.ceil(totalCount / limit);
 
-    // Get paginated deals
     const deals = await db
       .select()
       .from(deal)
@@ -1203,32 +1156,22 @@ export const getMarketplaceDeals = async ({
       .limit(limit)
       .offset(offset);
 
-    // Get unique sectors for filter dropdown (from all visible deals: public + accredited + invited)
     let sectorsResult: { sector: string | null }[] = [];
     if (isAdmin) {
       sectorsResult = await db
         .selectDistinct({ sector: deal.sector })
         .from(deal)
         .where(ne(deal.status, "draft"));
-    } else if (isCleared) {
-      // Build the same visibility conditions for sector query
-      const sectorVisibilityConditions: ReturnType<typeof or>[] = [];
-      sectorVisibilityConditions.push(eq(deal.visibility, "public"));
-      if (isVerified) {
-        sectorVisibilityConditions.push(eq(deal.visibility, "accredited"));
-      }
-      if (invitedDealIds.length > 0) {
-        sectorVisibilityConditions.push(inArray(deal.id, invitedDealIds));
-      }
-
-      if (sectorVisibilityConditions.length > 0) {
-        sectorsResult = await db
-          .selectDistinct({ sector: deal.sector })
-          .from(deal)
-          .where(
-            and(ne(deal.status, "draft"), or(...sectorVisibilityConditions))
-          );
-      }
+    } else if (isApproved && invitedDealIds.length > 0) {
+      sectorsResult = await db
+        .selectDistinct({ sector: deal.sector })
+        .from(deal)
+        .where(
+          and(
+            inArray(deal.status, [...MARKETPLACE_VISIBLE_STATUSES]),
+            inArray(deal.id, invitedDealIds)
+          )
+        );
     }
 
     const sectors = sectorsResult
@@ -1248,17 +1191,10 @@ export const getMarketplaceDeals = async ({
         minInvestment: dealRecord.minInvestment?.toString() ?? null,
         targetIrr: dealRecord.targetIrr?.toString() ?? null,
         targetMoic: dealRecord.targetMoic?.toString() ?? null,
-        // Deal is "curated" if user has an invite with curation note, or a permission note
-        // Prioritize invite curation note over permission note
         isCurated:
-          (inviteNotes.has(dealRecord.id) &&
-            !!inviteNotes.get(dealRecord.id)) ||
-          (permissionNotes.has(dealRecord.id) &&
-            !!permissionNotes.get(dealRecord.id)),
-        curationNote:
-          inviteNotes.get(dealRecord.id) ??
-          permissionNotes.get(dealRecord.id) ??
-          null,
+          invitationNotes.has(dealRecord.id) &&
+          !!invitationNotes.get(dealRecord.id),
+        curationNote: invitationNotes.get(dealRecord.id) ?? null,
       })),
       pagination: {
         page,
@@ -1355,8 +1291,8 @@ export const getDealForView = async ({
       };
     }
 
-    // Exclude draft deals (except for admins)
-    if (dealRecord.status === "draft" && !isAdmin) {
+    // Deal lifecycle gate (orthogonal to invitation). Admins bypass.
+    if (!isAdmin && !isAccessibleDealDetail(dealRecord)) {
       return {
         success: false as const,
         error: "NOT_FOUND" as const,
@@ -1371,20 +1307,25 @@ export const getDealForView = async ({
 
     const actualDealId = dealRecord.id;
 
-    // Check access based on vehiclePermission (admins bypass this check)
+    // Check access based on deal invitation (admins bypass)
+    // canInvest also requires deal lifecycle open for commitments (live).
+    const dealOpenForCommitments = isOpenForCommitments(dealRecord);
     let permissions = {
       canViewTeaser: isAdmin,
       canViewDocuments: isAdmin,
       canExpressInterest: isAdmin,
-      canInvest: isAdmin,
+      canInvest: isAdmin && dealOpenForCommitments,
+      accessLevel: (isAdmin ? "data_room" : null) as
+        | "teaser"
+        | "data_room"
+        | null,
+      dataRoomRequestedAt: null as string | null,
     };
     let clearanceStatus: string | null = null;
     let curationNote: string | null = null;
 
-    // Parallelize independent queries for non-admin users
     if (!isAdmin) {
-      // Clearance and permission queries can run in parallel
-      const [clearanceResult, permissionResult] = await Promise.all([
+      const [clearanceResult, invitationResult] = await Promise.all([
         db
           .select({ status: investorClearance.status })
           .from(investorClearance)
@@ -1394,11 +1335,9 @@ export const getDealForView = async ({
           .then(([record]) => record),
         db
           .select({
-            canViewTeaser: vehiclePermission.canViewTeaser,
-            canViewDocuments: vehiclePermission.canViewDocuments,
-            canExpressInterest: vehiclePermission.canExpressInterest,
-            canInvest: vehiclePermission.canInvest,
+            accessLevel: vehiclePermission.accessLevel,
             notes: vehiclePermission.notes,
+            dataRoomRequestedAt: vehiclePermission.dataRoomRequestedAt,
           })
           .from(vehiclePermission)
           .where(
@@ -1413,11 +1352,9 @@ export const getDealForView = async ({
       ]);
 
       clearanceStatus = clearanceResult?.status ?? null;
-      const isCleared =
-        clearanceStatus === "cleared" ||
-        clearanceStatus === "cleared_with_conditions";
+      const isApproved = clearanceStatus === "approved";
 
-      if (!isCleared) {
+      if (!isApproved) {
         return {
           success: false as const,
           error: "FORBIDDEN" as const,
@@ -1430,7 +1367,7 @@ export const getDealForView = async ({
         };
       }
 
-      if (!permissionResult || !permissionResult.canViewTeaser) {
+      if (!invitationResult) {
         return {
           success: false as const,
           error: "FORBIDDEN" as const,
@@ -1443,13 +1380,17 @@ export const getDealForView = async ({
         };
       }
 
+      const isDataRoom = invitationResult.accessLevel === "data_room";
       permissions = {
-        canViewTeaser: permissionResult.canViewTeaser,
-        canViewDocuments: permissionResult.canViewDocuments,
-        canExpressInterest: permissionResult.canExpressInterest,
-        canInvest: permissionResult.canInvest,
+        canViewTeaser: true,
+        canViewDocuments: isDataRoom,
+        canExpressInterest: isDataRoom,
+        canInvest: isDataRoom && dealOpenForCommitments,
+        accessLevel: invitationResult.accessLevel as "teaser" | "data_room",
+        dataRoomRequestedAt:
+          invitationResult.dataRoomRequestedAt?.toISOString() ?? null,
       };
-      curationNote = permissionResult.notes;
+      curationNote = invitationResult.notes;
     }
 
     // Parallelize interest and investment queries (independent operations)
@@ -1549,7 +1490,7 @@ export const getDealForView = async ({
  * - investor: basic investor info with current clearance
  * - onboarding: latest onboarding record with related data (owners, signatories, attestations, documents, edit history)
  * - clearanceHistory: all clearance records (latest first)
- * - permissions: active vehicle permissions with deal names and granter names
+ * - permissions: active deal invitations with deal names, access level, and participation
  * - auditLog: recent audit log entries involving this investor
  */
 export const getInvestorComplianceDetails = async (userId: string) => {
@@ -1646,17 +1587,17 @@ export const getInvestorComplianceDetails = async (userId: string) => {
 
     const currentClearance = clearanceHistory[0] || null;
 
-    // Active vehicle permissions with deal and user names
+    // Active deal invitations with deal and user names
     const permissionsRaw = await db
       .select({
         id: vehiclePermission.id,
         dealId: vehiclePermission.dealId,
-        canViewTeaser: vehiclePermission.canViewTeaser,
-        canViewDocuments: vehiclePermission.canViewDocuments,
-        canExpressInterest: vehiclePermission.canExpressInterest,
-        canInvest: vehiclePermission.canInvest,
+        accessLevel: vehiclePermission.accessLevel,
         grantedAt: vehiclePermission.grantedAt,
         grantedBy: vehiclePermission.grantedBy,
+        notes: vehiclePermission.notes,
+        dataRoomRequestedAt: vehiclePermission.dataRoomRequestedAt,
+        dataRoomRequestMessage: vehiclePermission.dataRoomRequestMessage,
       })
       .from(vehiclePermission)
       .where(
@@ -1669,11 +1610,36 @@ export const getInvestorComplianceDetails = async (userId: string) => {
 
     const permissions = await Promise.all(
       permissionsRaw.map(async (perm) => {
-        const [dealInfo] = await db
-          .select({ name: deal.name })
-          .from(deal)
-          .where(eq(deal.id, perm.dealId))
-          .limit(1);
+        const [dealInfo, interestRow, investmentRow] = await Promise.all([
+          db
+            .select({ name: deal.name })
+            .from(deal)
+            .where(eq(deal.id, perm.dealId))
+            .limit(1)
+            .then((r) => r[0]),
+          db
+            .select({ status: dealInterest.status })
+            .from(dealInterest)
+            .where(
+              and(
+                eq(dealInterest.dealId, perm.dealId),
+                eq(dealInterest.userId, userId)
+              )
+            )
+            .limit(1)
+            .then((r) => r[0] ?? null),
+          db
+            .select({ status: investment.status })
+            .from(investment)
+            .where(
+              and(
+                eq(investment.dealId, perm.dealId),
+                eq(investment.userId, userId)
+              )
+            )
+            .limit(1)
+            .then((r) => r[0] ?? null),
+        ]);
 
         let grantedByName: string | null = null;
         if (perm.grantedBy) {
@@ -1685,10 +1651,26 @@ export const getInvestorComplianceDetails = async (userId: string) => {
           grantedByName = granter?.name || null;
         }
 
+        // Derive participation inline (same rules as apps/web/lib/participation.ts)
+        let participationStatus:
+          | "no_response"
+          | "interested"
+          | "committed"
+          | "funded"
+          | "declined" = "no_response";
+        if (investmentRow) {
+          participationStatus =
+            investmentRow.status === "funded" ? "funded" : "committed";
+        } else if (interestRow) {
+          participationStatus =
+            interestRow.status === "pass" ? "declined" : "interested";
+        }
+
         return {
           ...perm,
           dealName: dealInfo?.name || "Unknown Deal",
           grantedByName,
+          participationStatus,
         };
       }),
     );
@@ -1770,3 +1752,367 @@ export const getInvestorComplianceDetails = async (userId: string) => {
     };
   }
 };
+
+export type KnowledgeSearchHit = {
+  source: "verified_answer" | "deal_field" | "document";
+  title: string;
+  snippet: string;
+  referenceCode?: string;
+  documentId?: string;
+  field?: string;
+};
+
+function tokenizeQuery(query: string): string[] {
+  const tokens = query
+    .toLowerCase()
+    .split(/[^a-z0-9]+/i)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2);
+  if (tokens.length > 0) {
+    return tokens;
+  }
+  const trimmed = query.trim().toLowerCase();
+  return trimmed.length > 0 ? [trimmed] : [];
+}
+
+function textMatchesTokens(text: string | null | undefined, tokens: string[]): boolean {
+  if (!text || tokens.length === 0) return false;
+  const hay = text.toLowerCase();
+  return tokens.some((t) => hay.includes(t));
+}
+
+/**
+ * Search deal knowledge: verified answers, deal fields, document metadata.
+ */
+export async function searchDealKnowledge({
+  dealId,
+  query,
+  includeDocuments = true,
+}: {
+  dealId: string;
+  query: string;
+  includeDocuments?: boolean;
+}): Promise<{ found: boolean; hits: KnowledgeSearchHit[]; dealName: string | null }> {
+  const tokens = tokenizeQuery(query);
+  const hits: KnowledgeSearchHit[] = [];
+
+  const [dealRow] = await db
+    .select({
+      id: deal.id,
+      name: deal.name,
+      teaserSummary: deal.teaserSummary,
+      description: deal.description,
+      investmentThesis: deal.investmentThesis,
+      risks: deal.risks,
+      sector: deal.sector,
+      geography: deal.geography,
+      dealType: deal.dealType,
+      targetCompany: deal.targetCompany,
+      revenue: deal.revenue,
+      ebitda: deal.ebitda,
+      targetIrr: deal.targetIrr,
+      targetMoic: deal.targetMoic,
+      holdPeriod: deal.holdPeriod,
+    })
+    .from(deal)
+    .where(eq(deal.id, dealId))
+    .limit(1);
+
+  if (!dealRow) {
+    return { found: false, hits: [], dealName: null };
+  }
+
+  const answered = await db
+    .select({
+      referenceCode: knowledgeRequest.referenceCode,
+      title: knowledgeRequest.title,
+      question: knowledgeRequest.question,
+      answer: knowledgeAnswer.answer,
+    })
+    .from(knowledgeRequest)
+    .innerJoin(
+      knowledgeAnswer,
+      eq(knowledgeAnswer.requestId, knowledgeRequest.id)
+    )
+    .where(
+      and(
+        eq(knowledgeRequest.dealId, dealId),
+        eq(knowledgeRequest.status, "answered"),
+        eq(knowledgeAnswer.verified, true)
+      )
+    )
+    .orderBy(desc(knowledgeAnswer.publishedAt))
+    .limit(50);
+
+  for (const row of answered) {
+    const blob = `${row.title} ${row.question} ${row.answer}`;
+    if (tokens.length === 0 || textMatchesTokens(blob, tokens)) {
+      hits.push({
+        source: "verified_answer",
+        title: row.title,
+        snippet: row.answer.slice(0, 800),
+        referenceCode: row.referenceCode,
+      });
+    }
+  }
+
+  const dealFields: Array<{ field: string; title: string; value: string | null }> = [
+    { field: "name", title: "Deal name", value: dealRow.name },
+    { field: "teaserSummary", title: "Teaser summary", value: dealRow.teaserSummary },
+    { field: "description", title: "Description", value: dealRow.description },
+    { field: "investmentThesis", title: "Investment thesis", value: dealRow.investmentThesis },
+    { field: "risks", title: "Risks", value: dealRow.risks },
+    { field: "sector", title: "Sector", value: dealRow.sector },
+    { field: "geography", title: "Geography", value: dealRow.geography },
+    { field: "dealType", title: "Deal type", value: dealRow.dealType },
+    { field: "targetCompany", title: "Target company", value: dealRow.targetCompany },
+    {
+      field: "financials",
+      title: "Financial highlights",
+      value: [
+        dealRow.revenue != null ? `Revenue: ${dealRow.revenue}` : null,
+        dealRow.ebitda != null ? `EBITDA: ${dealRow.ebitda}` : null,
+        dealRow.targetIrr != null ? `Target IRR: ${dealRow.targetIrr}%` : null,
+        dealRow.targetMoic != null ? `Target MOIC: ${dealRow.targetMoic}x` : null,
+        dealRow.holdPeriod ? `Hold period: ${dealRow.holdPeriod}` : null,
+      ]
+        .filter(Boolean)
+        .join("; ") || null,
+    },
+  ];
+
+  for (const field of dealFields) {
+    if (textMatchesTokens(field.value, tokens) || textMatchesTokens(field.title, tokens)) {
+      hits.push({
+        source: "deal_field",
+        title: field.title,
+        snippet: (field.value ?? "").slice(0, 800),
+        field: field.field,
+      });
+    }
+  }
+
+  if (includeDocuments) {
+    const docs = await db
+      .select({
+        id: dealDocument.id,
+        name: dealDocument.name,
+        description: dealDocument.description,
+        documentCategory: dealDocument.documentCategory,
+      })
+      .from(dealDocument)
+      .where(eq(dealDocument.dealId, dealId))
+      .limit(100);
+
+    for (const doc of docs) {
+      const blob = `${doc.name} ${doc.description ?? ""} ${doc.documentCategory ?? ""}`;
+      if (tokens.length === 0 || textMatchesTokens(blob, tokens)) {
+        hits.push({
+          source: "document",
+          title: doc.name,
+          snippet: (doc.description ?? doc.documentCategory ?? "Deal document").slice(0, 400),
+          documentId: doc.id,
+        });
+      }
+    }
+  }
+
+  // Prefer verified answers, then deal fields, then documents
+  const rank = { verified_answer: 0, deal_field: 1, document: 2 } as const;
+  hits.sort((a, b) => rank[a.source] - rank[b.source]);
+
+  return {
+    found: hits.length > 0,
+    hits: hits.slice(0, 20),
+    dealName: dealRow.name,
+  };
+}
+
+export async function createKnowledgeRequest({
+  id,
+  dealId,
+  askedByUserId,
+  chatId,
+  referenceCode,
+  title,
+  question,
+}: {
+  id: string;
+  dealId: string;
+  askedByUserId: string;
+  chatId?: string | null;
+  referenceCode: string;
+  title: string;
+  question: string;
+}) {
+  const [row] = await db
+    .insert(knowledgeRequest)
+    .values({
+      id,
+      dealId,
+      askedByUserId,
+      chatId: chatId ?? null,
+      referenceCode,
+      title,
+      question,
+      status: "open",
+    })
+    .returning();
+
+  return row;
+}
+
+export async function nextKnowledgeReferenceCode(): Promise<string> {
+  const [row] = await db
+    .select({ total: count() })
+    .from(knowledgeRequest);
+
+  const next = (row?.total ?? 0) + 1;
+  return `Q-${next}`;
+}
+
+export async function listKnowledgeRequestsByDeal({
+  dealId,
+  status,
+}: {
+  dealId: string;
+  status?: "open" | "answered" | "closed" | "archived";
+}) {
+  const conditions = [eq(knowledgeRequest.dealId, dealId)];
+  if (status) {
+    conditions.push(eq(knowledgeRequest.status, status));
+  }
+
+  return db
+    .select({
+      id: knowledgeRequest.id,
+      dealId: knowledgeRequest.dealId,
+      askedByUserId: knowledgeRequest.askedByUserId,
+      askerName: user.name,
+      askerEmail: user.email,
+      chatId: knowledgeRequest.chatId,
+      referenceCode: knowledgeRequest.referenceCode,
+      title: knowledgeRequest.title,
+      question: knowledgeRequest.question,
+      status: knowledgeRequest.status,
+      createdAt: knowledgeRequest.createdAt,
+      updatedAt: knowledgeRequest.updatedAt,
+      answer: knowledgeAnswer.answer,
+      answeredByUserId: knowledgeAnswer.answeredByUserId,
+      publishedAt: knowledgeAnswer.publishedAt,
+    })
+    .from(knowledgeRequest)
+    .innerJoin(user, eq(user.id, knowledgeRequest.askedByUserId))
+    .leftJoin(
+      knowledgeAnswer,
+      eq(knowledgeAnswer.requestId, knowledgeRequest.id)
+    )
+    .where(and(...conditions))
+    .orderBy(desc(knowledgeRequest.createdAt));
+}
+
+export async function getKnowledgeRequestById(requestId: string) {
+  const [row] = await db
+    .select({
+      id: knowledgeRequest.id,
+      dealId: knowledgeRequest.dealId,
+      askedByUserId: knowledgeRequest.askedByUserId,
+      askerName: user.name,
+      askerEmail: user.email,
+      chatId: knowledgeRequest.chatId,
+      referenceCode: knowledgeRequest.referenceCode,
+      title: knowledgeRequest.title,
+      question: knowledgeRequest.question,
+      status: knowledgeRequest.status,
+      createdAt: knowledgeRequest.createdAt,
+      updatedAt: knowledgeRequest.updatedAt,
+      answer: knowledgeAnswer.answer,
+      answeredByUserId: knowledgeAnswer.answeredByUserId,
+      publishedAt: knowledgeAnswer.publishedAt,
+      answerId: knowledgeAnswer.id,
+    })
+    .from(knowledgeRequest)
+    .innerJoin(user, eq(user.id, knowledgeRequest.askedByUserId))
+    .leftJoin(
+      knowledgeAnswer,
+      eq(knowledgeAnswer.requestId, knowledgeRequest.id)
+    )
+    .where(eq(knowledgeRequest.id, requestId))
+    .limit(1);
+
+  return row ?? null;
+}
+
+export async function publishKnowledgeAnswer({
+  answerId,
+  requestId,
+  answer,
+  answeredByUserId,
+}: {
+  answerId: string;
+  requestId: string;
+  answer: string;
+  answeredByUserId: string;
+}) {
+  const now = new Date();
+
+  await db.insert(knowledgeAnswer).values({
+    id: answerId,
+    requestId,
+    answer,
+    answeredByUserId,
+    verified: true,
+    publishedAt: now,
+  });
+
+  const [updated] = await db
+    .update(knowledgeRequest)
+    .set({ status: "answered", updatedAt: now })
+    .where(eq(knowledgeRequest.id, requestId))
+    .returning();
+
+  return updated;
+}
+
+export async function closeKnowledgeRequest(requestId: string) {
+  const [updated] = await db
+    .update(knowledgeRequest)
+    .set({ status: "closed", updatedAt: new Date() })
+    .where(eq(knowledgeRequest.id, requestId))
+    .returning();
+
+  return updated ?? null;
+}
+
+export async function countOpenKnowledgeRequests(dealId: string): Promise<number> {
+  const [row] = await db
+    .select({ total: count() })
+    .from(knowledgeRequest)
+    .where(
+      and(
+        eq(knowledgeRequest.dealId, dealId),
+        eq(knowledgeRequest.status, "open")
+      )
+    );
+
+  return row?.total ?? 0;
+}
+
+export async function getDealNameById(dealId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ name: deal.name })
+    .from(deal)
+    .where(eq(deal.id, dealId))
+    .limit(1);
+  return row?.name ?? null;
+}
+
+export async function listAdminUserEmails(): Promise<
+  Array<{ id: string; email: string; name: string }>
+> {
+  return db
+    .select({ id: user.id, email: user.email, name: user.name })
+    .from(user)
+    .where(eq(user.role, "admin"));
+}
+

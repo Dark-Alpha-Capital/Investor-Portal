@@ -43,9 +43,9 @@ const ACTION_CONFIG: Record<
   string,
   { icon: React.ElementType; label: string; color: string }
 > = {
-  clearance_set: { icon: ShieldCheck, label: "Clearance Updated", color: "text-blue-600" },
-  permission_granted: { icon: Key, label: "Permission Granted", color: "text-green-600" },
-  permission_revoked: { icon: Key, label: "Permission Revoked", color: "text-red-600" },
+  clearance_set: { icon: ShieldCheck, label: "Status Updated", color: "text-blue-600" },
+  permission_granted: { icon: Key, label: "Invitation Set", color: "text-green-600" },
+  permission_revoked: { icon: Key, label: "Invitation Withdrawn", color: "text-red-600" },
   role_granted: { icon: UserCog, label: "Role Granted", color: "text-purple-600" },
   role_revoked: { icon: UserCog, label: "Role Revoked", color: "text-orange-600" },
   document_uploaded: { icon: FileText, label: "Document Uploaded", color: "text-blue-600" },
@@ -56,12 +56,16 @@ const ACTION_CONFIG: Record<
 
 const getClearanceStatusIcon = (status: string) => {
   switch (status) {
-    case "cleared":
+    case "approved":
+    case "cleared": // legacy audit rows
       return <ShieldCheck className="h-4 w-4 text-green-600" />;
-    case "cleared_with_conditions":
+    case "needs_information":
+    case "cleared_with_conditions": // legacy audit rows
       return <AlertTriangle className="h-4 w-4 text-amber-600" />;
     case "rejected":
       return <ShieldX className="h-4 w-4 text-red-600" />;
+    case "pending_review":
+    case "pending": // legacy audit rows
     default:
       return <ShieldQuestion className="h-4 w-4 text-muted-foreground" />;
   }
@@ -178,7 +182,7 @@ export function AuditHistory({ entries }: AuditHistoryProps) {
                         );
                       })()}
 
-                      {/* Show permission changes */}
+                      {/* Show invitation changes */}
                       {(entry.action === "permission_granted" ||
                         entry.action === "permission_revoked") &&
                         isRecord(entry.newValue) && (
@@ -188,24 +192,41 @@ export function AuditHistory({ entries }: AuditHistoryProps) {
                             </p>
                             {entry.action === "permission_granted" && (
                               <div className="flex flex-wrap gap-1 mt-1">
-                                {!!getRecordValue(entry.newValue, "canViewTeaser") && (
+                                {getRecordValue(entry.newValue, "accessLevel") ? (
                                   <Badge variant="outline" className="text-xs">
-                                    View Teaser
+                                    {String(getRecordValue(entry.newValue, "accessLevel")) ===
+                                    "data_room"
+                                      ? "Data Room"
+                                      : "Teaser"}
                                   </Badge>
+                                ) : (
+                                  <>
+                                    {!!getRecordValue(entry.newValue, "canViewTeaser") && (
+                                      <Badge variant="outline" className="text-xs">
+                                        View Teaser
+                                      </Badge>
+                                    )}
+                                    {!!getRecordValue(entry.newValue, "canViewDocuments") && (
+                                      <Badge variant="outline" className="text-xs">
+                                        View Documents
+                                      </Badge>
+                                    )}
+                                    {!!getRecordValue(entry.newValue, "canExpressInterest") && (
+                                      <Badge variant="outline" className="text-xs">
+                                        Express Interest
+                                      </Badge>
+                                    )}
+                                    {!!getRecordValue(entry.newValue, "canInvest") && (
+                                      <Badge variant="outline" className="text-xs">
+                                        Can Invest
+                                      </Badge>
+                                    )}
+                                  </>
                                 )}
-                                {!!getRecordValue(entry.newValue, "canViewDocuments") && (
+                                {getRecordValue(entry.newValue, "request") ===
+                                  "data_room" && (
                                   <Badge variant="outline" className="text-xs">
-                                    View Documents
-                                  </Badge>
-                                )}
-                                {!!getRecordValue(entry.newValue, "canExpressInterest") && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Express Interest
-                                  </Badge>
-                                )}
-                                {!!getRecordValue(entry.newValue, "canInvest") && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Can Invest
+                                    Data Room Requested
                                   </Badge>
                                 )}
                               </div>

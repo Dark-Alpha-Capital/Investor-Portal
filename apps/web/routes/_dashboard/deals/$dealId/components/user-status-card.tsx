@@ -1,4 +1,4 @@
-import { CheckCircle2, Shield, FileText, DollarSign, Eye } from "lucide-react";
+import { CheckCircle2, FileText, DollarSign, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 type UserInterest = {
@@ -25,6 +25,7 @@ type DealPermissions = {
   canViewDocuments: boolean;
   canExpressInterest: boolean;
   canInvest: boolean;
+  accessLevel?: "teaser" | "data_room" | null;
 };
 
 type UserStatusCardProps = {
@@ -35,33 +36,16 @@ type UserStatusCardProps = {
 
 const interestStatusLabels: Record<string, string> = {
   interested: "Interested",
-  soft_committed: "Soft Committed",
+  soft_committed: "Interested",
   pass: "Passed",
-  meeting_requested: "Meeting Requested",
+  meeting_requested: "Interested",
 };
 
-const commitmentStatusLabels: Record<string, string> = {
-  committed: "Committed",
-  pending: "Pending",
-  confirmed: "Confirmed",
-  funded: "Funded",
-  transferred: "Transferred",
-  liquidated: "Liquidated",
-  written_off: "Written Off",
-};
-
-const commitmentStatusVariant: Record<
-  string,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  committed: "secondary",
-  pending: "outline",
-  confirmed: "default",
-  funded: "default",
-  transferred: "secondary",
-  liquidated: "secondary",
-  written_off: "destructive",
-};
+/** Investor-facing: hide internal ops states until funded. */
+function investorCommitmentLabel(status: string): string {
+  if (status === "funded") return "Funded";
+  return "Committed";
+}
 
 const formatCurrency = (value: string | null | undefined): string => {
   if (!value) return "-";
@@ -104,44 +88,32 @@ export function UserStatusCard({
         <div className="flex flex-wrap gap-2">
           <div
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-              permissions.canViewTeaser
+              permissions.accessLevel === "data_room"
                 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                : permissions.accessLevel === "teaser"
+                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                  : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
             }`}
           >
             <Eye className="h-3 w-3" />
-            View Teaser
+            {permissions.accessLevel === "data_room"
+              ? "Data Room Access"
+              : permissions.accessLevel === "teaser"
+                ? "Teaser Access"
+                : "No Access"}
           </div>
-          <div
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-              permissions.canViewDocuments
-                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-            }`}
-          >
-            <FileText className="h-3 w-3" />
-            View Documents
-          </div>
-          <div
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-              permissions.canExpressInterest
-                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-            }`}
-          >
-            <Shield className="h-3 w-3" />
-            Express Interest
-          </div>
-          <div
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-              permissions.canInvest
-                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-            }`}
-          >
-            <DollarSign className="h-3 w-3" />
-            Invest
-          </div>
+          {permissions.canViewDocuments && (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+              <FileText className="h-3 w-3" />
+              Documents
+            </div>
+          )}
+          {permissions.canInvest && (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+              <DollarSign className="h-3 w-3" />
+              Can Commit
+            </div>
+          )}
         </div>
 
         {userInvestment ? (
@@ -149,13 +121,8 @@ export function UserStatusCard({
             <div className="flex items-center gap-2 mb-3">
               <CheckCircle2 className="h-5 w-5 text-primary" />
               <span className="font-semibold">Capital Commitment</span>
-              <Badge
-                variant={
-                  commitmentStatusVariant[userInvestment.status] ?? "secondary"
-                }
-              >
-                {commitmentStatusLabels[userInvestment.status] ??
-                  userInvestment.status}
+              <Badge variant={isFunded ? "default" : "secondary"}>
+                {investorCommitmentLabel(userInvestment.status)}
               </Badge>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -194,16 +161,19 @@ export function UserStatusCard({
               <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
               <div className="flex-1">
                 <p className="font-semibold text-primary">
-                  Interest Sent – IR Team will contact you.
+                  {userInterest.status === "pass"
+                    ? "You passed on this deal"
+                    : "Interest sent — our team will follow up."}
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Status:{" "}
-                  {interestStatusLabels[userInterest.status] ||
-                    userInterest.status}
-                  {userInterest.proposedAmount
-                    ? ` • Amount: ${formatCurrency(userInterest.proposedAmount)}`
-                    : null}
-                </p>
+                {userInterest.status !== "pass" ? (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Status:{" "}
+                    {interestStatusLabels[userInterest.status] || "Interested"}
+                    {userInterest.proposedAmount
+                      ? ` · Estimated: ${formatCurrency(userInterest.proposedAmount)}`
+                      : null}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>

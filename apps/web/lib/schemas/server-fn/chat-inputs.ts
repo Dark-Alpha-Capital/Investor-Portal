@@ -16,6 +16,14 @@ const chatModelIdSchema = z.enum(
 
 export const createChatInputSchema = z.object({
   model: chatModelIdSchema.default(DEFAULT_CHAT_MODEL_ID),
+  dealId: z.string().trim().min(1).max(128).optional().nullable(),
 });
 
 export type CreateChatInput = z.infer<typeof createChatInputSchema>;
+
+export const setChatDealInputSchema = z.object({
+  chatId: z.string().trim().min(1).max(128),
+  dealId: z.string().trim().min(1).max(128).nullable(),
+});
+
+export type SetChatDealInput = z.infer<typeof setChatDealInputSchema>;

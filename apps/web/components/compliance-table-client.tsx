@@ -75,10 +75,10 @@ type ComplianceData = {
 
 const CLEARANCE_STATUSES = [
   { value: "all", label: "All Statuses" },
-  { value: "no_clearance", label: "No Clearance" },
-  { value: "pending", label: "Pending" },
-  { value: "cleared", label: "Cleared" },
-  { value: "cleared_with_conditions", label: "Cleared w/ Conditions" },
+  { value: "no_clearance", label: "No Status" },
+  { value: "pending_review", label: "Pending Review" },
+  { value: "approved", label: "Approved" },
+  { value: "needs_information", label: "Needs Information" },
   { value: "rejected", label: "Rejected" },
 ];
 
@@ -93,19 +93,19 @@ const STATUS_CONFIG: Record<
     icon: React.ReactNode;
   }
 > = {
-  pending: {
+  pending_review: {
     variant: "secondary",
-    label: "Pending",
+    label: "Pending Review",
     icon: <Clock className="h-3 w-3" />,
   },
-  cleared: {
+  approved: {
     variant: "default",
-    label: "Cleared",
+    label: "Approved",
     icon: <ShieldCheck className="h-3 w-3" />,
   },
-  cleared_with_conditions: {
+  needs_information: {
     variant: "outline",
-    label: "Conditional",
+    label: "Needs Information",
     icon: <AlertTriangle className="h-3 w-3" />,
   },
   rejected: {
@@ -120,12 +120,12 @@ const getClearanceStatusBadge = (clearance: Clearance | null) => {
     return (
       <Badge variant="outline" className="gap-1">
         <ShieldQuestion className="h-3 w-3" />
-        No Clearance
+        No Status
       </Badge>
     );
   }
 
-  const config = STATUS_CONFIG[clearance.status] || STATUS_CONFIG.pending;
+  const config = STATUS_CONFIG[clearance.status] || STATUS_CONFIG.pending_review;
   return (
     <Badge variant={config.variant} className="gap-1">
       {config.icon}
@@ -295,8 +295,7 @@ export function ComplianceTableClient({
               investors.map((investor) => {
                 // Determine if investor can access deals
                 const isCleared =
-                  investor.clearance?.status === "cleared" ||
-                  investor.clearance?.status === "cleared_with_conditions";
+                  investor.clearance?.status === "approved";
                 const hasAccess = isCleared && investor.dealAccessCount > 0;
 
                 return (
@@ -341,14 +340,14 @@ export function ComplianceTableClient({
                         <div className="flex items-center gap-1.5 text-green-700 dark:text-green-400">
                           <Building2 className="h-3.5 w-3.5" />
                           <span className="text-sm font-medium">
-                            {investor.dealAccessCount} deal
+                            {investor.dealAccessCount} invitation
                             {investor.dealAccessCount !== 1 ? "s" : ""}
                           </span>
                         </div>
                       ) : isCleared && investor.dealAccessCount === 0 ? (
                         <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
                           <AlertTriangle className="h-3.5 w-3.5" />
-                          <span className="text-sm">No deals</span>
+                          <span className="text-sm">No invitations</span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5 text-muted-foreground">

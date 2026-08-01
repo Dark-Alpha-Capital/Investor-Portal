@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
 import { AppLink as Link } from "@/components/app-link";
-import { Menu, X, Loader2, LogOut, User, Shield } from "lucide-react";
+import {
+  Menu,
+  X,
+  Loader2,
+  LogOut,
+  User,
+  Shield,
+  LayoutDashboard,
+  MessageSquare,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "@/hooks/use-app-navigation";
 import { authClient } from "@/lib/auth/client";
@@ -15,6 +24,95 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+
+type HeaderSessionUser = {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+  role?: string | null;
+};
+
+function userInitials(user: HeaderSessionUser) {
+  if (user.name) {
+    return user.name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  }
+  return user.email?.[0]?.toUpperCase() ?? "U";
+}
+
+function HeaderUserMenu({ user }: { user: HeaderSessionUser }) {
+  const router = useRouter();
+  const isAdmin = user.role === "admin";
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="outline-none focus:outline-none">
+          <Avatar className="h-9 w-9 cursor-pointer">
+            <AvatarImage
+              src={user.image || undefined}
+              alt={user.name || user.email || "User"}
+            />
+            <AvatarFallback className="bg-primary/20 text-primary">
+              {userInitials(user)}
+            </AvatarFallback>
+          </Avatar>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium">{user.name || "User"}</p>
+            <p className="text-xs text-muted-foreground">{user.email}</p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/dashboard" className="cursor-pointer">
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            Dashboard
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={`/profile/${user.id}`} className="cursor-pointer">
+            <User className="mr-2 h-4 w-4" />
+            Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/chat" className="cursor-pointer">
+            <MessageSquare className="mr-2 h-4 w-4" />
+            Chat
+          </Link>
+        </DropdownMenuItem>
+        {isAdmin ? (
+          <DropdownMenuItem asChild>
+            <Link href="/admin" className="cursor-pointer">
+              <Shield className="mr-2 h-4 w-4" />
+              Admin
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="cursor-pointer text-destructive focus:text-destructive"
+          onClick={async () => {
+            await authClient.signOut();
+            router.push("/");
+          }}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Log out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export default function Header() {
   const { data: session, isPending } = useClientSession();
@@ -109,68 +207,7 @@ export default function Header() {
               {isPending ? (
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               ) : session?.user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="outline-none focus:outline-none">
-                      <Avatar className="h-9 w-9 cursor-pointer">
-                        <AvatarImage
-                          src={session.user.image || undefined}
-                          alt={
-                            session.user.name || session.user.email || "User"
-                          }
-                        />
-                        <AvatarFallback className="bg-primary/20 text-primary">
-                          {session.user.name
-                            ? session.user.name
-                                .split(" ")
-                                .map((n) => n[0])
-                                .join("")
-                                .toUpperCase()
-                                .slice(0, 2)
-                            : (session.user.email?.[0]?.toUpperCase() ?? "U")}
-                        </AvatarFallback>
-                      </Avatar>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium">
-                          {session.user.name || "User"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {session.user.email}
-                        </p>
-                      </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link href="/dashboard" className="cursor-pointer">
-                        <User className="mr-2 h-4 w-4" />
-                        Dashboard
-                      </Link>
-                    </DropdownMenuItem>
-                    {session?.user?.role === "admin" && (
-                      <DropdownMenuItem asChild>
-                        <Link href="/admin" className="cursor-pointer">
-                          <Shield className="mr-2 h-4 w-4" />
-                          Admin
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="cursor-pointer text-destructive focus:text-destructive"
-                      onClick={async () => {
-                        await authClient.signOut();
-                        router.push("/");
-                      }}
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Log out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <HeaderUserMenu user={session.user} />
               ) : (
                 <Button onClick={() => router.push("/login")} size="sm">
                   Login
@@ -269,14 +306,7 @@ export default function Header() {
                         alt={session.user.name || session.user.email || "User"}
                       />
                       <AvatarFallback className="bg-primary/20 text-primary">
-                        {session.user.name
-                          ? session.user.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .toUpperCase()
-                              .slice(0, 2)
-                          : (session.user.email?.[0]?.toUpperCase() ?? "U")}
+                        {userInitials(session.user)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
@@ -293,10 +323,26 @@ export default function Header() {
                     className="flex items-center py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-foreground rounded-md hover:bg-muted transition-colors"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                    <LayoutDashboard className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                     Dashboard
                   </Link>
-                  {session?.user?.role === "admin" && (
+                  <Link
+                    href={`/profile/${session.user.id}`}
+                    className="flex items-center py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-foreground rounded-md hover:bg-muted transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                    Profile
+                  </Link>
+                  <Link
+                    href="/chat"
+                    className="flex items-center py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-foreground rounded-md hover:bg-muted transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                    Chat
+                  </Link>
+                  {session.user.role === "admin" ? (
                     <Link
                       href="/admin"
                       className="flex items-center py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-medium text-foreground rounded-md hover:bg-muted transition-colors"
@@ -305,7 +351,7 @@ export default function Header() {
                       <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                       Admin
                     </Link>
-                  )}
+                  ) : null}
                   <button
                     onClick={async () => {
                       await authClient.signOut();

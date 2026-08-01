@@ -31,7 +31,7 @@ function AdminDashboardInner({
           Admin Dashboard
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Manage users and monitor system activity
+          Manage portal administrators. Investor review is under Compliance.
         </p>
       </div>
 

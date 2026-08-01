@@ -1,7 +1,7 @@
 /**
  * Compliance Router
  *
- * Handles investor clearance management, vehicle permissions,
+ * Handles investor approval status, deal invitations,
  * and audit log retrieval for compliance operations.
  */
 
@@ -41,19 +41,18 @@ import {
 } from "@/lib/audit";
 import { authSession } from "@/lib/auth/session-from-request";
 
-// Clearance status types
+// Global investor approval status
 const clearanceStatusSchema = z.enum([
-  "pending",
-  "cleared",
-  "cleared_with_conditions",
+  "pending_review",
+  "approved",
+  "needs_information",
   "rejected",
 ]);
 
-// Helper function to check if clearance status is cleared
-const isClearedStatus = (
-  status: string
-): status is "cleared" | "cleared_with_conditions" => {
-  return status === "cleared" || status === "cleared_with_conditions";
+const dealAccessLevelSchema = z.enum(["teaser", "data_room"]);
+
+const isApprovedStatus = (status: string): status is "approved" => {
+  return status === "approved";
 };
 
 export const complianceRouter = createTRPCRouter({
@@ -323,17 +322,17 @@ export const complianceRouter = createTRPCRouter({
       // Get current clearance (most recent)
       const currentClearance = clearanceHistory[0] || null;
 
-      // Get vehicle permissions (only active ones) with deal names
+      // Get active deal invitations with deal names
       const permissionsRaw = await ctx.db
         .select({
           id: vehiclePermission.id,
           dealId: vehiclePermission.dealId,
-          canViewTeaser: vehiclePermission.canViewTeaser,
-          canViewDocuments: vehiclePermission.canViewDocuments,
-          canExpressInterest: vehiclePermission.canExpressInterest,
-          canInvest: vehiclePermission.canInvest,
+          accessLevel: vehiclePermission.accessLevel,
           grantedAt: vehiclePermission.grantedAt,
           grantedBy: vehiclePermission.grantedBy,
+          notes: vehiclePermission.notes,
+          dataRoomRequestedAt: vehiclePermission.dataRoomRequestedAt,
+          dataRoomRequestMessage: vehiclePermission.dataRoomRequestMessage,
         })
         .from(vehiclePermission)
         .where(
@@ -456,7 +455,6 @@ export const complianceRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Start session check early
       const session = await authSession();
 
       if (!session?.user || session.user.role !== "admin") {
@@ -466,7 +464,6 @@ export const complianceRouter = createTRPCRouter({
         });
       }
 
-      // Get investor and previous clearance in parallel
       const [investor, previousClearance] = await Promise.all([
         ctx.db
           .select({
@@ -493,21 +490,19 @@ export const complianceRouter = createTRPCRouter({
         });
       }
 
-      // Prevent granting clearance if onboarding/KYC is not complete
-      if (isClearedStatus(input.status) && !investor.isOnboardingCompleted) {
+      if (isApprovedStatus(input.status) && !investor.isOnboardingCompleted) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message:
-            "Cannot grant clearance: Investor has not completed onboarding/KYC. " +
-            "The investor must complete their onboarding before clearance can be granted.",
+            "Cannot approve investor: onboarding/KYC is not complete. " +
+            "The investor must complete onboarding before approval.",
         });
       }
 
-      const clearedAt = isClearedStatus(input.status) ? new Date() : null;
+      const clearedAt = isApprovedStatus(input.status) ? new Date() : null;
       const clearanceId = nanoid();
 
-      // Prepare clearance data
-      const clearanceData = {
+      await ctx.db.insert(investorClearance).values({
         id: clearanceId,
         userId: input.userId,
         status: input.status,
@@ -524,12 +519,8 @@ export const complianceRouter = createTRPCRouter({
         notes: input.notes || null,
         investorVisibleNotes: input.investorVisibleNotes || null,
         expiresAt: input.expiresAt || null,
-      };
+      });
 
-      // Create clearance record
-      await ctx.db.insert(investorClearance).values(clearanceData);
-
-      // Log the audit event after response is sent
       after(async () => {
         await logClearanceChange({
           performedBy: session.user.id,
@@ -541,115 +532,26 @@ export const complianceRouter = createTRPCRouter({
         });
       });
 
-      // Auto-grant vehicle permissions if cleared
-      if (isClearedStatus(input.status)) {
-        // Get all non-draft deals and existing permissions in parallel
-        const [activeDeals, existingPermissions] = await Promise.all([
-          ctx.db
-            .select({ id: deal.id, status: deal.status })
-            .from(deal)
-            .where(ne(deal.status, "draft")),
-          ctx.db
-            .select({
-              dealId: vehiclePermission.dealId,
-            })
-            .from(vehiclePermission)
-            .where(
-              and(
-                eq(vehiclePermission.userId, input.userId),
-                isNull(vehiclePermission.revokedAt)
-              )
-            ),
-        ]);
-
-        const existingPermissionSet = new Set(
-          existingPermissions.map((p) => p.dealId)
-        );
-
-        // Prepare permission records for deals without existing permissions
-        const permissionRecords = activeDeals
-          .filter((activeDeal) => !existingPermissionSet.has(activeDeal.id))
-          .map((activeDeal) => {
-            const isFullyClearedAndDealLive =
-              input.status === "cleared" &&
-              (activeDeal.status === "live" || activeDeal.status === "closing");
-
-            return {
-              id: nanoid(),
-              userId: input.userId,
-              dealId: activeDeal.id,
-              canViewTeaser: true,
-              canViewDocuments: input.status === "cleared",
-              canExpressInterest: true,
-              canInvest: isFullyClearedAndDealLive,
-              grantedBy: session.user.id,
-            };
-          });
-
-        // Insert with conflict-safe semantics to avoid duplicate-active errors
-        if (permissionRecords.length > 0) {
-          const insertedPermissions = await ctx.db
-            .insert(vehiclePermission)
-            .values(permissionRecords)
-            .onConflictDoNothing()
-            .returning({
-              dealId: vehiclePermission.dealId,
-              canViewTeaser: vehiclePermission.canViewTeaser,
-              canViewDocuments: vehiclePermission.canViewDocuments,
-              canExpressInterest: vehiclePermission.canExpressInterest,
-              canInvest: vehiclePermission.canInvest,
-            });
-
-          // Log permission grants after response is sent
-          if (insertedPermissions.length > 0) {
-            after(async () => {
-              await Promise.all(
-                insertedPermissions.map((perm) =>
-                  logPermissionGrant({
-                    performedBy: session.user.id,
-                    targetUserId: input.userId,
-                    dealId: perm.dealId,
-                    permissions: {
-                      canViewTeaser: perm.canViewTeaser,
-                      canViewDocuments: perm.canViewDocuments,
-                      canExpressInterest: perm.canExpressInterest,
-                      canInvest: perm.canInvest,
-                    },
-                    notes: `Auto-granted on clearance: ${input.status}`,
-                  })
-                )
-              );
-            });
-          }
-        }
-      }
-
       return {
         success: true,
         clearanceId,
-        message: `Clearance status updated to ${input.status}`,
+        message: `Investor status updated to ${input.status}`,
       };
     }),
 
   /**
-   * Grant vehicle-specific permission
+   * Invite investor to a deal (or update invitation access level)
    */
-  grantVehicleAccess: adminProcedure
+  inviteToDeal: adminProcedure
     .input(
       z.object({
         userId: z.string(),
         dealId: z.string(),
-        permissions: z.object({
-          canViewTeaser: z.boolean().default(true),
-          canViewDocuments: z.boolean().default(false),
-          canExpressInterest: z.boolean().default(false),
-          canInvest: z.boolean().default(false),
-        }),
+        accessLevel: dealAccessLevelSchema,
         notes: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Start session check early
       const session = await authSession();
       if (!session?.user || session.user.role !== "admin") {
         throw new TRPCError({
@@ -657,61 +559,272 @@ export const complianceRouter = createTRPCRouter({
           message: "Admin access required",
         });
       }
-      const { permissions } = input;
 
-      const permissionId = nanoid();
-      const permissionData = {
-        id: permissionId,
-        userId: input.userId,
-        dealId: input.dealId,
-        canViewTeaser: permissions.canViewTeaser,
-        canViewDocuments: permissions.canViewDocuments,
-        canExpressInterest: permissions.canExpressInterest,
-        canInvest: permissions.canInvest,
-        grantedBy: session.user.id,
-        notes: input.notes || null,
-      };
+      // Require approved global status
+      const [clearance] = await ctx.db
+        .select({ status: investorClearance.status })
+        .from(investorClearance)
+        .where(eq(investorClearance.userId, input.userId))
+        .orderBy(desc(investorClearance.createdAt))
+        .limit(1);
 
-      const [insertedPermission] = await ctx.db
-        .insert(vehiclePermission)
-        .values(permissionData)
-        .onConflictDoNothing()
-        .returning({ id: vehiclePermission.id });
-
-      if (!insertedPermission) {
+      if (!clearance || !isApprovedStatus(clearance.status)) {
         throw new TRPCError({
-          code: "CONFLICT",
-          message:
-            "Active permission already exists. No new access was granted.",
+          code: "BAD_REQUEST",
+          message: "Investor must be approved before inviting to a deal",
         });
       }
 
-      // Log permission grant after response is sent
+      const [dealRecord] = await ctx.db
+        .select({ id: deal.id, name: deal.name })
+        .from(deal)
+        .where(eq(deal.id, input.dealId))
+        .limit(1);
+
+      if (!dealRecord) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Deal not found",
+        });
+      }
+
+      // Upsert: update existing active invitation, or un-revoke, or insert
+      const [existing] = await ctx.db
+        .select({
+          id: vehiclePermission.id,
+          revokedAt: vehiclePermission.revokedAt,
+          accessLevel: vehiclePermission.accessLevel,
+        })
+        .from(vehiclePermission)
+        .where(
+          and(
+            eq(vehiclePermission.userId, input.userId),
+            eq(vehiclePermission.dealId, input.dealId)
+          )
+        )
+        .limit(1);
+
+      let invitationId: string;
+
+      // Granting data room clears any pending upgrade request
+      const clearRequest =
+        input.accessLevel === "data_room"
+          ? {
+              dataRoomRequestedAt: null as Date | null,
+              dataRoomRequestMessage: null as string | null,
+            }
+          : {};
+
+      if (existing) {
+        await ctx.db
+          .update(vehiclePermission)
+          .set({
+            accessLevel: input.accessLevel,
+            grantedBy: session.user.id,
+            grantedAt: new Date(),
+            notes: input.notes || null,
+            revokedAt: null,
+            revokedBy: null,
+            revokeReason: null,
+            ...clearRequest,
+          })
+          .where(eq(vehiclePermission.id, existing.id));
+        invitationId = existing.id;
+      } else {
+        invitationId = nanoid();
+        await ctx.db.insert(vehiclePermission).values({
+          id: invitationId,
+          userId: input.userId,
+          dealId: input.dealId,
+          accessLevel: input.accessLevel,
+          grantedBy: session.user.id,
+          notes: input.notes || null,
+        });
+      }
+
       after(async () => {
         await logPermissionGrant({
           performedBy: session.user.id,
           targetUserId: input.userId,
           dealId: input.dealId,
-          permissions: {
-            canViewTeaser: permissions.canViewTeaser,
-            canViewDocuments: permissions.canViewDocuments,
-            canExpressInterest: permissions.canExpressInterest,
-            canInvest: permissions.canInvest,
-          },
+          accessLevel: input.accessLevel,
+          notes: input.notes || `Invited to ${dealRecord.name}`,
+        });
+      });
+
+      return {
+        success: true,
+        invitationId,
+        message: `Invited to deal at ${input.accessLevel} access`,
+      };
+    }),
+
+  /** @deprecated Prefer inviteToDeal */
+  grantVehicleAccess: adminProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        dealId: z.string(),
+        accessLevel: dealAccessLevelSchema.optional(),
+        permissions: z
+          .object({
+            canViewTeaser: z.boolean().optional(),
+            canViewDocuments: z.boolean().optional(),
+            canExpressInterest: z.boolean().optional(),
+            canInvest: z.boolean().optional(),
+          })
+          .optional(),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const accessLevel =
+        input.accessLevel ??
+        (input.permissions?.canViewDocuments || input.permissions?.canInvest
+          ? "data_room"
+          : "teaser");
+
+      // Delegate to inviteToDeal logic via internal call pattern — inline re-use
+      const session = await authSession();
+      if (!session?.user || session.user.role !== "admin") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Admin access required",
+        });
+      }
+
+      const [clearance] = await ctx.db
+        .select({ status: investorClearance.status })
+        .from(investorClearance)
+        .where(eq(investorClearance.userId, input.userId))
+        .orderBy(desc(investorClearance.createdAt))
+        .limit(1);
+
+      if (!clearance || !isApprovedStatus(clearance.status)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Investor must be approved before inviting to a deal",
+        });
+      }
+
+      const [existing] = await ctx.db
+        .select({ id: vehiclePermission.id })
+        .from(vehiclePermission)
+        .where(
+          and(
+            eq(vehiclePermission.userId, input.userId),
+            eq(vehiclePermission.dealId, input.dealId)
+          )
+        )
+        .limit(1);
+
+      let invitationId: string;
+      if (existing) {
+        await ctx.db
+          .update(vehiclePermission)
+          .set({
+            accessLevel,
+            grantedBy: session.user.id,
+            grantedAt: new Date(),
+            notes: input.notes || null,
+            revokedAt: null,
+            revokedBy: null,
+            revokeReason: null,
+          })
+          .where(eq(vehiclePermission.id, existing.id));
+        invitationId = existing.id;
+      } else {
+        invitationId = nanoid();
+        await ctx.db.insert(vehiclePermission).values({
+          id: invitationId,
+          userId: input.userId,
+          dealId: input.dealId,
+          accessLevel,
+          grantedBy: session.user.id,
+          notes: input.notes || null,
+        });
+      }
+
+      after(async () => {
+        await logPermissionGrant({
+          performedBy: session.user.id,
+          targetUserId: input.userId,
+          dealId: input.dealId,
+          accessLevel,
           notes: input.notes || null,
         });
       });
 
       return {
         success: true,
-        permissionId: insertedPermission.id,
-        message: "Vehicle access granted",
+        permissionId: invitationId,
+        message: "Deal invitation set",
       };
     }),
 
   /**
-   * Revoke vehicle-specific permission
+   * Withdraw deal invitation (soft revoke)
    */
+  withdrawInvitation: adminProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        dealId: z.string(),
+        reason: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const session = await authSession();
+      if (!session?.user || session.user.role !== "admin") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Admin access required",
+        });
+      }
+
+      const [existingPermission] = await ctx.db
+        .select({ id: vehiclePermission.id })
+        .from(vehiclePermission)
+        .where(
+          and(
+            eq(vehiclePermission.userId, input.userId),
+            eq(vehiclePermission.dealId, input.dealId),
+            isNull(vehiclePermission.revokedAt)
+          )
+        )
+        .limit(1);
+
+      if (!existingPermission) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No active invitation found to withdraw",
+        });
+      }
+
+      await ctx.db
+        .update(vehiclePermission)
+        .set({
+          revokedAt: new Date(),
+          revokedBy: session.user.id,
+          revokeReason: input.reason || null,
+        })
+        .where(eq(vehiclePermission.id, existingPermission.id));
+
+      after(async () => {
+        await logPermissionRevoke({
+          performedBy: session.user.id,
+          targetUserId: input.userId,
+          dealId: input.dealId,
+          reason: input.reason || null,
+        });
+      });
+
+      return {
+        success: true,
+        message: "Invitation withdrawn",
+      };
+    }),
+
   revokeVehicleAccess: adminProcedure
     .input(
       z.object({
@@ -770,7 +883,7 @@ export const complianceRouter = createTRPCRouter({
 
       return {
         success: true,
-        message: "Vehicle access revoked",
+        message: "Invitation withdrawn",
       };
     }),
 
@@ -879,22 +992,17 @@ export const complianceRouter = createTRPCRouter({
    * Grant deal access to all cleared investors
    * Use this when publishing a new deal to auto-grant access
    */
-  grantDealToAllClearedInvestors: adminProcedure
+  /**
+   * Invite all approved investors to a deal at a given access level
+   */
+  inviteAllApprovedToDeal: adminProcedure
     .input(
       z.object({
         dealId: z.string(),
-        permissions: z
-          .object({
-            canViewTeaser: z.boolean().default(true),
-            canViewDocuments: z.boolean().default(true),
-            canExpressInterest: z.boolean().default(true),
-            canInvest: z.boolean().default(true),
-          })
-          .optional(),
+        accessLevel: dealAccessLevelSchema.default("teaser"),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Start session check early
       const session = await authSession();
 
       if (!session?.user || session.user.role !== "admin") {
@@ -904,7 +1012,6 @@ export const complianceRouter = createTRPCRouter({
         });
       }
 
-      // Verify deal exists
       const [dealRecord] = await ctx.db
         .select({ id: deal.id, name: deal.name, status: deal.status })
         .from(deal)
@@ -918,7 +1025,6 @@ export const complianceRouter = createTRPCRouter({
         });
       }
 
-      // Latest clearance per user (SQLite-compatible; D1 has no DISTINCT ON)
       const latestClearanceTimestamps = ctx.db
         .select({
           userId: investorClearance.userId,
@@ -929,10 +1035,9 @@ export const complianceRouter = createTRPCRouter({
         })
         .from(investorClearance)
         .groupBy(investorClearance.userId)
-        .as("latest_clearance_timestamps_bulk_grant");
+        .as("latest_clearance_timestamps_bulk_invite");
 
-      // Get cleared investors and existing permissions in parallel
-      const [clearedInvestorsRaw, existingPermissions] = await Promise.all([
+      const [approvedInvestorsRaw, existingInvitations] = await Promise.all([
         ctx.db
           .select({
             userId: investorClearance.userId,
@@ -962,62 +1067,35 @@ export const complianceRouter = createTRPCRouter({
           ),
       ]);
 
-      // Filter to only cleared investors
-      const investorsToGrant = clearedInvestorsRaw.filter((inv) =>
-        isClearedStatus(inv.status)
+      const investorsToInvite = approvedInvestorsRaw.filter((inv) =>
+        isApprovedStatus(inv.status)
       );
 
-      // Create set of existing permission user IDs for quick lookup
-      const existingPermissionSet = new Set(
-        existingPermissions.map((p) => p.userId)
-      );
+      const existingSet = new Set(existingInvitations.map((p) => p.userId));
 
-      // Default permissions based on deal status
-      const defaultPermissions = {
-        canViewTeaser: true,
-        canViewDocuments: true,
-        canExpressInterest: true,
-        canInvest:
-          dealRecord.status === "live" || dealRecord.status === "closing",
-      };
-
-      const permissionsToGrant = input.permissions || defaultPermissions;
-
-      // Prepare permission records for investors without existing permissions
-      const permissionRecords = investorsToGrant
-        .filter((investor) => !existingPermissionSet.has(investor.userId))
+      const records = investorsToInvite
+        .filter((investor) => !existingSet.has(investor.userId))
         .map((investor) => ({
           id: nanoid(),
           userId: investor.userId,
           dealId: input.dealId,
-          canViewTeaser: permissionsToGrant.canViewTeaser,
-          canViewDocuments:
-            investor.status === "cleared"
-              ? permissionsToGrant.canViewDocuments
-              : false,
-          canExpressInterest: permissionsToGrant.canExpressInterest,
-          canInvest:
-            investor.status === "cleared"
-              ? permissionsToGrant.canInvest
-              : false,
+          accessLevel: input.accessLevel,
           grantedBy: session.user.id,
-          notes: `Bulk grant for deal: ${dealRecord.name}`,
+          notes: `Bulk invite for deal: ${dealRecord.name}`,
         }));
 
-      // Insert all permissions with conflict-safe semantics for concurrent grants
       let grantedCount = 0;
-      if (permissionRecords.length > 0) {
-        const insertedPermissions = await ctx.db
+      if (records.length > 0) {
+        const inserted = await ctx.db
           .insert(vehiclePermission)
-          .values(permissionRecords)
+          .values(records)
           .onConflictDoNothing()
           .returning({ id: vehiclePermission.id });
-        grantedCount = insertedPermissions.length;
+        grantedCount = inserted.length;
       }
 
-      const skippedCount = investorsToGrant.length - grantedCount;
+      const skippedCount = investorsToInvite.length - grantedCount;
 
-      // Log bulk grant action after response is sent
       after(async () => {
         await ctx.db.insert(auditLog).values({
           id: nanoid(),
@@ -1026,10 +1104,10 @@ export const complianceRouter = createTRPCRouter({
           targetType: "deal",
           targetId: input.dealId,
           newValue: {
-            bulkGrant: true,
+            bulkInvite: true,
             grantedCount,
             skippedCount,
-            permissions: permissionsToGrant,
+            accessLevel: input.accessLevel,
           },
           metadata: {
             dealName: dealRecord.name,
@@ -1039,15 +1117,130 @@ export const complianceRouter = createTRPCRouter({
 
       return {
         success: true,
-        message: `Granted access to ${grantedCount} investors (${skippedCount} already had access)`,
+        message: `Invited ${grantedCount} investors (${skippedCount} already invited)`,
         grantedCount,
         skippedCount,
       };
     }),
 
-  /**
-   * Review a single document - update its status
-   */
+  /** @deprecated Prefer inviteAllApprovedToDeal */
+  grantDealToAllClearedInvestors: adminProcedure
+    .input(
+      z.object({
+        dealId: z.string(),
+        accessLevel: dealAccessLevelSchema.default("teaser").optional(),
+        permissions: z
+          .object({
+            canViewTeaser: z.boolean().optional(),
+            canViewDocuments: z.boolean().optional(),
+            canExpressInterest: z.boolean().optional(),
+            canInvest: z.boolean().optional(),
+          })
+          .optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const accessLevel =
+        input.accessLevel ??
+        (input.permissions?.canViewDocuments || input.permissions?.canInvest
+          ? "data_room"
+          : "teaser");
+
+      // Re-implement thin wrapper by calling same logic path
+      const session = await authSession();
+      if (!session?.user || session.user.role !== "admin") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Admin access required",
+        });
+      }
+
+      const [dealRecord] = await ctx.db
+        .select({ id: deal.id, name: deal.name })
+        .from(deal)
+        .where(eq(deal.id, input.dealId))
+        .limit(1);
+
+      if (!dealRecord) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Deal not found",
+        });
+      }
+
+      const latestClearanceTimestamps = ctx.db
+        .select({
+          userId: investorClearance.userId,
+          maxCreatedAt:
+            sql<(typeof investorClearance.$inferSelect)["createdAt"]>`max(${investorClearance.createdAt})`.as(
+              "max_created_at"
+            ),
+        })
+        .from(investorClearance)
+        .groupBy(investorClearance.userId)
+        .as("latest_clearance_timestamps_bulk_grant_compat");
+
+      const [approvedInvestorsRaw, existingInvitations] = await Promise.all([
+        ctx.db
+          .select({
+            userId: investorClearance.userId,
+            status: investorClearance.status,
+          })
+          .from(investorClearance)
+          .innerJoin(
+            latestClearanceTimestamps,
+            and(
+              eq(investorClearance.userId, latestClearanceTimestamps.userId),
+              eq(
+                investorClearance.createdAt,
+                latestClearanceTimestamps.maxCreatedAt
+              )
+            )
+          ),
+        ctx.db
+          .select({ userId: vehiclePermission.userId })
+          .from(vehiclePermission)
+          .where(
+            and(
+              eq(vehiclePermission.dealId, input.dealId),
+              isNull(vehiclePermission.revokedAt)
+            )
+          ),
+      ]);
+
+      const investorsToInvite = approvedInvestorsRaw.filter((inv) =>
+        isApprovedStatus(inv.status)
+      );
+      const existingSet = new Set(existingInvitations.map((p) => p.userId));
+      const records = investorsToInvite
+        .filter((inv) => !existingSet.has(inv.userId))
+        .map((inv) => ({
+          id: nanoid(),
+          userId: inv.userId,
+          dealId: input.dealId,
+          accessLevel,
+          grantedBy: session.user.id,
+          notes: `Bulk invite for deal: ${dealRecord.name}`,
+        }));
+
+      let grantedCount = 0;
+      if (records.length > 0) {
+        const inserted = await ctx.db
+          .insert(vehiclePermission)
+          .values(records)
+          .onConflictDoNothing()
+          .returning({ id: vehiclePermission.id });
+        grantedCount = inserted.length;
+      }
+
+      return {
+        success: true,
+        message: `Invited ${grantedCount} investors`,
+        grantedCount,
+        skippedCount: investorsToInvite.length - grantedCount,
+      };
+    }),
+
   reviewDocument: adminProcedure
     .input(
       z.object({

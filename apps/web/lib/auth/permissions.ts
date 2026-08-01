@@ -1,31 +1,30 @@
 /**
  * Permissions Library
  *
- * Provides utilities for checking user permissions, clearance status,
- * and access control throughout the investor portal.
+ * Investor approval (global status) + per-deal invitations (TEASER / DATA_ROOM).
  */
 
 import { db } from "@repo/db";
 import { investorClearance, vehiclePermission, user, onboarding } from "@repo/db/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
 
-// Clearance status types matching the database enum
 export type ClearanceStatus =
-  | "pending"
-  | "cleared"
-  | "cleared_with_conditions"
+  | "pending_review"
+  | "approved"
+  | "needs_information"
   | "rejected";
 
-// User clearance information
+export type DealAccessLevel = "teaser" | "data_room";
+
 export type UserClearance = {
   status: ClearanceStatus;
   conditions: string | null;
   conditionsJson: string[] | null;
   clearedAt: Date | null;
   clearedBy: string | null;
+  investorVisibleNotes: string | null;
 };
 
-// User access information
 export type UserAccessInfo = {
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -36,9 +35,21 @@ export type UserAccessInfo = {
   canAccessDealMarketplace: boolean;
 };
 
+export type DealInvitation = {
+  accessLevel: DealAccessLevel;
+  notes: string | null;
+};
+
+/** True when investor is globally approved to receive invitations / see deals. */
+export function isApprovedStatus(
+  status: string | null | undefined
+): status is "approved" {
+  return status === "approved";
+}
+
 /**
  * Get the current clearance status for a user
- * Returns the most recent active clearance record
+ * Returns the most recent clearance record
  */
 export async function getUserClearance(
   userId: string
@@ -50,6 +61,7 @@ export async function getUserClearance(
       conditionsJson: investorClearance.conditionsJson,
       clearedAt: investorClearance.clearedAt,
       clearedBy: investorClearance.clearedBy,
+      investorVisibleNotes: investorClearance.investorVisibleNotes,
     })
     .from(investorClearance)
     .where(eq(investorClearance.userId, userId))
@@ -66,86 +78,113 @@ export async function getUserClearance(
     conditionsJson: clearanceRecord.conditionsJson as string[] | null,
     clearedAt: clearanceRecord.clearedAt,
     clearedBy: clearanceRecord.clearedBy,
+    investorVisibleNotes: clearanceRecord.investorVisibleNotes,
   };
 }
 
-// Vehicle permission details
-export type VehicleAccessLevel = {
-  canViewTeaser: boolean;
-  canViewDocuments: boolean;
-  canExpressInterest: boolean;
-  canInvest: boolean;
-};
+/**
+ * Get active deal invitation for a user on a specific deal
+ */
+export async function getDealInvitation(
+  userId: string,
+  dealId: string
+): Promise<DealInvitation | null> {
+  const [row] = await db
+    .select({
+      accessLevel: vehiclePermission.accessLevel,
+      notes: vehiclePermission.notes,
+    })
+    .from(vehiclePermission)
+    .where(
+      and(
+        eq(vehiclePermission.userId, userId),
+        eq(vehiclePermission.dealId, dealId),
+        isNull(vehiclePermission.revokedAt)
+      )
+    )
+    .limit(1);
+
+  if (!row) return null;
+
+  return {
+    accessLevel: row.accessLevel as DealAccessLevel,
+    notes: row.notes,
+  };
+}
 
 /**
- * Check if a user has access to a specific deal/vehicle
+ * Check if a user has an active invitation to a deal
  */
+export async function hasDealInvitation(
+  userId: string,
+  dealId: string
+): Promise<boolean> {
+  const clearance = await getUserClearance(userId);
+  if (!clearance || !isApprovedStatus(clearance.status)) {
+    return false;
+  }
+
+  const invitation = await getDealInvitation(userId, dealId);
+  return invitation !== null;
+}
+
+/** @deprecated Use hasDealInvitation */
 export async function hasVehicleAccess(
   userId: string,
   dealId: string
 ): Promise<boolean> {
-  // First check clearance status
-  const clearance = await getUserClearance(userId);
-
-  // If not cleared, no access
-  if (!clearance || clearance.status === "pending" || clearance.status === "rejected") {
-    return false;
-  }
-
-  // Check vehicle-specific permission
-  const [permission] = await db
-    .select({
-      id: vehiclePermission.id,
-      canViewDocuments: vehiclePermission.canViewDocuments,
-    })
-    .from(vehiclePermission)
-    .where(
-      and(
-        eq(vehiclePermission.userId, userId),
-        eq(vehiclePermission.dealId, dealId),
-        isNull(vehiclePermission.revokedAt)
-      )
-    )
-    .limit(1);
-
-  return !!permission;
+  return hasDealInvitation(userId, dealId);
 }
 
 /**
- * Get detailed vehicle access for a user on a specific deal
+ * Derive capability flags from invitation access level
  */
-export async function getVehicleAccessLevel(
-  userId: string,
-  dealId: string
-): Promise<VehicleAccessLevel | null> {
-  const [permission] = await db
-    .select({
-      canViewTeaser: vehiclePermission.canViewTeaser,
-      canViewDocuments: vehiclePermission.canViewDocuments,
-      canExpressInterest: vehiclePermission.canExpressInterest,
-      canInvest: vehiclePermission.canInvest,
-    })
-    .from(vehiclePermission)
-    .where(
-      and(
-        eq(vehiclePermission.userId, userId),
-        eq(vehiclePermission.dealId, dealId),
-        isNull(vehiclePermission.revokedAt)
-      )
-    )
-    .limit(1);
+export function capabilitiesFromAccessLevel(
+  accessLevel: DealAccessLevel | null,
+  opts?: { isAdmin?: boolean }
+): {
+  canViewTeaser: boolean;
+  canViewDocuments: boolean;
+  canExpressInterest: boolean;
+  canInvest: boolean;
+  accessLevel: DealAccessLevel | null;
+} {
+  if (opts?.isAdmin) {
+    return {
+      canViewTeaser: true,
+      canViewDocuments: true,
+      canExpressInterest: true,
+      canInvest: true,
+      accessLevel: "data_room",
+    };
+  }
 
-  return permission || null;
+  if (!accessLevel) {
+    return {
+      canViewTeaser: false,
+      canViewDocuments: false,
+      canExpressInterest: false,
+      canInvest: false,
+      accessLevel: null,
+    };
+  }
+
+  const isDataRoom = accessLevel === "data_room";
+  return {
+    canViewTeaser: true,
+    canViewDocuments: isDataRoom,
+    canExpressInterest: isDataRoom,
+    canInvest: isDataRoom,
+    accessLevel,
+  };
 }
 
 /**
  * Get complete access information for a user
- * This is the main function to determine what a user can see/do
  */
 export async function getUserAccessInfo(
   userId: string | null | undefined
 ): Promise<UserAccessInfo> {
-  // Not authenticated
   if (!userId) {
     return {
       isAuthenticated: false,
@@ -158,7 +197,6 @@ export async function getUserAccessInfo(
     };
   }
 
-  // Get user record
   const [userRecord] = await db
     .select({
       id: user.id,
@@ -184,14 +222,13 @@ export async function getUserAccessInfo(
   const isAdmin = userRecord.role === "admin";
   const isOnboardingCompleted = userRecord.isOnboardingCompleted ?? false;
 
-  // Admins have full access regardless of clearance
   if (isAdmin) {
     return {
       isAuthenticated: true,
       isAdmin: true,
       isOnboardingCompleted,
       clearance: {
-        status: "cleared",
+        status: "approved",
         conditions: null,
         conditionsJson: null,
         clearedAt: null,
@@ -203,28 +240,20 @@ export async function getUserAccessInfo(
     };
   }
 
-  // Get clearance status for regular users
   const clearance = await getUserClearance(userId);
-
-  // Determine access levels based on clearance
-  const isCleared =
-    clearance?.status === "cleared" ||
-    clearance?.status === "cleared_with_conditions";
+  const isApproved = isApprovedStatus(clearance?.status);
 
   return {
     isAuthenticated: true,
     isAdmin: false,
     isOnboardingCompleted,
     clearance,
-    hasFullAccess: clearance?.status === "cleared",
-    canViewDealDocuments: isCleared,
-    canAccessDealMarketplace: isOnboardingCompleted, // Can browse marketplace but not download docs until cleared
+    hasFullAccess: isApproved,
+    canViewDealDocuments: isApproved,
+    canAccessDealMarketplace: isOnboardingCompleted,
   };
 }
 
-/**
- * Check if user needs to complete onboarding
- */
 export async function needsOnboarding(userId: string): Promise<boolean> {
   const [userRecord] = await db
     .select({
@@ -237,12 +266,7 @@ export async function needsOnboarding(userId: string): Promise<boolean> {
   return !userRecord?.isOnboardingCompleted;
 }
 
-/**
- * Get onboarding status for a user
- */
-export async function getOnboardingStatus(
-  userId: string
-): Promise<{
+export async function getOnboardingStatus(userId: string): Promise<{
   isCompleted: boolean;
   status: string | null;
   submittedAt: Date | null;
@@ -272,9 +296,6 @@ export async function getOnboardingStatus(
   };
 }
 
-/**
- * Permission check result
- */
 export type PermissionCheckResult = {
   allowed: boolean;
   reason?: string;
@@ -282,74 +303,37 @@ export type PermissionCheckResult = {
 };
 
 /**
- * Get all deal IDs that a user can view in the marketplace
- * This is the primary function for marketplace visibility
+ * Get all deal IDs that a user has been invited to
  */
 export async function getVisibleDealIds(userId: string): Promise<string[]> {
-  // First check clearance status - must be cleared to see any deals
   const clearance = await getUserClearance(userId);
 
-  // Not cleared = no deals visible
-  if (
-    !clearance ||
-    clearance.status === "pending" ||
-    clearance.status === "rejected"
-  ) {
+  if (!clearance || !isApprovedStatus(clearance.status)) {
     return [];
   }
 
-  // Get deals where user has canViewTeaser permission (active, not revoked)
-  const permissions = await db
+  const invitations = await db
     .select({ dealId: vehiclePermission.dealId })
     .from(vehiclePermission)
     .where(
       and(
         eq(vehiclePermission.userId, userId),
-        eq(vehiclePermission.canViewTeaser, true),
         isNull(vehiclePermission.revokedAt)
       )
     );
 
-  return permissions.map((p) => p.dealId);
+  return invitations.map((p) => p.dealId);
 }
 
-/**
- * Check if a user can view a specific deal in the marketplace
- */
 export async function canViewDeal(
   userId: string,
   dealId: string
 ): Promise<boolean> {
-  // Check clearance first
-  const clearance = await getUserClearance(userId);
-
-  if (
-    !clearance ||
-    clearance.status === "pending" ||
-    clearance.status === "rejected"
-  ) {
-    return false;
-  }
-
-  // Check vehicle permission
-  const [permission] = await db
-    .select({ canViewTeaser: vehiclePermission.canViewTeaser })
-    .from(vehiclePermission)
-    .where(
-      and(
-        eq(vehiclePermission.userId, userId),
-        eq(vehiclePermission.dealId, dealId),
-        isNull(vehiclePermission.revokedAt)
-      )
-    )
-    .limit(1);
-
-  return permission?.canViewTeaser ?? false;
+  return hasDealInvitation(userId, dealId);
 }
 
 /**
- * Get complete deal permissions for a user
- * Returns all 4 permission flags plus clearance context
+ * Get deal capabilities derived from invitation access level
  */
 export async function getDealPermissions(
   userId: string,
@@ -359,69 +343,45 @@ export async function getDealPermissions(
   canViewDocuments: boolean;
   canExpressInterest: boolean;
   canInvest: boolean;
+  accessLevel: DealAccessLevel | null;
   clearanceStatus: ClearanceStatus | null;
   hasPermission: boolean;
 } | null> {
-  // Check clearance first
   const clearance = await getUserClearance(userId);
 
-  if (
-    !clearance ||
-    clearance.status === "pending" ||
-    clearance.status === "rejected"
-  ) {
+  if (!clearance || !isApprovedStatus(clearance.status)) {
     return {
       canViewTeaser: false,
       canViewDocuments: false,
       canExpressInterest: false,
       canInvest: false,
+      accessLevel: null,
       clearanceStatus: clearance?.status ?? null,
       hasPermission: false,
     };
   }
 
-  // Get vehicle permission for this deal
-  const [permission] = await db
-    .select({
-      canViewTeaser: vehiclePermission.canViewTeaser,
-      canViewDocuments: vehiclePermission.canViewDocuments,
-      canExpressInterest: vehiclePermission.canExpressInterest,
-      canInvest: vehiclePermission.canInvest,
-    })
-    .from(vehiclePermission)
-    .where(
-      and(
-        eq(vehiclePermission.userId, userId),
-        eq(vehiclePermission.dealId, dealId),
-        isNull(vehiclePermission.revokedAt)
-      )
-    )
-    .limit(1);
-
-  if (!permission) {
+  const invitation = await getDealInvitation(userId, dealId);
+  if (!invitation) {
     return {
       canViewTeaser: false,
       canViewDocuments: false,
       canExpressInterest: false,
       canInvest: false,
+      accessLevel: null,
       clearanceStatus: clearance.status,
       hasPermission: false,
     };
   }
 
+  const caps = capabilitiesFromAccessLevel(invitation.accessLevel);
   return {
-    canViewTeaser: permission.canViewTeaser,
-    canViewDocuments: permission.canViewDocuments,
-    canExpressInterest: permission.canExpressInterest,
-    canInvest: permission.canInvest,
+    ...caps,
     clearanceStatus: clearance.status,
     hasPermission: true,
   };
 }
 
-/**
- * Check if user is an admin (bypasses permission checks)
- */
 export async function isUserAdmin(userId: string): Promise<boolean> {
   const [userRecord] = await db
     .select({ role: user.role })
@@ -432,22 +392,24 @@ export async function isUserAdmin(userId: string): Promise<boolean> {
   return userRecord?.role === "admin";
 }
 
-/**
- * Check if user can access a specific route
- */
 export async function canAccessRoute(
   userId: string | null | undefined,
   pathname: string
 ): Promise<PermissionCheckResult> {
   const accessInfo = await getUserAccessInfo(userId);
 
-  // Public routes - no check needed
-  const publicRoutes = ["/", "/login", "/register", "/verify-email", "/forgot-password", "/reset-password"];
+  const publicRoutes = [
+    "/",
+    "/login",
+    "/register",
+    "/verify-email",
+    "/forgot-password",
+    "/reset-password",
+  ];
   if (publicRoutes.some((route) => pathname.startsWith(route))) {
     return { allowed: true };
   }
 
-  // Auth required from here
   if (!accessInfo.isAuthenticated) {
     return {
       allowed: false,
@@ -456,7 +418,6 @@ export async function canAccessRoute(
     };
   }
 
-  // Admin routes - admin only
   if (pathname.startsWith("/admin")) {
     if (!accessInfo.isAdmin) {
       return {
@@ -468,19 +429,15 @@ export async function canAccessRoute(
     return { allowed: true };
   }
 
-  // Onboarding route - always accessible for authenticated users
   if (pathname.startsWith("/onboarding")) {
     return { allowed: true };
   }
 
-  // Check if user needs to complete onboarding
   if (!accessInfo.isOnboardingCompleted) {
-    // Allow profile and dashboard access
     if (pathname === "/dashboard" || pathname === "/profile") {
       return { allowed: true };
     }
 
-    // Redirect other routes to onboarding
     return {
       allowed: false,
       reason: "Please complete onboarding first",
@@ -488,22 +445,17 @@ export async function canAccessRoute(
     };
   }
 
-  // Deal documents - require clearance
-  if (
-    pathname.startsWith("/deals/") &&
-    pathname.includes("/documents")
-  ) {
+  if (pathname.startsWith("/deals/") && pathname.includes("/documents")) {
     if (!accessInfo.canViewDealDocuments) {
       return {
         allowed: false,
-        reason: "Clearance required to view deal documents",
+        reason: "Approval required to view deal documents",
         redirectTo: "/dashboard?restricted=documents",
       };
     }
     return { allowed: true };
   }
 
-  // Deal marketplace - accessible after onboarding
   if (pathname.startsWith("/deals")) {
     if (!accessInfo.canAccessDealMarketplace) {
       return {
@@ -515,6 +467,5 @@ export async function canAccessRoute(
     return { allowed: true };
   }
 
-  // Default: allow access for authenticated users
   return { allowed: true };
 }

@@ -21,15 +21,6 @@ import {
 import { SearchInput } from "@/components/search-input";
 import { DealsTableView } from "./deals-table-view";
 
-const STATUSES = [
-  { value: "all", label: "All Statuses" },
-  { value: "coming_soon", label: "Coming Soon" },
-  { value: "live", label: "Live" },
-  { value: "closing", label: "Closing" },
-  { value: "funded", label: "Funded" },
-  { value: "exited", label: "Exited" },
-];
-
 const ITEMS_PER_PAGE = 12;
 
 type Deal = {
@@ -81,17 +72,25 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  // Get filter values from URL params
-  const status = searchParams.get("status") || "all";
+  // Get filter values from URL params (marketplace is live-only; status filter removed)
   const sector = searchParams.get("sector") || "all";
   const searchParam = searchParams.get("search") || "";
   const pageParam = searchParams.get("page") || "1";
   const currentPage = Math.max(1, parseInt(pageParam, 10) || 1);
 
   useEffect(() => {
-    if (!searchParams.has("view")) return;
     const params = new URLSearchParams(searchParams.toString());
-    params.delete("view");
+    let changed = false;
+    if (params.has("view")) {
+      params.delete("view");
+      changed = true;
+    }
+    // Drop legacy status filter — marketplace only lists live deals
+    if (params.has("status")) {
+      params.delete("status");
+      changed = true;
+    }
+    if (!changed) return;
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }, [pathname, router, searchParams]);
 
@@ -202,23 +201,6 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
             />
           </div>
 
-          {/* Status Filter */}
-          <Select
-            value={status}
-            onValueChange={(value) => updateParams({ status: value }, true)}
-          >
-            <SelectTrigger className="w-full sm:w-40">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUSES.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
           {/* Sector Filter */}
           <Select
             value={sector}
@@ -262,12 +244,16 @@ export function DealsMarketplace({ initialData }: DealsMarketplaceProps) {
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
             <Briefcase className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h3 className="mb-2 text-lg font-semibold">No deals found</h3>
+          <h3 className="mb-2 text-lg font-semibold">No live deals</h3>
           <p className="mb-1 text-sm text-muted-foreground max-w-sm">
-            No deals match your current filters.
+            {searchParam || sector !== "all"
+              ? "No live deals match your current filters."
+              : "You have no invitations to live deals right now."}
           </p>
           <p className="text-xs text-muted-foreground">
-            Try adjusting your search criteria or filters.
+            {searchParam || sector !== "all"
+              ? "Try adjusting your search or sector filter."
+              : "When you are invited to a live opportunity, it will appear here."}
           </p>
         </div>
       )}

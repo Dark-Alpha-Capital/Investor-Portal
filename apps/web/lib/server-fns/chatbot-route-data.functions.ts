@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import {
   chatIdInputSchema,
   createChatInputSchema,
+  setChatDealInputSchema,
 } from "@/lib/schemas/server-fn/chat-inputs";
 import * as impl from "./chatbot-route-data.server";
 import type { ChatIdInput } from "@/lib/schemas/server-fn/chat-inputs";
@@ -32,6 +33,10 @@ export const fetchChatById = createServerFn({ method: "GET" })
   // ChatbotUIMessage parts include `unknown` (e.g. dynamic-tool input) which
   // fails TanStack Start's serializable return check even though JSON is fine.
   .handler(loadChatHandler as never);
+
+export const setChatDealFn = createServerFn({ method: "POST" })
+  .validator((input) => setChatDealInputSchema.parse(input))
+  .handler(({ data }) => impl.runSetChatDeal(data) as never);
 
 export const deleteChatFn = createServerFn({ method: "POST" })
   .validator((input) => chatIdInputSchema.parse(input))

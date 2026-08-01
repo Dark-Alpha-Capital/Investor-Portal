@@ -64,11 +64,10 @@ export async function runFetchDashboardRouteData(): Promise<DashboardLoaderFetch
   }
 
   const clearanceStatus =
-    (userData.clearanceStatus as ClearanceStatus) ?? "pending";
+    (userData.clearanceStatus as ClearanceStatus) ?? "pending_review";
 
   switch (clearanceStatus) {
-    case "cleared":
-    case "cleared_with_conditions": {
+    case "approved": {
       const [portfolioData, clearanceData] = await Promise.all([
         getPortfolioData(userId),
         getClearanceData(userId),
@@ -87,7 +86,8 @@ export async function runFetchDashboardRouteData(): Promise<DashboardLoaderFetch
     }
     case "rejected":
       return { tag: "ok", data: { view: "rejected" } };
-    case "pending":
+    case "needs_information":
+    case "pending_review":
     default:
       return { tag: "ok", data: { view: "review" } };
   }

@@ -55,10 +55,10 @@ export function DealDocuments({
           <Lock className="h-5 w-5 text-muted-foreground" />
         </div>
         <div className="space-y-1">
-          <p className="font-medium">Document access required</p>
+          <p className="font-medium">Data room access required</p>
           <p className="text-sm text-muted-foreground">
-            You do not have permission to view the data room for this deal.
-            Contact your relationship manager to request access.
+            You have teaser access only. Request data room access to review
+            documents for this deal.
           </p>
         </div>
       </div>

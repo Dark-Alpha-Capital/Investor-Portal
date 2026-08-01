@@ -78,10 +78,14 @@ export const Route = createFileRoute("/api/chat")({
           }
 
           const messages = [...existing.messages, message];
-          const tools = getChatToolsForUser(session.user) as ToolSet;
+          const dealContext = {
+            dealId: existing.dealId,
+            dealName: existing.dealName,
+          };
+          const tools = getChatToolsForUser(session.user, dealContext) as ToolSet;
           const chatInstructions = [
             chatbotSystemPrompt,
-            getChatToolInstructions(session.user),
+            getChatToolInstructions(session.user, dealContext),
           ].join("\n\n");
 
           let validatedMessages: ChatbotUIMessage[];

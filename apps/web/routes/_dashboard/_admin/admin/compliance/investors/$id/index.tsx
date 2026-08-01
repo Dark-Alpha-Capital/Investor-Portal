@@ -8,11 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AccessStatusSummary } from "@/components/investor-compliance-access-status-summary";
 import { DocumentReview } from "@/components/investor-compliance-document-review";
 import { InvestorKycDetails } from "@/components/investor-compliance-investor-kyc-details";
-import { OnboardingEditHistory } from "@/components/investor-compliance-onboarding-edit-history";
-import { VehiclePermissions } from "@/components/investor-compliance-vehicle-permissions";
+import { DealInvitations } from "@/components/investor-compliance-deal-invitations";
 import { AuditHistory } from "@/components/investor-compliance-audit-history";
 import { ClearanceForm } from "@/components/investor-compliance-clearance-form";
 import type { ComplianceInvestorLoaderData } from "@/lib/server-fns/admin-route-data";
+import type { ParticipationStatus } from "@/lib/participation";
 
 export const Route = createFileRoute(
   "/_dashboard/_admin/admin/compliance/investors/$id/",
@@ -63,7 +63,7 @@ function InvestorComplianceInner({
 
   const getClearanceStatusBadge = () => {
     if (!investor.clearance) {
-      return <Badge variant="secondary">No Clearance</Badge>;
+      return <Badge variant="secondary">No Status</Badge>;
     }
     const statusConfig: Record<
       string,
@@ -72,22 +72,38 @@ function InvestorComplianceInner({
         label: string;
       }
     > = {
-      pending: { variant: "secondary", label: "Pending" },
-      cleared: { variant: "default", label: "Cleared" },
-      cleared_with_conditions: {
+      pending_review: { variant: "secondary", label: "Pending Review" },
+      approved: { variant: "default", label: "Approved" },
+      needs_information: {
         variant: "outline",
-        label: "Cleared w/ Conditions",
+        label: "Needs Information",
       },
       rejected: { variant: "destructive", label: "Rejected" },
     };
     const status = investor.clearance.status as string;
-    const config = statusConfig[status] || statusConfig.pending;
+    const config = statusConfig[status] || statusConfig.pending_review;
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  const editHistory = onboardingForComponent?.editHistory as
-    | unknown[]
-    | undefined;
+  const isApproved = investor.clearance?.status === "approved";
+
+  const invitations = (permissions as Array<Record<string, unknown>>).map(
+    (p) => ({
+      id: p.id as string,
+      dealId: p.dealId as string,
+      dealName: (p.dealName as string) || "Unknown Deal",
+      accessLevel: (p.accessLevel as "teaser" | "data_room") || "teaser",
+      grantedAt: p.grantedAt as Date | string,
+      grantedByName: (p.grantedByName as string | null) ?? null,
+      participationStatus: p.participationStatus as
+        | ParticipationStatus
+        | undefined,
+      dataRoomRequestedAt:
+        (p.dataRoomRequestedAt as Date | string | null | undefined) ?? null,
+      dataRoomRequestMessage:
+        (p.dataRoomRequestMessage as string | null | undefined) ?? null,
+    })
+  );
 
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
@@ -131,7 +147,7 @@ function InvestorComplianceInner({
 
         <AccessStatusSummary
           clearance={investor.clearance}
-          permissions={permissions}
+          permissions={invitations}
           isOnboardingCompleted={investor.isOnboardingCompleted ?? false}
         />
 
@@ -139,16 +155,8 @@ function InvestorComplianceInner({
           <TabsList className="flex flex-wrap">
             <TabsTrigger value="documents">Documents Review</TabsTrigger>
             <TabsTrigger value="kyc">KYC Information</TabsTrigger>
-            <TabsTrigger value="edits">
-              Investor Edits
-              {editHistory && editHistory.length > 0 && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {editHistory.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="clearance">Clearance</TabsTrigger>
-            <TabsTrigger value="permissions">Permissions</TabsTrigger>
+            <TabsTrigger value="status">Global Status</TabsTrigger>
+            <TabsTrigger value="invitations">Invitations</TabsTrigger>
             <TabsTrigger value="audit">Audit History</TabsTrigger>
           </TabsList>
 
@@ -167,42 +175,32 @@ function InvestorComplianceInner({
             />
           </TabsContent>
 
-          <TabsContent value="edits">
-            <OnboardingEditHistory
-              editHistory={
-                (onboardingForComponent?.editHistory as unknown[]) || []
-              }
-              lastEditedAt={
-                (onboardingForComponent?.lastEditedAt as string | null) || null
-              }
-              editCount={
-                (onboardingForComponent?.editCount as number | null) || null
-              }
-            />
-          </TabsContent>
-
-          <TabsContent value="clearance">
+          <TabsContent value="status">
             <ClearanceForm
               investorId={investorId}
               currentStatus={
                 investor.clearance?.status as
-                  | "pending"
-                  | "cleared"
-                  | "cleared_with_conditions"
+                  | "pending_review"
+                  | "approved"
+                  | "needs_information"
                   | "rejected"
                   | null
               }
               currentConditions={investor.clearance?.conditionsJson || null}
               currentNotes={investor.clearance?.notes || null}
+              currentInvestorVisibleNotes={
+                investor.clearance?.investorVisibleNotes || null
+              }
               isOnboardingCompleted={investor.isOnboardingCompleted ?? false}
             />
           </TabsContent>
 
-          <TabsContent value="permissions">
-            <VehiclePermissions
+          <TabsContent value="invitations">
+            <DealInvitations
               investorId={investorId}
-              permissions={permissions}
+              invitations={invitations}
               availableDeals={availableDeals}
+              isApproved={!!isApproved}
             />
           </TabsContent>
 

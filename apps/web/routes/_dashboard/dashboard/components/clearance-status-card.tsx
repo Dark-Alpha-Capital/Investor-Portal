@@ -1,14 +1,13 @@
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   ShieldCheck,
-  ShieldAlert,
   Clock,
   XCircle,
   AlertTriangle,
   ExternalLink,
+  FileQuestion,
 } from "lucide-react";
 import { AppLink as Link } from "@/components/app-link";
 import type { ClearanceStatus } from "@/lib/auth/permissions";
@@ -20,29 +19,29 @@ type ClearanceStatusCardProps = {
 };
 
 const statusConfig = {
-  pending: {
+  pending_review: {
     icon: Clock,
     label: "Pending Review",
-    description: "Your application is being reviewed by our compliance team.",
+    description: "Your KYC is being reviewed by our compliance team.",
     variant: "secondary" as const,
     color: "text-amber-600 dark:text-amber-400",
     bgColor: "bg-amber-50 dark:bg-amber-950/20",
   },
-  cleared: {
+  approved: {
     icon: ShieldCheck,
-    label: "Cleared",
-    description: "You have full access to the investor portal.",
+    label: "Approved",
+    description: "You are eligible to invest. Deals appear when you are invited.",
     variant: "default" as const,
     color: "text-green-600 dark:text-green-400",
     bgColor: "bg-green-50 dark:bg-green-950/20",
   },
-  cleared_with_conditions: {
-    icon: ShieldAlert,
-    label: "Cleared with Conditions",
-    description: "You have access with certain restrictions.",
+  needs_information: {
+    icon: FileQuestion,
+    label: "Needs Information",
+    description: "Additional documents or corrections are required.",
     variant: "secondary" as const,
-    color: "text-blue-600 dark:text-blue-400",
-    bgColor: "bg-blue-50 dark:bg-blue-950/20",
+    color: "text-amber-600 dark:text-amber-400",
+    bgColor: "bg-amber-50 dark:bg-amber-950/20",
   },
   rejected: {
     icon: XCircle,
@@ -59,7 +58,6 @@ export function ClearanceStatusCard({
   conditions,
   isOnboardingCompleted,
 }: ClearanceStatusCardProps) {
-  // If onboarding not completed, show onboarding prompt
   if (!isOnboardingCompleted) {
     return (
       <section className="border-l-4 border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/10 dark:border-amber-800/50">
@@ -92,30 +90,35 @@ export function ClearanceStatusCard({
     );
   }
 
-  // If no clearance record exists yet, show pending by default
-  const currentStatus = status ?? "pending";
+  const currentStatus = status ?? "pending_review";
   const config = statusConfig[currentStatus];
   const StatusIcon = config.icon;
 
   return (
-    <section className={`relative overflow-hidden border-l-4 border-border/50 ${config.bgColor}`} style={{ borderLeftColor: "currentColor" }}>
+    <section
+      className={`relative overflow-hidden border-l-4 border-border/50 ${config.bgColor}`}
+      style={{ borderLeftColor: "currentColor" }}
+    >
       <div className="pb-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${config.bgColor}`}>
+            <div
+              className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${config.bgColor}`}
+            >
               <StatusIcon className={`h-5 w-5 ${config.color}`} />
             </div>
             <div className="space-y-1">
-              <h3 className="text-lg font-semibold">Clearance Status</h3>
+              <h3 className="text-lg font-semibold">Investor Status</h3>
               <p className="text-sm">{config.description}</p>
             </div>
           </div>
-          <Badge variant={config.variant} className="shrink-0">{config.label}</Badge>
+          <Badge variant={config.variant} className="shrink-0">
+            {config.label}
+          </Badge>
         </div>
       </div>
       <div className="space-y-4 pt-0">
-        {/* Status-specific content */}
-        {currentStatus === "pending" && (
+        {currentStatus === "pending_review" && (
           <Alert>
             <Clock className="h-4 w-4" />
             <AlertDescription>
@@ -126,39 +129,44 @@ export function ClearanceStatusCard({
           </Alert>
         )}
 
-        {currentStatus === "cleared" && (
+        {currentStatus === "approved" && (
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              You have full access to:
+              Once invited to a deal, you can:
             </p>
             <ul className="text-sm space-y-1">
               <li className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-green-600" />
-                Deal marketplace and documents
+                Review teasers and data rooms
               </li>
               <li className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-green-600" />
-                Investment opportunities
+                Express interest and commit capital
               </li>
               <li className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-green-600" />
-                Portfolio management
+                Manage your portfolio
               </li>
             </ul>
           </div>
         )}
 
-        {currentStatus === "cleared_with_conditions" && conditions && (
+        {currentStatus === "needs_information" && (
           <div className="space-y-2">
-            <p className="text-sm font-medium">Active Conditions:</p>
-            <ul className="text-sm space-y-1 list-disc list-inside text-muted-foreground">
-              {conditions.map((condition, index) => (
-                <li key={index}>{condition}</li>
-              ))}
-            </ul>
-            <p className="text-xs text-muted-foreground mt-2">
-              Contact support if you have questions about these conditions.
-            </p>
+            <Alert>
+              <FileQuestion className="h-4 w-4" />
+              <AlertDescription>
+                Please provide the requested information so we can complete your
+                review.
+              </AlertDescription>
+            </Alert>
+            {conditions && conditions.length > 0 && (
+              <ul className="text-sm space-y-1 list-disc list-inside text-muted-foreground">
+                {conditions.map((condition, index) => (
+                  <li key={index}>{condition}</li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 
@@ -174,27 +182,6 @@ export function ClearanceStatusCard({
             <Button variant="secondary" asChild>
               <Link href="/support">Contact Support</Link>
             </Button>
-          </div>
-        )}
-
-        {/* What you can access section for non-cleared users */}
-        {(currentStatus === "pending" || currentStatus === "rejected") && (
-          <div className="pt-3 border-t">
-            <p className="text-sm font-medium mb-2">Current Access:</p>
-            <ul className="text-sm space-y-1 text-muted-foreground">
-              <li className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-green-600" />
-                View deal marketplace (names only)
-              </li>
-              <li className="flex items-center gap-2">
-                <XCircle className="h-4 w-4 text-red-500" />
-                <span className="line-through">Download deal documents</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <XCircle className="h-4 w-4 text-red-500" />
-                <span className="line-through">Express investment interest</span>
-              </li>
-            </ul>
           </div>
         )}
       </div>

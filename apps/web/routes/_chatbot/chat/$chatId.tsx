@@ -27,6 +27,8 @@ function ChatPage() {
   return (
     <ChatView
       chatId={chat.id}
+      initialDealId={chat.dealId}
+      initialDealName={chat.dealName}
       initialMessages={chat.messages}
       initialModel={chat.model}
     />

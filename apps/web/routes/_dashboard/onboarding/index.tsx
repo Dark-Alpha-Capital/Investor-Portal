@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { fetchOnboardingPageData } from "@/lib/server-fns/onboarding-route-data";
+import type { OnboardingClearanceSummary } from "@/lib/server-fns/onboarding-route-data.server";
 import { OnboardingFlow } from "./-onboarding-flow";
 import { OnboardingCompleteView } from "./components/onboarding-complete-view";
 
@@ -15,6 +16,7 @@ export type OnboardingPageLoaderState =
       tag: "complete";
       onboarding: OnboardingHistory["onboarding"];
       editHistory: OnboardingHistory["editHistory"];
+      clearance: OnboardingClearanceSummary;
     };
 
 export const Route = createFileRoute("/_dashboard/onboarding/")({
@@ -47,6 +49,7 @@ function OnboardingPageInner({
       <OnboardingCompleteView
         onboardingData={state.onboarding}
         editHistory={state.editHistory}
+        clearance={state.clearance}
       />
     );
   }

@@ -1,4 +1,9 @@
-import { createFileRoute, notFound, redirect } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link as RouterLink,
+  notFound,
+  redirect,
+} from "@tanstack/react-router";
 import type { DealDetailLoaderData } from "@/lib/types/investor-route-loaders";
 import { fetchDealDetailRouteData } from "@/lib/server-fns/investor-route-data";
 import { AppLink as Link } from "@/components/app-link";
@@ -10,6 +15,7 @@ import {
   Lightbulb,
   PieChart,
   FolderOpen,
+  Sparkles,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DealHeader } from "./components/deal-header";
@@ -33,16 +39,19 @@ type ForbiddenDeal = Extract<
 function forbiddenReason(
   clearanceStatus: ForbiddenDeal["clearanceStatus"],
 ): string {
-  if (clearanceStatus === "cleared_with_conditions") {
-    return "You have been cleared with conditions, but you don't have specific permission to view this deal. Please contact your relationship manager or the compliance team for access.";
+  if (clearanceStatus === "approved") {
+    return "You are approved but have not been invited to this deal. Please contact your relationship manager for access.";
   }
-  if (clearanceStatus === "pending") {
-    return "Your compliance clearance is still pending review. Once cleared, you'll be able to access deals.";
+  if (clearanceStatus === "pending_review") {
+    return "Your KYC is still pending review. Once approved, you can be invited to deals.";
+  }
+  if (clearanceStatus === "needs_information") {
+    return "Additional information is required before approval. Check your dashboard for details.";
   }
   if (clearanceStatus === "rejected") {
-    return "Your compliance clearance was not approved. Please contact the compliance team for more information.";
+    return "Your account was not approved. Please contact the compliance team for more information.";
   }
-  return "You don't have permission to view this deal. Please contact support if you believe this is an error.";
+  return "You don't have access to this deal. Please contact support if you believe this is an error.";
 }
 
 function DealTabs({ dealId, result }: { dealId: string; result: OkDeal }) {
@@ -116,15 +125,15 @@ function DealTabs({ dealId, result }: { dealId: string; result: OkDeal }) {
             </p>
             <p className="text-sm text-muted-foreground">
               Status:{" "}
-              {result.userInvestment.status
-                .replace(/_/g, " ")
-                .replace(/\b\w/g, (c) => c.toUpperCase())}{" "}
-              · {result.userInvestment.committedAmount
-                ? new Intl.NumberFormat("en-US", {
+              {result.userInvestment.status === "funded"
+                ? "Funded"
+                : "Committed"}
+              {result.userInvestment.committedAmount
+                ? ` · ${new Intl.NumberFormat("en-US", {
                     style: "currency",
                     currency: "USD",
                     maximumFractionDigits: 0,
-                  }).format(parseFloat(result.userInvestment.committedAmount))
+                  }).format(parseFloat(result.userInvestment.committedAmount))}`
                 : null}
             </p>
           </div>
@@ -142,16 +151,31 @@ function DealTabs({ dealId, result }: { dealId: string; result: OkDeal }) {
 }
 
 function DealDetailContent({ data }: { data: DealDetailLoaderData }) {
+  const askAiDealId =
+    data.kind === "ok" ? data.result.deal.id : null;
+
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mb-6 border-b border-border pb-5">
+        <div className="mb-6 flex items-center justify-between gap-4 border-b border-border pb-5">
           <Link href="/deals">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Available Investments
+              Back to Deals
             </Button>
           </Link>
+          {askAiDealId ? (
+            <Button
+              asChild
+              size="sm"
+              className="border-0 bg-gradient-to-r from-sky-600 via-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 hover:from-sky-500 hover:via-indigo-500 hover:to-violet-500 hover:text-white"
+            >
+              <RouterLink search={{ dealId: askAiDealId }} to="/chat">
+                <Sparkles className="mr-2 h-4 w-4" />
+                Ask AI
+              </RouterLink>
+            </Button>
+          ) : null}
         </div>
 
         {data.kind === "forbidden" ? (

@@ -3,6 +3,8 @@ import { render } from "@react-email/components";
 import {
   OnboardingInvestorConfirmation,
   OnboardingAdminNotification,
+  KnowledgeRequestAdmin,
+  KnowledgeRequestAnswered,
 } from "./emails";
 import type { EmailJobData } from "./types";
 import { EMAIL_CONFIG } from "./types";
@@ -104,9 +106,41 @@ export const renderEmailTemplate = async (
       return { subject, html };
     }
 
+    case "knowledge-request-admin": {
+      const subject = `New deal question ${jobData.referenceCode}: ${jobData.dealName}`;
+      const html = await render(
+        KnowledgeRequestAdmin({
+          dealName: jobData.dealName,
+          investorName: jobData.investorName,
+          investorEmail: jobData.investorEmail,
+          referenceCode: jobData.referenceCode,
+          title: jobData.title,
+          question: jobData.question,
+          adminUrl: jobData.adminUrl,
+        })
+      );
+      return { subject, html };
+    }
 
-    default:
-      throw new Error(`Unknown email type: ${(jobData as EmailJobData).type}`);
+    case "knowledge-request-answered": {
+      const subject = `Your question about ${jobData.dealName} has been answered`;
+      const html = await render(
+        KnowledgeRequestAnswered({
+          investorName: jobData.investorName,
+          dealName: jobData.dealName,
+          referenceCode: jobData.referenceCode,
+          title: jobData.title,
+          answerPreview: jobData.answerPreview,
+          chatUrl: jobData.chatUrl,
+        })
+      );
+      return { subject, html };
+    }
+
+    default: {
+      const _exhaustive: never = jobData;
+      throw new Error(`Unknown email type: ${(_exhaustive as EmailJobData).type}`);
+    }
   }
 };
 

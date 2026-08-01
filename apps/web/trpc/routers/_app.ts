@@ -5,6 +5,7 @@ import { onboardingRouter } from "./onboarding";
 import { adminRouter } from "./admin";
 import { investmentsRouter } from "./investments";
 import { complianceRouter } from "./compliance";
+import { knowledgeRequestsRouter } from "./knowledge-requests";
 import { createTRPCRouter } from "../init";
 
 export const appRouter = createTRPCRouter({
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
   admin: adminRouter,
   investments: investmentsRouter,
   compliance: complianceRouter,
+  knowledgeRequests: knowledgeRequestsRouter,
 });
 
 // export type definition of API

@@ -44,16 +44,15 @@ export function createMarketplaceChatTools(options: {
         };
       }
 
-      const emptyBecauseUncleared =
+      const emptyBecauseNotApproved =
         result.deals.length === 0 &&
-        result.clearanceStatus !== "cleared" &&
-        result.clearanceStatus !== "cleared_with_conditions";
+        result.clearanceStatus !== "approved";
 
       return serializeForToolResult({
         success: true,
         clearanceStatus: result.clearanceStatus,
-        message: emptyBecauseUncleared
-          ? "No marketplace deals are visible yet. Investor clearance is required before deals appear."
+        message: emptyBecauseNotApproved
+          ? "No marketplace deals are visible yet. Investor must be approved and invited to live deals."
           : undefined,
         pagination: result.pagination,
         deals: result.deals.map((d) => ({

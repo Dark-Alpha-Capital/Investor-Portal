@@ -48,15 +48,15 @@ function DashboardMain({
   clearanceConditions: string[] | null;
 }) {
   const clearanceLabel =
-    clearanceStatus === "cleared"
-      ? "Cleared"
-      : clearanceStatus === "cleared_with_conditions"
-        ? "Cleared with Conditions"
-        : clearanceStatus === "pending"
-          ? "Under Review"
+    clearanceStatus === "approved"
+      ? "Approved"
+      : clearanceStatus === "needs_information"
+        ? "Needs Information"
+        : clearanceStatus === "pending_review"
+          ? "Pending Review"
           : clearanceStatus === "rejected"
             ? "Rejected"
-            : "Pending";
+            : "Pending Review";
 
   return (
     <div className="min-h-screen">

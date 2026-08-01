@@ -9,8 +9,9 @@ import {
   type ChatModelId,
 } from "@repo/ai-core";
 import { DefaultChatTransport } from "ai";
-import { MessageSquare } from "lucide-react";
+import { BriefcaseBusiness, MessageSquare } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { getRouteApi } from "@tanstack/react-router";
 import {
   Conversation,
   ConversationContent,
@@ -41,16 +42,30 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
+import {
+  DealSelectorDialog,
+  type DealSelectorOption,
+} from "@/components/chatbot/deal-selector-dialog";
 import { renderDedicatedToolPart } from "@/components/chatbot/tool-ui";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { configureAiSdkClientWarnings } from "@/lib/ai/configure-sdk-warnings";
+import { isAdminUser } from "@/lib/auth/user-role-guards";
+import {
+  setChatDealFn,
+  type SetChatDealFetchResult,
+} from "@/lib/server-fns/chatbot-route-data";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+const chatbotRoute = getRouteApi("/_chatbot");
 
 type ChatViewProps = {
   chatId: string;
   initialMessages: ChatbotUIMessage[];
   initialModel: string;
+  initialDealId: string | null;
+  initialDealName: string | null;
 };
 
 function resolveInitialModel(model: string): ChatModelId {
@@ -58,8 +73,6 @@ function resolveInitialModel(model: string): ChatModelId {
 }
 
 function removeFailedTurn(messages: ChatbotUIMessage[]): ChatbotUIMessage[] {
-  // If the assistant started streaming before the error, drop both that
-  // partial response and its user message; otherwise drop only the user turn.
   return messages.at(-1)?.role === "assistant"
     ? messages.slice(0, -2)
     : messages.slice(0, -1);
@@ -78,7 +91,8 @@ function assistantHasVisibleContent(message: ChatbotUIMessage | undefined) {
       return part.text.trim().length > 0;
     }
     if (part.type.startsWith("tool-") || part.type === "dynamic-tool") {
-      return part.state !== "input-streaming";
+      const state = "state" in part ? part.state : undefined;
+      return state !== "input-streaming";
     }
     if (part.type.startsWith("data-")) {
       return true;
@@ -106,9 +120,13 @@ function ChatThinkingIndicator({ className }: { className?: string }) {
 function ChatMessage({
   message,
   isStreaming,
+  chatId,
+  onNeedsDealSelection,
 }: {
   message: ChatbotUIMessage;
   isStreaming: boolean;
+  chatId: string;
+  onNeedsDealSelection?: () => void;
 }) {
   return (
     <Message from={message.role}>
@@ -131,7 +149,10 @@ function ChatMessage({
             );
           }
 
-          const toolUi = renderDedicatedToolPart(part, partKey);
+          const toolUi = renderDedicatedToolPart(part, partKey, {
+            chatId,
+            onNeedsDealSelection,
+          });
           if (toolUi != null) {
             return toolUi;
           }
@@ -147,16 +168,23 @@ export function ChatView({
   chatId,
   initialMessages,
   initialModel,
+  initialDealId,
+  initialDealName,
 }: ChatViewProps) {
+  const { session } = chatbotRoute.useRouteContext();
+  const isAdmin = isAdminUser(session.user);
+
   const [model, setModel] = useState<ChatModelId>(
     resolveInitialModel(initialModel),
   );
   const modelRef = useRef(model);
   modelRef.current = model;
-  // PromptInput calls form.reset() on submit, which can fire Select onValueChange
-  // with the first option. Only accept changes while the user has the menu open.
   const isSelectingModelRef = useRef(false);
   const [input, setInput] = useState("");
+  const [dealId, setDealId] = useState<string | null>(initialDealId);
+  const [dealName, setDealName] = useState<string | null>(initialDealName);
+  const [dealSelectorOpen, setDealSelectorOpen] = useState(false);
+  const [isSettingDeal, setIsSettingDeal] = useState(false);
 
   useEffect(() => {
     configureAiSdkClientWarnings();
@@ -218,13 +246,38 @@ export function ChatView({
     setInput("");
   };
 
+  const handleSelectDeal = async (deal: DealSelectorOption) => {
+    setIsSettingDeal(true);
+    try {
+      const result = (await setChatDealFn({
+        data: { chatId, dealId: deal.id },
+      })) as SetChatDealFetchResult;
+      if (result.tag === "ok") {
+        setDealId(result.chat.dealId);
+        setDealName(result.chat.dealName);
+        setDealSelectorOpen(false);
+        toast.success(`Deal context set to ${deal.name}`);
+        return;
+      }
+      if (result.tag === "forbidden") {
+        toast.error(result.message);
+        return;
+      }
+      toast.error("Could not set deal context");
+    } catch {
+      toast.error("Could not set deal context");
+    } finally {
+      setIsSettingDeal(false);
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col">
       <Conversation className="min-h-0 flex-1">
         <ConversationContent className="w-full px-4 py-6 md:px-8">
           {messages.length === 0 ? (
             <ConversationEmptyState
-              description="Ask about the portal, or try “What’s the weather in San Francisco?”"
+              description="Ask about a deal, or use Select deal in the composer to bind context."
               icon={<MessageSquare className="size-10" />}
               title="Start a conversation"
             />
@@ -232,11 +285,13 @@ export function ChatView({
             <>
               {messages.map((message) => (
                 <ChatMessage
+                  chatId={chatId}
                   isStreaming={
                     status === "streaming" && message.id === messages.at(-1)?.id
                   }
                   key={message.id}
                   message={message}
+                  onNeedsDealSelection={() => setDealSelectorOpen(true)}
                 />
               ))}
               {showThinking ? <ChatThinkingIndicator /> : null}
@@ -271,20 +326,34 @@ export function ChatView({
                 placeholder={
                   error != null
                     ? "Edit your message and try again..."
-                    : "Say something..."
+                    : dealName
+                      ? `Ask about ${dealName}…`
+                      : "Say something..."
                 }
                 value={input}
               />
             </PromptInputBody>
             <PromptInputFooter>
               <PromptInputTools>
+                <Button
+                  className="h-8 max-w-[14rem] gap-1.5 px-2.5"
+                  disabled={isBusy || isSettingDeal}
+                  onClick={() => setDealSelectorOpen(true)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <BriefcaseBusiness className="size-3.5 shrink-0" />
+                  <span className="truncate">
+                    {dealName ?? "Select deal"}
+                  </span>
+                </Button>
                 <PromptInputSelect
                   onOpenChange={(open) => {
                     if (open) {
                       isSelectingModelRef.current = true;
                       return;
                     }
-                    // Defer clear so selecting an item still counts as intentional.
                     queueMicrotask(() => {
                       isSelectingModelRef.current = false;
                     });
@@ -327,6 +396,16 @@ export function ChatView({
           </PromptInput>
         </div>
       </div>
+
+      <DealSelectorDialog
+        isAdmin={isAdmin}
+        onOpenChange={setDealSelectorOpen}
+        onSelect={(deal) => {
+          void handleSelectDeal(deal);
+        }}
+        open={dealSelectorOpen}
+        selectedDealId={dealId}
+      />
     </div>
   );
 }

@@ -1,13 +1,15 @@
 import { DEFAULT_CHAT_MODEL_ID } from "@repo/ai-core";
 import type { ChatbotUIMessage } from "@repo/ai-core";
 import { and, desc, eq, db } from "@repo/db";
-import { chat } from "@repo/db/schema";
+import { chat, deal } from "@repo/db/schema";
 import { generateId } from "ai";
 
 export type ChatListItem = {
   id: string;
   title: string;
   model: string;
+  dealId: string | null;
+  dealName: string | null;
   updatedAt: Date;
   createdAt: Date;
 };
@@ -15,6 +17,8 @@ export type ChatListItem = {
 export type ChatRecord = {
   id: string;
   userId: string;
+  dealId: string | null;
+  dealName: string | null;
   title: string;
   model: string;
   messages: ChatbotUIMessage[];
@@ -58,15 +62,18 @@ function titleFromMessages(messages: ChatbotUIMessage[]): string | null {
 export async function createChat({
   userId,
   model = DEFAULT_CHAT_MODEL_ID,
+  dealId = null,
 }: {
   userId: string;
   model?: string;
+  dealId?: string | null;
 }): Promise<string> {
   const id = generateId();
 
   await db.insert(chat).values({
     id,
     userId,
+    dealId: dealId ?? null,
     title: "New chat",
     model,
     messages: [],
@@ -81,14 +88,21 @@ export async function listChats(userId: string): Promise<ChatListItem[]> {
       id: chat.id,
       title: chat.title,
       model: chat.model,
+      dealId: chat.dealId,
+      dealName: deal.name,
       updatedAt: chat.updatedAt,
       createdAt: chat.createdAt,
     })
     .from(chat)
+    .leftJoin(deal, eq(chat.dealId, deal.id))
     .where(eq(chat.userId, userId))
     .orderBy(desc(chat.updatedAt));
 
-  return rows;
+  return rows.map((row) => ({
+    ...row,
+    dealId: row.dealId ?? null,
+    dealName: row.dealName ?? null,
+  }));
 }
 
 export async function loadChat(
@@ -96,8 +110,19 @@ export async function loadChat(
   userId: string,
 ): Promise<ChatRecord | null> {
   const [row] = await db
-    .select()
+    .select({
+      id: chat.id,
+      userId: chat.userId,
+      dealId: chat.dealId,
+      dealName: deal.name,
+      title: chat.title,
+      model: chat.model,
+      messages: chat.messages,
+      createdAt: chat.createdAt,
+      updatedAt: chat.updatedAt,
+    })
     .from(chat)
+    .leftJoin(deal, eq(chat.dealId, deal.id))
     .where(and(eq(chat.id, id), eq(chat.userId, userId)))
     .limit(1);
 
@@ -108,12 +133,39 @@ export async function loadChat(
   return {
     id: row.id,
     userId: row.userId,
+    dealId: row.dealId ?? null,
+    dealName: row.dealName ?? null,
     title: row.title,
     model: row.model,
     messages: asChatbotMessages(row.messages),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+export async function setChatDealId({
+  chatId,
+  userId,
+  dealId,
+}: {
+  chatId: string;
+  userId: string;
+  dealId: string | null;
+}): Promise<ChatRecord | null> {
+  const existing = await loadChat(chatId, userId);
+  if (!existing) {
+    return null;
+  }
+
+  await db
+    .update(chat)
+    .set({
+      dealId,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(chat.id, chatId), eq(chat.userId, userId)));
+
+  return loadChat(chatId, userId);
 }
 
 export async function saveChat({

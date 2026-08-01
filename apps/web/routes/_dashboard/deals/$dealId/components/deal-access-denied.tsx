@@ -1,7 +1,7 @@
 import { AppLink as Link } from "@/components/app-link";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ShieldX, ArrowLeft, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ShieldX, ArrowLeft, AlertTriangle, FileQuestion } from "lucide-react";
 
 type DealAccessDeniedProps = {
   clearanceStatus: string | null;
@@ -12,10 +12,11 @@ export function DealAccessDenied({
   clearanceStatus,
   reason,
 }: DealAccessDeniedProps) {
-  const isClearedWithConditions = clearanceStatus === "cleared_with_conditions";
-  const isPending = clearanceStatus === "pending";
+  const isPending = clearanceStatus === "pending_review";
+  const isNeedsInfo = clearanceStatus === "needs_information";
   const isRejected = clearanceStatus === "rejected";
-  const isNotCleared = !clearanceStatus || clearanceStatus === "not_cleared";
+  const isApproved = clearanceStatus === "approved";
+  const hasNoStatus = !clearanceStatus;
 
   return (
     <div className="space-y-6">
@@ -27,9 +28,7 @@ export function DealAccessDenied({
             </div>
             <div>
               <h3 className="text-xl">Access Denied</h3>
-              <p>
-                You don't have permission to view this deal
-              </p>
+              <p>You don&apos;t have access to this deal</p>
             </div>
           </div>
         </div>
@@ -39,18 +38,17 @@ export function DealAccessDenied({
             <AlertTitle>Deal Not Accessible</AlertTitle>
             <AlertDescription>
               {reason ||
-                "This deal is currently not available for your account. Please contact support if you believe this is an error."}
+                "This deal is not available for your account. Please contact support if you believe this is an error."}
             </AlertDescription>
           </Alert>
 
-          {isClearedWithConditions && (
+          {isApproved && (
             <Alert>
-              <CheckCircle2 className="h-4 w-4" />
-              <AlertTitle>Clearance Status: Cleared with Conditions</AlertTitle>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Not Invited</AlertTitle>
               <AlertDescription>
-                You have been cleared with conditions. However, you don't have
-                specific permission to view this deal. Please contact the
-                compliance team or your relationship manager for access.
+                Your account is approved, but you have not been invited to this
+                deal. Contact your relationship manager if you need access.
               </AlertDescription>
             </Alert>
           )}
@@ -58,11 +56,21 @@ export function DealAccessDenied({
           {isPending && (
             <Alert>
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Clearance Status: Pending</AlertTitle>
+              <AlertTitle>Status: Pending Review</AlertTitle>
               <AlertDescription>
-                Your compliance clearance is still pending review. Once cleared,
-                you'll be able to access deals. Please check your dashboard for
-                updates.
+                Your KYC is still under review. Once approved, you can be
+                invited to deals.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {isNeedsInfo && (
+            <Alert>
+              <FileQuestion className="h-4 w-4" />
+              <AlertTitle>Status: Needs Information</AlertTitle>
+              <AlertDescription>
+                Additional information is required before approval. Check your
+                dashboard for details.
               </AlertDescription>
             </Alert>
           )}
@@ -70,21 +78,21 @@ export function DealAccessDenied({
           {isRejected && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Clearance Status: Rejected</AlertTitle>
+              <AlertTitle>Status: Rejected</AlertTitle>
               <AlertDescription>
-                Your compliance clearance was not approved. Please contact the
-                compliance team for more information about your status.
+                Your account was not approved. Please contact the compliance
+                team for more information.
               </AlertDescription>
             </Alert>
           )}
 
-          {isNotCleared && (
+          {hasNoStatus && (
             <Alert>
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Clearance Required</AlertTitle>
+              <AlertTitle>Approval Required</AlertTitle>
               <AlertDescription>
-                You need to be cleared by compliance before accessing deals.
-                Please complete your onboarding and wait for clearance approval.
+                Complete onboarding and wait for approval before accessing
+                deals.
               </AlertDescription>
             </Alert>
           )}

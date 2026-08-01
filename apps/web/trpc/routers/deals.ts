@@ -36,6 +36,7 @@ import {
   sanitizeDealFolderSegment,
 } from "@repo/nextcloud";
 import { authSession } from "@/lib/auth/session-from-request";
+import { logDataRoomAccessRequest } from "@/lib/audit";
 
 const parseNumericField = (value: string | undefined | null): number | null => {
   if (!value) return null;
@@ -620,8 +621,8 @@ export const dealsRouter = createTRPCRouter({
       }
 
       if (!isAdmin) {
-        const [permission] = await ctx.db
-          .select({ canViewDocuments: vehiclePermission.canViewDocuments })
+        const [invitation] = await ctx.db
+          .select({ accessLevel: vehiclePermission.accessLevel })
           .from(vehiclePermission)
           .where(
             and(
@@ -632,10 +633,10 @@ export const dealsRouter = createTRPCRouter({
           )
           .limit(1);
 
-        if (!permission?.canViewDocuments) {
+        if (!invitation || invitation.accessLevel !== "data_room") {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "You do not have permission to view documents for this deal",
+            message: "You do not have data room access for this deal",
           });
         }
       }
@@ -1310,17 +1311,115 @@ export const dealsRouter = createTRPCRouter({
     };
   }),
 
+  /**
+   * Teaser-level investors request upgrade to data room access.
+   * Logs an audit event for admins; does not change access level.
+   */
+  requestDataRoomAccess: baseProcedure
+    .input(
+      z.object({
+        dealId: z.string(),
+        message: z.string().max(1000).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const session = await authSession();
+      if (!session?.user) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in",
+        });
+      }
+
+      const [dealRecord] = await ctx.db
+        .select({ id: deal.id, name: deal.name, status: deal.status })
+        .from(deal)
+        .where(or(eq(deal.id, input.dealId), eq(deal.slug, input.dealId)))
+        .limit(1);
+
+      if (!dealRecord || dealRecord.status === "draft") {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Deal not found",
+        });
+      }
+
+      const [invitation] = await ctx.db
+        .select({
+          id: vehiclePermission.id,
+          accessLevel: vehiclePermission.accessLevel,
+          dataRoomRequestedAt: vehiclePermission.dataRoomRequestedAt,
+        })
+        .from(vehiclePermission)
+        .where(
+          and(
+            eq(vehiclePermission.userId, session.user.id),
+            eq(vehiclePermission.dealId, dealRecord.id),
+            isNull(vehiclePermission.revokedAt)
+          )
+        )
+        .limit(1);
+
+      if (!invitation) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have access to this deal",
+        });
+      }
+
+      if (invitation.accessLevel === "data_room") {
+        return {
+          success: true,
+          message: "You already have data room access",
+          alreadyHasAccess: true,
+          alreadyRequested: false,
+        };
+      }
+
+      if (invitation.dataRoomRequestedAt) {
+        return {
+          success: true,
+          message: "Your data room access request is already pending review.",
+          alreadyHasAccess: false,
+          alreadyRequested: true,
+        };
+      }
+
+      await ctx.db
+        .update(vehiclePermission)
+        .set({
+          dataRoomRequestedAt: new Date(),
+          dataRoomRequestMessage: input.message || null,
+        })
+        .where(eq(vehiclePermission.id, invitation.id));
+
+      await logDataRoomAccessRequest({
+        performedBy: session.user.id,
+        dealId: dealRecord.id,
+        notes: input.message || null,
+      });
+
+      return {
+        success: true,
+        message: "Data room access requested. An administrator will review.",
+        alreadyHasAccess: false,
+        alreadyRequested: false,
+      };
+    }),
+
   expressInterest: baseProcedure
     .input(
       z.object({
         dealId: z.string(),
+        // soft_committed / meeting_requested accepted for backward compat;
+        // investor UI only writes interested | pass.
         status: z.enum([
           "interested",
           "soft_committed",
           "pass",
           "meeting_requested",
         ]),
-        proposedAmount: z.number().optional(),
+        proposedAmount: z.number().positive().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -1349,6 +1448,28 @@ export const dealsRouter = createTRPCRouter({
           code: "NOT_FOUND",
           message: "Deal not found",
         });
+      }
+
+      // Require data room invitation to express interest
+      if (session.user.role !== "admin") {
+        const [invitation] = await ctx.db
+          .select({ accessLevel: vehiclePermission.accessLevel })
+          .from(vehiclePermission)
+          .where(
+            and(
+              eq(vehiclePermission.userId, session.user.id),
+              eq(vehiclePermission.dealId, actualDealId),
+              isNull(vehiclePermission.revokedAt)
+            )
+          )
+          .limit(1);
+
+        if (!invitation || invitation.accessLevel !== "data_room") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Data room access is required to express interest",
+          });
+        }
       }
 
       // Prepare parallel access checks based on visibility
@@ -1398,6 +1519,12 @@ export const dealsRouter = createTRPCRouter({
 
       await Promise.all(accessChecks);
 
+      // Normalize legacy soft_commit / meeting → interested; keep pass.
+      const normalizedStatus =
+        input.status === "pass" ? "pass" : "interested";
+      const proposedAmount =
+        normalizedStatus === "pass" ? null : (input.proposedAmount ?? null);
+
       // Try insert first; if already present, update existing row.
       const [newInterest] = await ctx.db
         .insert(dealInterest)
@@ -1405,8 +1532,8 @@ export const dealsRouter = createTRPCRouter({
           id: randomUUID(),
           dealId: actualDealId,
           userId: session.user.id,
-          status: input.status,
-          proposedAmount: input.proposedAmount ?? null,
+          status: normalizedStatus,
+          proposedAmount,
         })
         .onConflictDoNothing()
         .returning();
@@ -1427,8 +1554,8 @@ export const dealsRouter = createTRPCRouter({
       const [updatedInterest] = await ctx.db
         .update(dealInterest)
         .set({
-          status: input.status,
-          proposedAmount: input.proposedAmount ?? null,
+          status: normalizedStatus,
+          proposedAmount,
           updatedAt: new Date(),
         })
         .where(

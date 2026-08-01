@@ -8,8 +8,19 @@ import {
   getOnboardingRestrictedRedirectPath,
   isOnboardingAdminRestrictedUser,
 } from "@/lib/auth/user-role-guards";
+import {
+  getUserClearance,
+  type ClearanceStatus,
+} from "@/lib/auth/permissions";
 
 type AuthRedirect = { tag: "redirect"; to: "/login" | "/admin" | "/dashboard" };
+
+export type OnboardingClearanceSummary = {
+  status: ClearanceStatus;
+  investorVisibleNotes: string | null;
+  conditions: string[] | null;
+  clearedAt: Date | null;
+};
 
 export type OnboardingPageDataResult = Promise<
   | AuthRedirect
@@ -22,6 +33,7 @@ export type OnboardingPageDataResult = Promise<
       editHistory: NonNullable<
         Awaited<ReturnType<typeof getOnboardingWithEditHistory>>
       >["editHistory"];
+      clearance: OnboardingClearanceSummary;
     }
 >;
 
@@ -44,7 +56,10 @@ export async function runFetchOnboardingPageData(): OnboardingPageDataResult {
     return { tag: "flow" };
   }
 
-  const data = await getOnboardingWithEditHistory(userId);
+  const [data, clearance] = await Promise.all([
+    getOnboardingWithEditHistory(userId),
+    getUserClearance(userId),
+  ]);
   if (!data) {
     return { tag: "flow" };
   }
@@ -53,6 +68,12 @@ export async function runFetchOnboardingPageData(): OnboardingPageDataResult {
     tag: "complete",
     onboarding: data.onboarding,
     editHistory: data.editHistory,
+    clearance: {
+      status: clearance?.status ?? "pending_review",
+      investorVisibleNotes: clearance?.investorVisibleNotes ?? null,
+      conditions: clearance?.conditionsJson ?? null,
+      clearedAt: clearance?.clearedAt ?? null,
+    },
   };
 }
 

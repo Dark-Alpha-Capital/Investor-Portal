@@ -154,7 +154,7 @@ export function createAdminChatTools(options: {
 
   const getInvestorDetails = tool({
     description:
-      "Admin only. Fetch detailed information about a specific investor: profile, onboarding/KYC, clearance, vehicle permissions, marketplace deal interest, and investments. Look up by user id, email, or name.",
+      "Admin only. Fetch detailed information about a specific investor: profile, onboarding/KYC, global status, deal invitations, marketplace deal interest, and investments. Look up by user id, email, or name.",
     inputSchema: z.object({
       query: z
         .string()
@@ -278,7 +278,7 @@ export function createAdminChatTools(options: {
         },
         onboarding,
         clearanceHistory: details.clearanceHistory,
-        vehiclePermissions: details.permissions,
+        invitations: details.permissions,
         dealInterests: interests,
         investments: portfolio.investments,
         portfolioSummary: portfolio.portfolio,

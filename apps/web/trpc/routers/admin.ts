@@ -312,18 +312,12 @@ export const adminRouter = createTRPCRouter({
     }),
 
   /**
-   * Get admin dashboard data (investors and admins) in parallel
+   * Get admin dashboard data (administrators only).
+   * Investor KYC / clearance lives under Compliance.
    */
   getAdminDashboard: adminProcedure
     .input(
       z.object({
-        // Investors params
-        investorsPage: z.number().min(1).default(1),
-        investorsLimit: z.number().min(1).max(50).default(12),
-        investorsSearch: z.string().optional(),
-        investorsKycStatus: z.string().optional(),
-        investorsVerified: z.string().optional(),
-        // Admins params
         adminsPage: z.number().min(1).default(1),
         adminsLimit: z.number().min(1).max(50).default(12),
         adminsSearch: z.string().optional(),
@@ -333,11 +327,6 @@ export const adminRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const {
-        investorsPage,
-        investorsLimit,
-        investorsSearch,
-        investorsKycStatus,
-        investorsVerified,
         adminsPage,
         adminsLimit,
         adminsSearch,
@@ -345,159 +334,74 @@ export const adminRouter = createTRPCRouter({
         adminsStatus,
       } = input;
 
-      // Fetch both investors and admins in parallel
-      const [investorsResult, adminsResult] = await Promise.all([
-        // Investors query
-        (async () => {
-          const offset = (investorsPage - 1) * investorsLimit;
-          const conditions = [or(ne(user.role, "admin"), isNull(user.role))];
+      const offset = (adminsPage - 1) * adminsLimit;
+      const conditions = [eq(user.role, "admin")];
 
-          if (investorsSearch && investorsSearch.trim()) {
-            const searchTerm = `%${investorsSearch.trim()}%`;
-            conditions.push(
-              or(ilike(user.name, searchTerm), ilike(user.email, searchTerm))!
-            );
-          }
+      if (adminsSearch && adminsSearch.trim()) {
+        const searchTerm = `%${adminsSearch.trim()}%`;
+        conditions.push(
+          or(ilike(user.name, searchTerm), ilike(user.email, searchTerm))!
+        );
+      }
 
-          if (investorsKycStatus && investorsKycStatus !== "all") {
-            conditions.push(
-              eq(
-                user.kycStatus,
-                investorsKycStatus as
-                  | "review"
-                  | "approved"
-                  | "pending_docs"
-                  | "rejected"
-              )
-            );
-          }
+      if (adminsVerified && adminsVerified !== "all") {
+        if (adminsVerified === "verified") {
+          conditions.push(eq(user.emailVerified, true));
+        } else if (adminsVerified === "unverified") {
+          conditions.push(eq(user.emailVerified, false));
+        }
+      }
 
-          if (investorsVerified && investorsVerified !== "all") {
-            if (investorsVerified === "verified") {
-              conditions.push(eq(user.emailVerified, true));
-            } else if (investorsVerified === "unverified") {
-              conditions.push(eq(user.emailVerified, false));
-            }
-          }
+      if (adminsStatus && adminsStatus !== "all") {
+        if (adminsStatus === "banned") {
+          conditions.push(eq(user.banned, true));
+        } else if (adminsStatus === "active") {
+          conditions.push(or(eq(user.banned, false), isNull(user.banned))!);
+        }
+      }
 
-          const whereCondition = and(...conditions);
+      const whereCondition = and(...conditions);
 
-          const [countResult] = await ctx.db
-            .select({ count: sql<number>`count(*)` })
-            .from(user)
-            .where(whereCondition);
+      const [countResult] = await ctx.db
+        .select({ count: sql<number>`count(*)` })
+        .from(user)
+        .where(whereCondition);
 
-          const totalCount = countResult?.count ?? 0;
-          const totalPages = Math.ceil(totalCount / investorsLimit);
+      const totalCount = countResult?.count ?? 0;
+      const totalPages = Math.ceil(totalCount / adminsLimit);
 
-          const investors = await ctx.db
-            .select({
-              id: user.id,
-              name: user.name,
-              email: user.email,
-              image: user.image,
-              emailVerified: user.emailVerified,
-              banned: user.banned,
-              createdAt: user.createdAt,
-              kycStatus: user.kycStatus,
-            })
-            .from(user)
-            .where(whereCondition)
-            .orderBy(desc(user.createdAt))
-            .limit(investorsLimit)
-            .offset(offset);
-
-          return {
-            success: true,
-            investors: investors.map((inv) => ({
-              ...inv,
-              createdAt: inv.createdAt?.toISOString() ?? null,
-            })),
-            pagination: {
-              page: investorsPage,
-              limit: investorsLimit,
-              totalCount,
-              totalPages,
-              hasNextPage: investorsPage < totalPages,
-              hasPrevPage: investorsPage > 1,
-            },
-          };
-        })(),
-        // Admins query
-        (async () => {
-          const offset = (adminsPage - 1) * adminsLimit;
-          const conditions = [eq(user.role, "admin")];
-
-          if (adminsSearch && adminsSearch.trim()) {
-            const searchTerm = `%${adminsSearch.trim()}%`;
-            conditions.push(
-              or(ilike(user.name, searchTerm), ilike(user.email, searchTerm))!
-            );
-          }
-
-          if (adminsVerified && adminsVerified !== "all") {
-            if (adminsVerified === "verified") {
-              conditions.push(eq(user.emailVerified, true));
-            } else if (adminsVerified === "unverified") {
-              conditions.push(eq(user.emailVerified, false));
-            }
-          }
-
-          if (adminsStatus && adminsStatus !== "all") {
-            if (adminsStatus === "banned") {
-              conditions.push(eq(user.banned, true));
-            } else if (adminsStatus === "active") {
-              conditions.push(or(eq(user.banned, false), isNull(user.banned))!);
-            }
-          }
-
-          const whereCondition = and(...conditions);
-
-          const [countResult] = await ctx.db
-            .select({ count: sql<number>`count(*)` })
-            .from(user)
-            .where(whereCondition);
-
-          const totalCount = countResult?.count ?? 0;
-          const totalPages = Math.ceil(totalCount / adminsLimit);
-
-          const admins = await ctx.db
-            .select({
-              id: user.id,
-              name: user.name,
-              email: user.email,
-              image: user.image,
-              emailVerified: user.emailVerified,
-              banned: user.banned,
-              createdAt: user.createdAt,
-            })
-            .from(user)
-            .where(whereCondition)
-            .orderBy(desc(user.createdAt))
-            .limit(adminsLimit)
-            .offset(offset);
-
-          return {
-            success: true,
-            admins: admins.map((admin) => ({
-              ...admin,
-              createdAt: admin.createdAt?.toISOString() ?? null,
-            })),
-            pagination: {
-              page: adminsPage,
-              limit: adminsLimit,
-              totalCount,
-              totalPages,
-              hasNextPage: adminsPage < totalPages,
-              hasPrevPage: adminsPage > 1,
-            },
-          };
-        })(),
-      ]);
+      const admins = await ctx.db
+        .select({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+          emailVerified: user.emailVerified,
+          banned: user.banned,
+          createdAt: user.createdAt,
+        })
+        .from(user)
+        .where(whereCondition)
+        .orderBy(desc(user.createdAt))
+        .limit(adminsLimit)
+        .offset(offset);
 
       return {
-        investors: investorsResult,
-        admins: adminsResult,
+        admins: {
+          success: true,
+          admins: admins.map((admin) => ({
+            ...admin,
+            createdAt: admin.createdAt?.toISOString() ?? null,
+          })),
+          pagination: {
+            page: adminsPage,
+            limit: adminsLimit,
+            totalCount,
+            totalPages,
+            hasNextPage: adminsPage < totalPages,
+            hasPrevPage: adminsPage > 1,
+          },
+        },
       };
     }),
 

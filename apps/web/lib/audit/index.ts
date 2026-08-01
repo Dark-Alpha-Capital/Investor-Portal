@@ -31,7 +31,10 @@ export type AuditAction =
   | "banking_change_rejected"
   | "login_success"
   | "login_failed"
-  | "session_expired";
+  | "session_expired"
+  | "knowledge_request_created"
+  | "knowledge_request_answered"
+  | "knowledge_request_closed";
 
 // Target types for audit logs
 export type AuditTargetType =
@@ -42,7 +45,8 @@ export type AuditTargetType =
   | "deal"
   | "capital_notice"
   | "banking"
-  | "session";
+  | "session"
+  | "knowledge_request";
 
 // Audit event input
 export type AuditEventInput = {
@@ -111,18 +115,13 @@ export async function logClearanceChange(params: {
 }
 
 /**
- * Helper to log vehicle permission grants
+ * Helper to log deal invitation grants/updates
  */
 export async function logPermissionGrant(params: {
   performedBy: string;
   targetUserId: string;
   dealId: string;
-  permissions: {
-    canViewTeaser: boolean;
-    canViewDocuments: boolean;
-    canExpressInterest: boolean;
-    canInvest: boolean;
-  };
+  accessLevel: "teaser" | "data_room";
   notes?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
@@ -135,7 +134,7 @@ export async function logPermissionGrant(params: {
     newValue: {
       userId: params.targetUserId,
       dealId: params.dealId,
-      ...params.permissions,
+      accessLevel: params.accessLevel,
     },
     metadata: params.notes ? { notes: params.notes } : null,
     ipAddress: params.ipAddress,
@@ -144,7 +143,7 @@ export async function logPermissionGrant(params: {
 }
 
 /**
- * Helper to log vehicle permission revocations
+ * Helper to log deal invitation withdrawals
  */
 export async function logPermissionRevoke(params: {
   performedBy: string;
@@ -164,6 +163,35 @@ export async function logPermissionRevoke(params: {
       dealId: params.dealId,
     },
     metadata: params.reason ? { reason: params.reason } : null,
+    ipAddress: params.ipAddress,
+    userAgent: params.userAgent,
+  });
+}
+
+/**
+ * Helper to log investor data-room access requests
+ */
+export async function logDataRoomAccessRequest(params: {
+  performedBy: string;
+  dealId: string;
+  notes?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}): Promise<string> {
+  return logAuditEvent({
+    userId: params.performedBy,
+    action: "permission_granted",
+    targetType: "permission",
+    targetId: `${params.performedBy}:${params.dealId}`,
+    newValue: {
+      userId: params.performedBy,
+      dealId: params.dealId,
+      request: "data_room",
+    },
+    metadata: {
+      type: "data_room_access_request",
+      ...(params.notes ? { notes: params.notes } : {}),
+    },
     ipAddress: params.ipAddress,
     userAgent: params.userAgent,
   });
@@ -212,6 +240,64 @@ export async function logRoleRevoke(params: {
     metadata: params.reason ? { reason: params.reason } : null,
     ipAddress: params.ipAddress,
     userAgent: params.userAgent,
+  });
+}
+
+export async function logKnowledgeRequestCreated(params: {
+  performedBy: string;
+  requestId: string;
+  dealId: string;
+  referenceCode: string;
+  chatId?: string | null;
+}): Promise<string> {
+  return logAuditEvent({
+    userId: params.performedBy,
+    action: "knowledge_request_created",
+    targetType: "knowledge_request",
+    targetId: params.requestId,
+    newValue: {
+      dealId: params.dealId,
+      referenceCode: params.referenceCode,
+      chatId: params.chatId ?? null,
+    },
+  });
+}
+
+export async function logKnowledgeRequestAnswered(params: {
+  performedBy: string;
+  requestId: string;
+  dealId: string;
+  referenceCode: string;
+}): Promise<string> {
+  return logAuditEvent({
+    userId: params.performedBy,
+    action: "knowledge_request_answered",
+    targetType: "knowledge_request",
+    targetId: params.requestId,
+    newValue: {
+      dealId: params.dealId,
+      referenceCode: params.referenceCode,
+      status: "answered",
+    },
+  });
+}
+
+export async function logKnowledgeRequestClosed(params: {
+  performedBy: string;
+  requestId: string;
+  dealId: string;
+  referenceCode: string;
+}): Promise<string> {
+  return logAuditEvent({
+    userId: params.performedBy,
+    action: "knowledge_request_closed",
+    targetType: "knowledge_request",
+    targetId: params.requestId,
+    newValue: {
+      dealId: params.dealId,
+      referenceCode: params.referenceCode,
+      status: "closed",
+    },
   });
 }
 

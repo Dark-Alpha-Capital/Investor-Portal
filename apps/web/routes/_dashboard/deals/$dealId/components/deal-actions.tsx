@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useRouter } from "@/hooks/use-app-navigation";
 import { Button } from "@/components/ui/button";
@@ -16,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
 import { useMutation } from "@tanstack/react-query";
+import { formatIntegerInput, parseFormattedInteger } from "@/lib/utils";
 
 type UserInterest = {
   id: string;
@@ -30,6 +30,8 @@ type DealPermissions = {
   canViewDocuments: boolean;
   canExpressInterest: boolean;
   canInvest: boolean;
+  accessLevel?: "teaser" | "data_room" | null;
+  dataRoomRequestedAt?: string | null;
 };
 
 type DealActionsProps = {
@@ -37,13 +39,6 @@ type DealActionsProps = {
   userInterest: UserInterest;
   minInvestment: string | null;
   permissions: DealPermissions;
-};
-
-const interestStatusLabels: Record<string, string> = {
-  interested: "Interested",
-  soft_committed: "Soft Committed",
-  pass: "Passed",
-  meeting_requested: "Meeting Requested",
 };
 
 const formatCurrency = (value: string | null | undefined): string => {
@@ -72,28 +67,48 @@ export function DealActions({
 }: DealActionsProps) {
   const router = useRouter();
   const trpc = useTRPC();
-  const [isSoftCommitDialogOpen, setIsSoftCommitDialogOpen] = useState(false);
+  const [isInterestDialogOpen, setIsInterestDialogOpen] = useState(false);
   const [isCommitDialogOpen, setIsCommitDialogOpen] = useState(false);
-  const [proposedAmount, setProposedAmount] = useState<string>(
-    userInterest?.proposedAmount || "",
+  const [estimatedAmount, setEstimatedAmount] = useState(() =>
+    formatIntegerInput(userInterest?.proposedAmount),
   );
-  const [commitAmount, setCommitAmount] = useState<string>(
-    userInterest?.proposedAmount || "",
+  const [commitAmount, setCommitAmount] = useState(() =>
+    formatIntegerInput(userInterest?.proposedAmount),
   );
-
-  // Separate loading states for each action
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
-  // Check permissions
   const canExpressInterest = permissions.canExpressInterest;
   const canInvest = permissions.canInvest;
+  const isTeaserOnly =
+    permissions.accessLevel === "teaser" ||
+    (!canExpressInterest && permissions.canViewTeaser);
+  const hasPendingDataRoomRequest = !!permissions.dataRoomRequestedAt;
+  const hasInterest =
+    !!userInterest &&
+    userInterest.status !== "pass";
+
+  const { mutate: requestDataRoom, isPending: isRequestingAccess } =
+    useMutation(
+      trpc.deals.requestDataRoomAccess.mutationOptions({
+        onSuccess: (data) => {
+          toast.success(data.message);
+          setLoadingAction(null);
+          router.refresh();
+        },
+        onError: (error: { message?: string }) => {
+          toast.error(error.message || "Failed to request access");
+          setLoadingAction(null);
+        },
+      }),
+    );
 
   const { mutate: expressInterest } = useMutation(
     trpc.deals.expressInterest.mutationOptions({
       onSuccess: () => {
-        toast.success("Interest sent – IR Team will contact you.");
-        setIsSoftCommitDialogOpen(false);
-        setProposedAmount("");
+        toast.success(
+          "Thanks! Our investment team will follow up with next steps.",
+        );
+        setIsInterestDialogOpen(false);
         setLoadingAction(null);
         router.refresh();
       },
@@ -120,9 +135,23 @@ export function DealActions({
     }),
   );
 
+  const submitInterest = () => {
+    const amount = parseFormattedInteger(estimatedAmount);
+    if (estimatedAmount.trim() && (amount == null || amount <= 0)) {
+      toast.error("Please enter a valid estimated amount, or leave it blank");
+      return;
+    }
+    setLoadingAction("interest");
+    expressInterest({
+      dealId,
+      status: "interested",
+      ...(amount != null && amount > 0 ? { proposedAmount: amount } : {}),
+    });
+  };
+
   const handleCommitCapital = () => {
-    const amount = parseFloat(commitAmount);
-    if (!commitAmount || amount <= 0) {
+    const amount = parseFormattedInteger(commitAmount);
+    if (amount == null || amount <= 0) {
       toast.error("Please enter a valid commitment amount");
       return;
     }
@@ -133,65 +162,40 @@ export function DealActions({
     });
   };
 
-  const handleInterestedClick = () => {
-    setLoadingAction("interested");
-    expressInterest({
-      dealId,
-      status: "interested",
-    });
-  };
-
-  const handleSoftCommitSubmit = () => {
-    if (!proposedAmount || parseFloat(proposedAmount) <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-    setLoadingAction("soft_committed");
-    expressInterest({
-      dealId,
-      status: "soft_committed",
-      proposedAmount: parseFloat(proposedAmount),
-    });
-  };
-
-  const handleUpdateStatus = (
-    status: "soft_committed" | "pass" | "meeting_requested",
-    amount?: number,
-  ) => {
-    if (status === "soft_committed" && (!amount || amount <= 0)) {
-      toast.error("Please enter a valid amount for soft commit");
-      return;
-    }
-    setLoadingAction(status);
-    expressInterest({
-      dealId,
-      status,
-      proposedAmount: amount,
-    });
-    setProposedAmount("");
-  };
-
-  const handlePassClick = () => {
-    handleUpdateStatus("pass");
-  };
-
-  const handleMeetingRequestClick = () => {
-    handleUpdateStatus("meeting_requested");
-  };
-
-  // If user doesn't have permission to express interest, show restricted message
-  if (!canExpressInterest) {
+  if (isTeaserOnly || !canExpressInterest) {
     return (
       <div className="space-y-6">
         <div className="p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
           <h3 className="text-sm font-semibold mb-2 text-amber-800 dark:text-amber-200">
-            Limited Access
+            Teaser Access
           </h3>
-          <p className="text-sm text-amber-700 dark:text-amber-300">
-            Your current permissions do not allow expressing interest in this
-            deal. Please contact our IR team if you would like to learn more
-            about this opportunity.
+          <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
+            You can view the teaser for this deal. Request data room access to
+            review documents, express interest, and commit capital.
           </p>
+          {hasPendingDataRoomRequest ? (
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                Request pending
+              </p>
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                An administrator has been notified and will review your request
+                to upgrade this invitation to Data Room access.
+              </p>
+            </div>
+          ) : (
+            <Button
+              onClick={() => {
+                setLoadingAction("request");
+                requestDataRoom({ dealId });
+              }}
+              disabled={isRequestingAccess || loadingAction === "request"}
+            >
+              {isRequestingAccess || loadingAction === "request"
+                ? "Requesting…"
+                : "Request Data Room Access"}
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -199,30 +203,26 @@ export function DealActions({
 
   return (
     <div className="space-y-6">
-      {/* Current Status Display */}
-      {userInterest && (
+      {hasInterest ? (
         <div className="p-4 bg-muted rounded-lg border-l-4 border-primary">
           <h3 className="text-sm font-semibold mb-2">Your Current Status</h3>
           <p className="text-sm text-muted-foreground">
             Status:{" "}
-            <span className="font-medium text-foreground">
-              {interestStatusLabels[userInterest.status] || userInterest.status}
-            </span>
-            {userInterest.proposedAmount && (
+            <span className="font-medium text-foreground">Interested</span>
+            {userInterest?.proposedAmount ? (
               <>
                 {" "}
-                • Amount:{" "}
+                · Estimated:{" "}
                 <span className="font-medium text-foreground">
                   {formatCurrency(userInterest.proposedAmount)}
                 </span>
               </>
-            )}
+            ) : null}
           </p>
         </div>
-      )}
+      ) : null}
 
-      {/* Show invest restriction notice if can express interest but can't invest */}
-      {canExpressInterest && !canInvest && (
+      {canExpressInterest && !canInvest ? (
         <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
           <p className="text-xs text-blue-700 dark:text-blue-300">
             <strong>Note:</strong> You can express interest in this deal, but
@@ -230,363 +230,188 @@ export function DealActions({
             team for details.
           </p>
         </div>
-      )}
+      ) : null}
 
-      {canInvest ? (
-        <Dialog open={isCommitDialogOpen} onOpenChange={setIsCommitDialogOpen}>
-          <div className="border rounded-lg p-4 border-primary/30 bg-primary/5">
+      <div className="space-y-3">
+        <Dialog
+          open={isInterestDialogOpen}
+          onOpenChange={setIsInterestDialogOpen}
+        >
+          <div className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <h4 className="font-medium mb-1">Commit Capital</h4>
+                <h4 className="font-medium mb-1">
+                  {hasInterest ? "Update Interest" : "Express Interest"}
+                </h4>
                 <p className="text-sm text-muted-foreground">
-                  Submit a capital commitment for this deal. This records your
-                  commitment before funds are wired. Status will move through
-                  Committed → Pending → Confirmed → Funded.
+                  Let our investment team know you&apos;re interested. You can
+                  optionally share an estimated check size — this is non-binding.
                 </p>
-                {minInvestment ? (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Minimum investment: {formatCurrency(minInvestment)}
-                  </p>
-                ) : null}
               </div>
               <DialogTrigger asChild>
                 <Button
                   size="sm"
+                  variant={hasInterest ? "secondary" : "default"}
                   onClick={() =>
-                    setCommitAmount(userInterest?.proposedAmount || "")
+                    setEstimatedAmount(
+                      formatIntegerInput(userInterest?.proposedAmount),
+                    )
                   }
                 >
-                  Commit
+                  {hasInterest ? "Update" : "Express Interest"}
                 </Button>
               </DialogTrigger>
             </div>
           </div>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Commit Capital</DialogTitle>
+              <DialogTitle>
+                {hasInterest ? "Update Interest" : "Express Interest"}
+              </DialogTitle>
               <DialogDescription>
-                Enter the amount you are committing. Money is not wired yet —
-                this records your commitment only.
+                Our investment team will follow up with next steps. Estimated
+                amount is optional and non-binding.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="commit-amount">Commitment Amount</Label>
+                <Label htmlFor="estimated-amount">
+                  Estimated Investment{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (optional)
+                  </span>
+                </Label>
                 <div className="relative mt-2">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     $
                   </span>
                   <Input
-                    id="commit-amount"
-                    type="number"
-                    placeholder="250000"
+                    id="estimated-amount"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="250,000"
                     className="pl-7"
-                    value={commitAmount}
-                    onChange={(e) => setCommitAmount(e.target.value)}
-                    min="0"
-                    step="1000"
+                    value={estimatedAmount}
+                    onChange={(e) =>
+                      setEstimatedAmount(formatIntegerInput(e.target.value))
+                    }
                   />
                 </div>
-                {minInvestment ? (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Minimum investment: {formatCurrency(minInvestment)}
-                  </p>
-                ) : null}
               </div>
             </div>
             <DialogFooter>
               <Button
                 variant="secondary"
                 onClick={() => {
-                  setIsCommitDialogOpen(false);
-                  setCommitAmount("");
+                  setIsInterestDialogOpen(false);
+                  setEstimatedAmount(
+                    formatIntegerInput(userInterest?.proposedAmount),
+                  );
                 }}
               >
                 Cancel
               </Button>
               <Button
-                onClick={handleCommitCapital}
-                disabled={
-                  loadingAction === "commit" ||
-                  !commitAmount ||
-                  parseFloat(commitAmount) <= 0
-                }
+                onClick={submitInterest}
+                disabled={loadingAction === "interest"}
               >
-                {loadingAction === "commit" ? "Committing..." : "I Commit"}
+                {loadingAction === "interest" ? "Saving…" : "Submit"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      ) : null}
 
-      {!userInterest ? (
-        // Initial interest options
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold mb-2">
-              Express Your Interest
-            </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Let us know how you'd like to proceed with this deal
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <div className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+        {canInvest ? (
+          <Dialog
+            open={isCommitDialogOpen}
+            onOpenChange={setIsCommitDialogOpen}
+          >
+            <div className="border rounded-lg p-4 border-primary/30 bg-primary/5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
-                  <h4 className="font-medium mb-1">I'm Interested</h4>
+                  <h4 className="font-medium mb-1">Commit Capital</h4>
                   <p className="text-sm text-muted-foreground">
-                    Express general interest in this deal. Our IR team will
-                    reach out to discuss further details and answer any
-                    questions you may have.
+                    Record a capital commitment for this deal. Funds are not
+                    wired yet — our team will coordinate next steps.
                   </p>
+                  {minInvestment ? (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Minimum investment: {formatCurrency(minInvestment)}
+                    </p>
+                  ) : null}
                 </div>
-                <Button
-                  onClick={handleInterestedClick}
-                  disabled={loadingAction === "interested"}
-                  size="sm"
-                >
-                  {loadingAction === "interested" ? "Sending..." : "Select"}
-                </Button>
-              </div>
-            </div>
-
-            <Dialog
-              open={isSoftCommitDialogOpen}
-              onOpenChange={setIsSoftCommitDialogOpen}
-            >
-              <DialogTrigger asChild>
-                <div className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <h4 className="font-medium mb-1">Soft Commit</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Indicate a specific investment amount you're
-                        considering. This is non-binding and helps us understand
-                        your level of interest. You can change or withdraw this
-                        commitment at any time.
-                      </p>
-                      {minInvestment && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Minimum investment: {formatCurrency(minInvestment)}
-                        </p>
-                      )}
-                    </div>
-                    <Button size="sm" variant="default">
-                      Select
-                    </Button>
-                  </div>
-                </div>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Soft Commit</DialogTitle>
-                  <DialogDescription>
-                    Enter the amount you're considering for this investment.
-                    This is non-binding and can be changed later.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="amount">Investment Amount</Label>
-                    <div className="relative mt-2">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                        $
-                      </span>
-                      <Input
-                        id="amount"
-                        type="number"
-                        placeholder="50,000"
-                        className="pl-7"
-                        value={proposedAmount}
-                        onChange={(e) => setProposedAmount(e.target.value)}
-                        min="0"
-                        step="1000"
-                      />
-                    </div>
-                    {minInvestment && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Minimum investment: {formatCurrency(minInvestment)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <DialogFooter>
+                <DialogTrigger asChild>
                   <Button
-                    variant="secondary"
-                    onClick={() => {
-                      setIsSoftCommitDialogOpen(false);
-                      setProposedAmount("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSoftCommitSubmit}
-                    disabled={
-                      loadingAction === "soft_committed" ||
-                      !proposedAmount ||
-                      parseFloat(proposedAmount) <= 0
-                    }
-                  >
-                    {loadingAction === "soft_committed"
-                      ? "Submitting..."
-                      : "Submit"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-      ) : (
-        // Update status options
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Update Your Position</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Change your interest status or take action on this deal
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <Dialog
-              open={isSoftCommitDialogOpen}
-              onOpenChange={setIsSoftCommitDialogOpen}
-            >
-              <DialogTrigger asChild>
-                <div className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <h4 className="font-medium mb-1">
-                        Soft Commit
-                        {userInterest.proposedAmount &&
-                          ` (${formatCurrency(userInterest.proposedAmount)})`}
-                      </h4>
-                      <p className="text-sm text-muted-foreground">
-                        Update your investment amount or set a new soft commit.
-                        This is non-binding and can be changed at any time.
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={() => {
-                        setProposedAmount(userInterest.proposedAmount || "");
-                      }}
-                    >
-                      Update
-                    </Button>
-                  </div>
-                </div>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Update Soft Commit</DialogTitle>
-                  <DialogDescription>
-                    Enter the amount you're considering for this investment.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="amount-update">Investment Amount</Label>
-                    <div className="relative mt-2">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                        $
-                      </span>
-                      <Input
-                        id="amount-update"
-                        type="number"
-                        placeholder="50,000"
-                        className="pl-7"
-                        value={proposedAmount}
-                        onChange={(e) => setProposedAmount(e.target.value)}
-                        min="0"
-                        step="1000"
-                      />
-                    </div>
-                    {minInvestment && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Minimum investment: {formatCurrency(minInvestment)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      setIsSoftCommitDialogOpen(false);
-                      setProposedAmount("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
+                    size="sm"
                     onClick={() =>
-                      handleUpdateStatus(
-                        "soft_committed",
-                        parseFloat(proposedAmount),
+                      setCommitAmount(
+                        formatIntegerInput(userInterest?.proposedAmount),
                       )
                     }
-                    disabled={
-                      loadingAction === "soft_committed" ||
-                      !proposedAmount ||
-                      parseFloat(proposedAmount) <= 0
-                    }
                   >
-                    {loadingAction === "soft_committed"
-                      ? "Updating..."
-                      : "Update"}
+                    Commit
                   </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            <div className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <h4 className="font-medium mb-1">Request Meeting</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Schedule a meeting with our IR team to discuss this deal in
-                    detail and get your questions answered.
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleMeetingRequestClick}
-                  disabled={loadingAction === "meeting_requested"}
-                >
-                  {loadingAction === "meeting_requested"
-                    ? "Sending..."
-                    : "Request"}
-                </Button>
+                </DialogTrigger>
               </div>
             </div>
-
-            <div className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <h4 className="font-medium mb-1">Pass</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Indicate that you're not interested in pursuing this deal at
-                    this time.
-                  </p>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Commit Capital</DialogTitle>
+                <DialogDescription>
+                  Enter the exact amount you are committing. This records your
+                  commitment only — money is not wired yet.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="commit-amount">Commitment Amount</Label>
+                  <div className="relative mt-2">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                      $
+                    </span>
+                    <Input
+                      id="commit-amount"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="500,000"
+                      className="pl-7"
+                      value={commitAmount}
+                      onChange={(e) =>
+                        setCommitAmount(formatIntegerInput(e.target.value))
+                      }
+                    />
+                  </div>
+                  {minInvestment ? (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Minimum investment: {formatCurrency(minInvestment)}
+                    </p>
+                  ) : null}
                 </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handlePassClick}
-                  disabled={loadingAction === "pass"}
-                >
-                  {loadingAction === "pass" ? "Updating..." : "Pass"}
-                </Button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+              <DialogFooter>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setIsCommitDialogOpen(false);
+                    setCommitAmount("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCommitCapital}
+                  disabled={
+                    loadingAction === "commit" ||
+                    (parseFormattedInteger(commitAmount) ?? 0) <= 0
+                  }
+                >
+                  {loadingAction === "commit" ? "Committing…" : "I Commit"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        ) : null}
+      </div>
     </div>
   );
 }

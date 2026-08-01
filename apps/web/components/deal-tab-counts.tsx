@@ -1,12 +1,21 @@
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Users, Target, TrendingUp, FolderOpen, AlignLeft } from "lucide-react";
+import {
+  FileText,
+  Users,
+  Target,
+  TrendingUp,
+  FolderOpen,
+  AlignLeft,
+  HelpCircle,
+} from "lucide-react";
 
 type TabCountsProps = {
   invitesCount: number;
   interestsCount: number;
   investmentsCount: number;
   filesCount: number;
+  questionsCount?: number;
 };
 
 export function TabCounts({
@@ -14,9 +23,10 @@ export function TabCounts({
   interestsCount,
   investmentsCount,
   filesCount,
+  questionsCount = 0,
 }: TabCountsProps) {
   return (
-    <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-flex">
+    <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-flex">
       <TabsTrigger value="overview" className="flex items-center gap-2">
         <FileText className="h-4 w-4" />
         Overview
@@ -61,7 +71,15 @@ export function TabCounts({
           </Badge>
         )}
       </TabsTrigger>
+      <TabsTrigger value="questions" className="flex items-center gap-2">
+        <HelpCircle className="h-4 w-4" />
+        Questions
+        {questionsCount > 0 && (
+          <Badge variant="secondary" className="ml-1">
+            {questionsCount}
+          </Badge>
+        )}
+      </TabsTrigger>
     </TabsList>
   );
 }
-

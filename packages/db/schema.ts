@@ -153,6 +153,8 @@ export const chat = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    // FK enforced in migration; deal is declared later in this file
+    dealId: text("deal_id"),
     title: text("title").notNull().default("New chat"),
     model: text("model").notNull(),
     messages: jsonb("messages").$type<unknown[]>().notNull().default([]),
@@ -166,6 +168,7 @@ export const chat = pgTable(
   },
   (table) => [
     index("chat_userId_updatedAt_idx").on(table.userId, table.updatedAt),
+    index("chat_dealId_idx").on(table.dealId),
   ]
 );
 
@@ -487,13 +490,13 @@ export const onboardingEditHistoryRelations = relations(
 
 // 1. Status of the Deal itself (Admin controlled)
 export const deal_status_enum = pgEnum("deal_status", [
-  "draft", // Internal only
-  "coming_soon", // Visible, no docs yet
-  "live", // Open for investment
-  "closing", // Finalizing
-  "funded", // Active / Operating
-  "exited", // Sold / IPO
-  "cancelled",
+  "draft", // Internal only — never investor-visible
+  "coming_soon", // Internal prep (MVP: not investor-visible)
+  "live", // Marketed — invited investors can see / commit
+  "closing", // Raise finishing — invited investors may still open detail
+  "funded", // Raise complete — portfolio / historical detail
+  "exited", // Sold / IPO — historical detail
+  "cancelled", // Hidden from marketplace; not investor-accessible
 ]);
 
 // 2. Visibility Level (For curation)
@@ -515,11 +518,13 @@ export const investment_status_enum = pgEnum("investment_status", [
 ]);
 
 // 4. User's interest level in a prospective deal
+// Investor UI writes interested | pass only. soft_committed / meeting_requested
+// are legacy values kept for existing rows; estimated check size lives on proposedAmount.
 export const interest_status_enum = pgEnum("interest_status", [
-  "interested", // "I want to know more"
-  "soft_committed", // "Put me down for $50k"
-  "pass", // "Not for me"
-  "meeting_requested",
+  "interested",
+  "soft_committed", // legacy — treat as interested + proposedAmount
+  "pass",
+  "meeting_requested", // legacy — treat as interested
 ]);
 
 // ============================================================================
@@ -538,12 +543,18 @@ export const user_role_enum = pgEnum("user_role", [
   "investor", // Standard investor access
 ]);
 
-// 6. Investor clearance status (compliance decision)
+// 6. Investor global approval status (compliance decision)
 export const clearance_status_enum = pgEnum("clearance_status", [
-  "pending", // Awaiting review
-  "cleared", // Full access granted
-  "cleared_with_conditions", // Access with restrictions
-  "rejected", // Access denied
+  "pending_review", // KYC submitted, awaiting review
+  "approved", // Passed KYC, eligible to invest
+  "needs_information", // Additional docs/corrections required
+  "rejected", // Cannot participate
+]);
+
+// Deal invitation access level (product: Invitation)
+export const deal_access_level_enum = pgEnum("deal_access_level", [
+  "teaser", // Read-only teaser + request data room access
+  "data_room", // Full deal: docs, Q&A, interest, commit
 ]);
 
 // Note: legal_entity_type_enum is defined before onboarding table (line ~152)
@@ -617,6 +628,16 @@ export const audit_action_enum = pgEnum("audit_action", [
   "login_success",
   "login_failed",
   "session_expired",
+  "knowledge_request_created",
+  "knowledge_request_answered",
+  "knowledge_request_closed",
+]);
+
+export const knowledge_request_status_enum = pgEnum("knowledge_request_status", [
+  "open",
+  "answered",
+  "closed",
+  "archived",
 ]);
 
 // --- A. THE DEAL TABLE (Prospective & Active) ---
@@ -1038,11 +1059,11 @@ export const investorClearance = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
 
-    status: clearance_status_enum("status").default("pending").notNull(),
+    status: clearance_status_enum("status").default("pending_review").notNull(),
 
-    // Conditions (for "cleared_with_conditions")
-    conditions: text("conditions"), // JSON array or text description of conditions
-    conditionsJson: jsonb("conditions_json").$type<string[]>(), // Structured conditions
+    // Optional notes / historical conditions text
+    conditions: text("conditions"),
+    conditionsJson: jsonb("conditions_json").$type<string[]>(),
 
     // Decision metadata
     clearedBy: text("cleared_by").references(() => user.id, {
@@ -1067,7 +1088,7 @@ export const investorClearance = pgTable(
   ]
 );
 
-// --- VEHICLE PERMISSION (Deal-Level Access Control) ---
+// --- DEAL INVITATION (stored as vehicle_permission; product: Invitation) ---
 export const vehiclePermission = pgTable(
   "vehicle_permission",
   {
@@ -1079,22 +1100,23 @@ export const vehiclePermission = pgTable(
       .notNull()
       .references(() => deal.id, { onDelete: "cascade" }),
 
-    // Permission level
-    canViewTeaser: boolean("can_view_teaser").default(true).notNull(),
-    canViewDocuments: boolean("can_view_documents").default(false).notNull(),
-    canExpressInterest: boolean("can_express_interest")
-      .default(false)
+    // Invitation access level (absence / revoked = NO_ACCESS)
+    accessLevel: deal_access_level_enum("access_level")
+      .default("teaser")
       .notNull(),
-    canInvest: boolean("can_invest").default(false).notNull(),
 
-    // Grant metadata
+    // Invite metadata
     grantedBy: text("granted_by").references(() => user.id, {
       onDelete: "set null",
     }),
     grantedAt: timestamp("granted_at").default(sql`(unixepoch() * 1000)`).notNull(),
     notes: text("notes"),
 
-    // Revocation
+    // Investor requested upgrade from teaser → data_room (cleared when granted)
+    dataRoomRequestedAt: timestamp("data_room_requested_at"),
+    dataRoomRequestMessage: text("data_room_request_message"),
+
+    // Withdrawal
     revokedAt: timestamp("revoked_at"),
     revokedBy: text("revoked_by").references(() => user.id, {
       onDelete: "set null",
@@ -1611,6 +1633,98 @@ export const bankingVerificationRelations = relations(
 export const evidenceExportRelations = relations(evidenceExport, ({ one }) => ({
   exportedByUser: one(user, {
     fields: [evidenceExport.exportedBy],
+    references: [user.id],
+  }),
+}));
+
+// --- KNOWLEDGE REQUESTS (deal Q&A escalation) ---
+export const knowledgeRequest = pgTable(
+  "knowledge_request",
+  {
+    id: text("id").primaryKey(),
+    dealId: text("deal_id")
+      .notNull()
+      .references(() => deal.id, { onDelete: "cascade" }),
+    askedByUserId: text("asked_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    chatId: text("chat_id").references(() => chat.id, { onDelete: "set null" }),
+    referenceCode: text("reference_code").notNull(),
+    title: text("title").notNull(),
+    question: text("question").notNull(),
+    status: knowledge_request_status_enum("status").default("open").notNull(),
+    createdAt: timestamp("created_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+    updatedAt: timestamp("updated_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("knowledge_request_reference_code_uidx").on(table.referenceCode),
+    index("knowledge_request_dealId_status_idx").on(table.dealId, table.status),
+    index("knowledge_request_askedBy_idx").on(table.askedByUserId),
+    index("knowledge_request_chatId_idx").on(table.chatId),
+  ]
+);
+
+export const knowledgeAnswer = pgTable(
+  "knowledge_answer",
+  {
+    id: text("id").primaryKey(),
+    requestId: text("request_id")
+      .notNull()
+      .references(() => knowledgeRequest.id, { onDelete: "cascade" })
+      .unique(),
+    answer: text("answer").notNull(),
+    answeredByUserId: text("answered_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    verified: boolean("verified").default(true).notNull(),
+    publishedAt: timestamp("published_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+    createdAt: timestamp("created_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+    updatedAt: timestamp("updated_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("knowledge_answer_requestId_idx").on(table.requestId),
+    index("knowledge_answer_answeredBy_idx").on(table.answeredByUserId),
+  ]
+);
+
+export const knowledgeRequestRelations = relations(
+  knowledgeRequest,
+  ({ one, many }) => ({
+    deal: one(deal, {
+      fields: [knowledgeRequest.dealId],
+      references: [deal.id],
+    }),
+    askedBy: one(user, {
+      fields: [knowledgeRequest.askedByUserId],
+      references: [user.id],
+    }),
+    chat: one(chat, {
+      fields: [knowledgeRequest.chatId],
+      references: [chat.id],
+    }),
+    answers: many(knowledgeAnswer),
+  })
+);
+
+export const knowledgeAnswerRelations = relations(knowledgeAnswer, ({ one }) => ({
+  request: one(knowledgeRequest, {
+    fields: [knowledgeAnswer.requestId],
+    references: [knowledgeRequest.id],
+  }),
+  answeredBy: one(user, {
+    fields: [knowledgeAnswer.answeredByUserId],
     references: [user.id],
   }),
 }));

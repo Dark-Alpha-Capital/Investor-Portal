@@ -4,5 +4,6 @@ export type {
   ChatListFetchResult,
   CreateChatFetchResult,
   LoadChatFetchResult,
+  SetChatDealFetchResult,
   DeleteChatFetchResult,
 } from "./chatbot-route-data.server";

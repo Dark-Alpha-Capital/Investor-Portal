@@ -13,7 +13,8 @@
   "exports": {
     ".": "./index.ts",
     "./schema": "./schema.ts",
-    "./queries": "./queries.ts"
+    "./queries": "./queries.ts",
+    "./deal-marketplace": "./deal-marketplace.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

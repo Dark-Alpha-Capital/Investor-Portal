@@ -10,11 +10,28 @@ import { TabCounts } from "@/components/deal-tab-counts";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { InvestmentsTab } from "@/components/deal-investments-tab";
 import { DealFilesTab } from "@/components/deal-files-tab";
+import { DealQuestionsTab } from "@/components/deal-questions-tab";
 import type { AdminDealDetailPayload } from "@/lib/server-fns/admin-route-data";
+import { z } from "zod";
+
+const searchSchema = z.object({
+  tab: z
+    .enum([
+      "overview",
+      "description",
+      "invites",
+      "interests",
+      "investments",
+      "files",
+      "questions",
+    ])
+    .optional(),
+});
 
 export const Route = createFileRoute(
   "/_dashboard/_admin/admin/deals/$dealId/",
 )({
+  validateSearch: (search) => searchSchema.parse(search),
   loader: async ({ params }: { params: { dealId: string } }) => {
     const r = await fetchAdminDealDetailData({
       data: { dealId: params.dealId },
@@ -29,15 +46,24 @@ export const Route = createFileRoute(
 
 function AdminDealDetailRoutePage() {
   const { dealId, data } = Route.useLoaderData();
-  return <AdminDealDetailInner dealId={dealId} data={data} />;
+  const { tab } = Route.useSearch();
+  return (
+    <AdminDealDetailInner
+      dealId={dealId}
+      data={data}
+      defaultTab={tab ?? "overview"}
+    />
+  );
 }
 
 function AdminDealDetailInner({
   dealId,
   data,
+  defaultTab,
 }: {
   dealId: string;
   data: AdminDealDetailPayload;
+  defaultTab: string;
 }) {
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
@@ -52,13 +78,13 @@ function AdminDealDetailInner({
 
       <div>
         <div className="flex gap-2">
-          <Link to={`/admin/deals/${dealId}/curate`}>
+          <Link params={{ dealId }} to="/admin/deals/$dealId/curate">
             <Button variant="secondary">
               <Users className="mr-2 h-4 w-4" />
               Curate
             </Button>
           </Link>
-          <Link to={`/admin/deals/${dealId}/edit`}>
+          <Link params={{ dealId }} to="/admin/deals/$dealId/edit">
             <Button>
               <Edit className="mr-2 h-4 w-4" />
               Edit Deal
@@ -67,12 +93,13 @@ function AdminDealDetailInner({
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="mt-6 space-y-6">
+      <Tabs defaultValue={defaultTab} className="mt-6 space-y-6">
         <TabCounts
           invitesCount={data.invites.length}
           interestsCount={data.interests.length}
           investmentsCount={data.investments.length}
           filesCount={data.files.length}
+          questionsCount={data.openQuestionsCount}
         />
 
         <TabsContent value="overview" className="mt-6 space-y-6">
@@ -101,6 +128,10 @@ function AdminDealDetailInner({
 
         <TabsContent value="files" className="mt-6 space-y-4">
           <DealFilesTab dealId={dealId} files={data.files} />
+        </TabsContent>
+
+        <TabsContent value="questions" className="mt-6 space-y-4">
+          <DealQuestionsTab dealId={dealId} />
         </TabsContent>
       </Tabs>
     </div>

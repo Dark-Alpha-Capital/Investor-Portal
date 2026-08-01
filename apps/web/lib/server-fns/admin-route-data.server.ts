@@ -13,6 +13,7 @@ import {
   getPendingInvestors,
   getInvestorComplianceDetails,
   getAllActiveDealsBasic,
+  countOpenKnowledgeRequests,
 } from "@repo/db/queries";
 import { getDealFilesByDealId } from "@/lib/deals/list-deal-files";
 
@@ -29,18 +30,6 @@ export async function runFetchAdminHomePageData(
   data: RouteSearchStringInput,
 ): Promise<AdminHomeOk> {
   const sp = new URLSearchParams(data.search);
-  const investorsPage = parseInt(sp.get("investorsPage") || "1", 10);
-  const investorsSearch = sp.get("investorsSearch") || undefined;
-  const investorsKycStatus =
-    sp.get("investorsKycStatus") &&
-    sp.get("investorsKycStatus") !== "all"
-      ? sp.get("investorsKycStatus")!
-      : undefined;
-  const investorsVerified =
-    sp.get("investorsVerified") &&
-    sp.get("investorsVerified") !== "all"
-      ? sp.get("investorsVerified")!
-      : undefined;
 
   const adminsPage = parseInt(sp.get("adminsPage") || "1", 10);
   const adminsSearch = sp.get("adminsSearch") || undefined;
@@ -55,11 +44,6 @@ export async function runFetchAdminHomePageData(
 
   const caller = await getTrpcCaller();
   const dashboard = await caller.admin.getAdminDashboard({
-    investorsPage,
-    investorsLimit: 12,
-    investorsSearch,
-    investorsKycStatus,
-    investorsVerified,
     adminsPage,
     adminsLimit: 12,
     adminsSearch,
@@ -103,6 +87,7 @@ export type AdminDealDetailPayload = Awaited<
   ReturnType<typeof getDealDetail>
 > & {
   files: Awaited<ReturnType<typeof getDealFilesByDealId>>;
+  openQuestionsCount: number;
 };
 
 export async function runFetchAdminDealDetailData(
@@ -110,9 +95,10 @@ export async function runFetchAdminDealDetailData(
 ): Promise<
   { tag: "not_found" } | { tag: "ok"; payload: AdminDealDetailPayload }
 > {
-  const [dealData, files] = await Promise.all([
+  const [dealData, files, openQuestionsCount] = await Promise.all([
     getDealDetail(data.dealId),
     getDealFilesByDealId(data.dealId),
+    countOpenKnowledgeRequests(data.dealId),
   ]);
 
   if (!dealData.success || !dealData.deal) {
@@ -121,7 +107,7 @@ export async function runFetchAdminDealDetailData(
 
   return {
     tag: "ok",
-    payload: { ...dealData, files },
+    payload: { ...dealData, files, openQuestionsCount },
   };
 }
 

@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useRouter } from "@/hooks/use-app-navigation";
 import {
@@ -6,9 +5,8 @@ import {
   ShieldCheck,
   ShieldX,
   AlertTriangle,
-  Building2,
-  Lock,
   Info,
+  FileQuestion,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -20,16 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 type ClearanceStatus =
-  | "pending"
-  | "cleared"
-  | "cleared_with_conditions"
+  | "pending_review"
+  | "approved"
+  | "needs_information"
   | "rejected";
 
 type ClearanceFormProps = {
@@ -37,6 +34,7 @@ type ClearanceFormProps = {
   currentStatus: ClearanceStatus | null;
   currentConditions: string[] | null;
   currentNotes: string | null;
+  currentInvestorVisibleNotes?: string | null;
   isOnboardingCompleted: boolean;
 };
 
@@ -45,16 +43,16 @@ const STATUS_OPTIONS: {
   label: string;
   icon: React.ReactNode;
 }[] = [
-  { value: "pending", label: "Pending Review", icon: null },
+  { value: "pending_review", label: "Pending Review", icon: null },
   {
-    value: "cleared",
-    label: "Cleared",
+    value: "approved",
+    label: "Approved",
     icon: <ShieldCheck className="h-4 w-4 text-green-600" />,
   },
   {
-    value: "cleared_with_conditions",
-    label: "Cleared with Conditions",
-    icon: <AlertTriangle className="h-4 w-4 text-amber-600" />,
+    value: "needs_information",
+    label: "Needs Information",
+    icon: <FileQuestion className="h-4 w-4 text-amber-600" />,
   },
   {
     value: "rejected",
@@ -62,18 +60,6 @@ const STATUS_OPTIONS: {
     icon: <ShieldX className="h-4 w-4 text-red-600" />,
   },
 ];
-
-const COMMON_CONDITIONS = [
-  "Investment cap: $250,000 per deal",
-  "Investment cap: $500,000 per deal",
-  "Investment cap: $1,000,000 per deal",
-  "Required: Enhanced due diligence for transactions over $100,000",
-  "Required: Source of funds documentation for each investment",
-  "Restricted: No access to offshore vehicle investments",
-  "Restricted: Real estate deals only",
-  "Required: Annual re-verification of accreditation status",
-  "Required: Quarterly portfolio review call",
-] as const;
 
 type StatusAlertConfig = {
   icon: React.ElementType;
@@ -86,53 +72,52 @@ type StatusAlertConfig = {
 };
 
 const STATUS_ALERT_CONFIG: Record<ClearanceStatus, StatusAlertConfig> = {
-  cleared: {
-    icon: Building2,
+  approved: {
+    icon: ShieldCheck,
     bgColor: "bg-green-50 dark:bg-green-950/20",
     borderColor: "border-green-200 dark:border-green-800",
     iconColor: "!text-green-600",
     textColor: "text-green-800 dark:text-green-200",
-    title: "Full Access",
+    title: "Approved",
     description:
-      "This investor will be granted access to all non-draft deals with full permissions (view docs, express interest, invest).",
+      "Investor has passed KYC and is eligible to invest. Invite them to specific deals from the Invitations tab.",
   },
-  cleared_with_conditions: {
+  needs_information: {
     icon: AlertTriangle,
     bgColor: "bg-amber-50 dark:bg-amber-950/20",
     borderColor: "border-amber-200 dark:border-amber-800",
     iconColor: "!text-amber-600",
     textColor: "text-amber-800 dark:text-amber-200",
-    title: "Conditional Access",
+    title: "Needs Information",
     description:
-      "This investor will see all deals but with restricted permissions (no document access, cannot invest). Use the Permissions tab to grant additional access to specific deals.",
+      "Additional documents or corrections are required before approval. The investor cannot access deals until re-approved.",
   },
-  pending: {
+  pending_review: {
     icon: Info,
     bgColor: "bg-blue-50 dark:bg-blue-950/20",
     borderColor: "border-blue-200 dark:border-blue-800",
     iconColor: "!text-blue-600",
     textColor: "text-blue-800 dark:text-blue-200",
-    title: "Pending",
+    title: "Pending Review",
     description:
-      "This investor cannot see any deals in the marketplace while their clearance is pending review.",
+      "KYC has been submitted and is awaiting review. The investor cannot see deals until approved.",
   },
   rejected: {
-    icon: Lock,
+    icon: ShieldX,
     bgColor: "bg-red-50 dark:bg-red-950/20",
     borderColor: "border-red-200 dark:border-red-800",
     iconColor: "!text-red-600",
     textColor: "text-red-800 dark:text-red-200",
-    title: "Blocked",
-    description:
-      "This investor will be completely blocked from accessing any deals in the marketplace.",
+    title: "Rejected",
+    description: "This investor cannot participate in the portal.",
   },
 };
 
 export function ClearanceForm({
   investorId,
   currentStatus,
-  currentConditions,
   currentNotes,
+  currentInvestorVisibleNotes,
   isOnboardingCompleted,
 }: ClearanceFormProps) {
   const router = useRouter();
@@ -140,360 +125,163 @@ export function ClearanceForm({
   const queryClient = useQueryClient();
 
   const [status, setStatus] = useState<ClearanceStatus>(
-    currentStatus || "pending"
+    currentStatus ?? "pending_review"
   );
-  const [conditions, setConditions] = useState<string[]>(
-    currentConditions || []
+  const [notes, setNotes] = useState(currentNotes ?? "");
+  const [investorVisibleNotes, setInvestorVisibleNotes] = useState(
+    currentInvestorVisibleNotes ?? ""
   );
-  const [customCondition, setCustomCondition] = useState("");
-  const [notes, setNotes] = useState(currentNotes || "");
-
-  // Sync state when props change
-  useEffect(() => {
-    if (currentStatus) {
-      setStatus(currentStatus);
-    }
-  }, [currentStatus]);
 
   useEffect(() => {
-    if (currentConditions) {
-      setConditions(currentConditions);
-    }
-  }, [currentConditions]);
-
-  useEffect(() => {
-    if (currentNotes !== null) {
-      setNotes(currentNotes);
-    }
-  }, [currentNotes]);
-
-  // Memoized computed values
-  const canGrantClearance = useMemo(
-    () => isOnboardingCompleted,
-    [isOnboardingCompleted]
-  );
-  const isGrantingClearanceStatus = useMemo(
-    () => status === "cleared" || status === "cleared_with_conditions",
-    [status]
-  );
-  const availableConditions = useMemo(
-    () => COMMON_CONDITIONS.filter((c) => !conditions.includes(c)),
-    [conditions]
-  );
-  const statusAlertConfig = useMemo(
-    () => STATUS_ALERT_CONFIG[status],
-    [status]
-  );
-  const isValidStatus = useMemo(() => {
-    if (status === "cleared" || status === "cleared_with_conditions") {
-      return isOnboardingCompleted;
-    }
-    return true;
-  }, [status, isOnboardingCompleted]);
-  const requiresConditions = useMemo(
-    () => status === "cleared_with_conditions",
-    [status]
-  );
+    setStatus(currentStatus ?? "pending_review");
+    setNotes(currentNotes ?? "");
+    setInvestorVisibleNotes(currentInvestorVisibleNotes ?? "");
+  }, [currentStatus, currentNotes, currentInvestorVisibleNotes]);
 
   const setClearanceMutation = useMutation(
     trpc.compliance.setClearance.mutationOptions({
       onSuccess: () => {
-        toast.success("Clearance status updated successfully");
-        queryClient.invalidateQueries({ queryKey: [["compliance"]] });
+        toast.success("Investor status updated");
+        queryClient.invalidateQueries();
         router.refresh();
       },
       onError: (error) => {
-        toast.error(error.message || "Failed to update clearance status");
+        toast.error(error.message || "Failed to update status");
       },
     })
   );
 
-  const handleSubmit = useCallback(() => {
-    // Validation
-    if (!isValidStatus) {
-      toast.error("Cannot grant clearance without completed onboarding");
-      return;
-    }
+  const canApprove = isOnboardingCompleted;
+  const alertConfig = STATUS_ALERT_CONFIG[status];
+  const AlertIcon = alertConfig.icon;
 
-    if (requiresConditions && conditions.length === 0) {
-      toast.error(
-        "Please add at least one condition for conditional clearance"
-      );
+  const handleSubmit = useCallback(() => {
+    if (status === "approved" && !canApprove) {
+      toast.error("Investor must complete onboarding before approval");
       return;
     }
 
     setClearanceMutation.mutate({
       userId: investorId,
       status,
-      conditions: requiresConditions ? conditions : undefined,
       notes: notes.trim() || undefined,
+      investorVisibleNotes: investorVisibleNotes.trim() || undefined,
     });
   }, [
-    isValidStatus,
-    requiresConditions,
-    conditions,
-    investorId,
     status,
+    canApprove,
+    investorId,
     notes,
+    investorVisibleNotes,
     setClearanceMutation,
   ]);
 
-  const addCondition = useCallback(
-    (condition: string) => {
-      if (condition && !conditions.includes(condition)) {
-        setConditions((prev) => [...prev, condition]);
-      }
-    },
-    [conditions]
-  );
+  const statusChanged = status !== (currentStatus ?? "pending_review");
+  const notesChanged = notes.trim() !== (currentNotes ?? "").trim();
+  const investorNotesChanged =
+    investorVisibleNotes.trim() !==
+    (currentInvestorVisibleNotes ?? "").trim();
+  const hasChanges = statusChanged || notesChanged || investorNotesChanged;
 
-  const removeCondition = useCallback((condition: string) => {
-    setConditions((prev) => prev.filter((c) => c !== condition));
-  }, []);
-
-  const addCustomCondition = useCallback(() => {
-    const trimmed = customCondition.trim();
-    if (trimmed) {
-      addCondition(trimmed);
-      setCustomCondition("");
-    }
-  }, [customCondition, addCondition]);
-
-  const handleStatusChange = useCallback((value: string) => {
-    const newStatus = value as ClearanceStatus;
-    setStatus(newStatus);
-
-    // Clear conditions if status changes away from cleared_with_conditions
-    if (newStatus !== "cleared_with_conditions") {
-      setConditions([]);
-    }
-  }, []);
-
-  const handleBadgeKeyDown = useCallback(
-    (event: React.KeyboardEvent, condition: string) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        removeCondition(condition);
-      }
-    },
-    [removeCondition]
-  );
+  const submitLabel = useMemo(() => {
+    if (setClearanceMutation.isPending) return "Saving…";
+    if (!hasChanges) return "No changes";
+    return "Update Status";
+  }, [setClearanceMutation.isPending, hasChanges]);
 
   return (
-    <section className="flex flex-col gap-5 border-y border-border py-5">
-      <header className="space-y-1.5">
-        <h2 className="text-base font-semibold leading-none">Set Clearance Status</h2>
+    <div className="space-y-6 rounded-lg border p-6">
+      <div>
+        <h2 className="text-lg font-semibold">Global Status</h2>
         <p className="text-sm text-muted-foreground">
-          Review the investor&apos;s KYC information and set their clearance status
+          Set the investor&apos;s overall approval status. Deal invitations are
+          managed separately.
         </p>
-      </header>
-      <div className="space-y-6">
-        {/* KYC Incomplete Warning */}
-        {!isOnboardingCompleted && (
-          <Alert className="bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800 dark:text-red-200">
-              <strong>KYC Not Complete:</strong> This investor has not completed
-              their onboarding/KYC submission. Clearance cannot be granted until
-              onboarding is complete. You can only set status to &quot;Pending
-              Review&quot; or &quot;Rejected&quot;.
-            </AlertDescription>
-          </Alert>
-        )}
+      </div>
 
-        {/* Status Selection */}
-        <div className="space-y-2">
-          <Label htmlFor="status">Clearance Status</Label>
-          <Select value={status} onValueChange={handleStatusChange}>
-            <SelectTrigger id="status" aria-label="Select clearance status">
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_OPTIONS.map((option) => {
-                const requiresKyc =
-                  option.value === "cleared" ||
-                  option.value === "cleared_with_conditions";
-                const isDisabled = requiresKyc && !isOnboardingCompleted;
-
-                return (
-                  <SelectItem
-                    key={option.value}
-                    value={option.value}
-                    disabled={isDisabled}
-                  >
-                    <div className="flex items-center gap-2">
-                      {option.icon}
-                      {option.label}
-                      {isDisabled && (
-                        <span className="text-xs text-muted-foreground ml-1">
-                          (Requires KYC)
-                        </span>
-                      )}
-                    </div>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Access Implications Alert */}
-        <Alert
-          className={`${statusAlertConfig.bgColor} ${statusAlertConfig.borderColor}`}
-          role="status"
-          aria-live="polite"
-        >
-          <statusAlertConfig.icon
-            className={`h-4 w-4 ${statusAlertConfig.iconColor}`}
-          />
-          <AlertDescription className={statusAlertConfig.textColor}>
-            <strong>{statusAlertConfig.title}:</strong>{" "}
-            {statusAlertConfig.description}
+      {!isOnboardingCompleted && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Onboarding is incomplete. Approval is blocked until KYC is
+            submitted.
           </AlertDescription>
         </Alert>
+      )}
 
-        {/* Conditions (only for cleared_with_conditions) */}
-        {requiresConditions && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="conditions">Conditions</Label>
-              <p className="text-sm text-muted-foreground">
-                Add conditions that will apply to this investor&apos;s access
-              </p>
-            </div>
-
-            {/* Selected Conditions */}
-            {conditions.length > 0 && (
-              <div
-                className="flex flex-wrap gap-2"
-                role="list"
-                aria-label="Selected conditions"
+      <div className="space-y-2">
+        <Label htmlFor="status">Status</Label>
+        <Select
+          value={status}
+          onValueChange={(value) => setStatus(value as ClearanceStatus)}
+        >
+          <SelectTrigger id="status" className="w-full max-w-md">
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((option) => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                disabled={option.value === "approved" && !canApprove}
               >
-                {conditions.map((condition) => (
-                  <Badge
-                    key={condition}
-                    variant="secondary"
-                    className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                    onClick={() => removeCondition(condition)}
-                    onKeyDown={(e) => handleBadgeKeyDown(e, condition)}
-                    role="listitem"
-                    tabIndex={0}
-                    aria-label={`Remove condition: ${condition}`}
-                  >
-                    {condition} ×
-                  </Badge>
-                ))}
-              </div>
-            )}
+                <span className="flex items-center gap-2">
+                  {option.icon}
+                  {option.label}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-            {/* Common Conditions */}
-            <div className="space-y-2">
-              <Label className="text-sm">Common Conditions</Label>
-              <div
-                className="grid grid-cols-1 gap-2"
-                role="group"
-                aria-label="Available conditions"
-              >
-                {availableConditions.map((condition) => (
-                  <Button
-                    key={condition}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="justify-start h-auto py-2 text-left whitespace-normal"
-                    onClick={() => addCondition(condition)}
-                    aria-label={`Add condition: ${condition}`}
-                  >
-                    + {condition}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Custom Condition */}
-            <div className="space-y-2">
-              <Label htmlFor="custom-condition">Add Custom Condition</Label>
-              <div className="flex gap-2">
-                <Textarea
-                  id="custom-condition"
-                  placeholder="Enter a custom condition..."
-                  value={customCondition}
-                  onChange={(e) => setCustomCondition(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                      e.preventDefault();
-                      addCustomCondition();
-                    }
-                  }}
-                  className="min-h-[60px]"
-                  aria-describedby="custom-condition-help"
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={addCustomCondition}
-                  disabled={!customCondition.trim()}
-                  aria-label="Add custom condition"
-                >
-                  Add
-                </Button>
-              </div>
-              <p
-                id="custom-condition-help"
-                className="text-xs text-muted-foreground"
-              >
-                Press Cmd/Ctrl + Enter to quickly add
-              </p>
-            </div>
+      <div
+        className={`rounded-md border p-4 ${alertConfig.bgColor} ${alertConfig.borderColor}`}
+      >
+        <div className="flex gap-3">
+          <AlertIcon className={`mt-0.5 h-5 w-5 ${alertConfig.iconColor}`} />
+          <div>
+            <p className={`font-medium ${alertConfig.textColor}`}>
+              {alertConfig.title}
+            </p>
+            <p className={`text-sm ${alertConfig.textColor} opacity-90`}>
+              {alertConfig.description}
+            </p>
           </div>
-        )}
-
-        {/* Notes */}
-        <div className="space-y-2">
-          <Label htmlFor="notes">Internal Notes</Label>
-          <Textarea
-            id="notes"
-            placeholder="Add internal notes about this clearance decision..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="min-h-[100px]"
-          />
-          <p className="text-xs text-muted-foreground">
-            These notes are for internal use only and will not be shown to the
-            investor
-          </p>
-        </div>
-
-        {/* Submit Button */}
-        <div className="flex justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            disabled={setClearanceMutation.isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={
-              setClearanceMutation.isPending ||
-              (isGrantingClearanceStatus && !canGrantClearance) ||
-              !isValidStatus
-            }
-            aria-label="Update clearance status"
-          >
-            {setClearanceMutation.isPending && (
-              <Loader2
-                className="mr-2 h-4 w-4 animate-spin"
-                aria-hidden="true"
-              />
-            )}
-            Update Clearance
-          </Button>
         </div>
       </div>
-    </section>
+
+      <div className="space-y-2">
+        <Label htmlFor="notes">Internal notes</Label>
+        <Textarea
+          id="notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Notes for compliance team only"
+          rows={3}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="investor-notes">Investor-visible notes</Label>
+        <Textarea
+          id="investor-notes"
+          value={investorVisibleNotes}
+          onChange={(e) => setInvestorVisibleNotes(e.target.value)}
+          placeholder="Optional message shown to the investor"
+          rows={2}
+        />
+      </div>
+
+      <Button
+        onClick={handleSubmit}
+        disabled={setClearanceMutation.isPending || !hasChanges}
+      >
+        {setClearanceMutation.isPending && (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        )}
+        {submitLabel}
+      </Button>
+    </div>
   );
 }

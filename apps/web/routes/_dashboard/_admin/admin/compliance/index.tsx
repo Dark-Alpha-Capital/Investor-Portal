@@ -46,7 +46,7 @@ function ComplianceListInner({
           Compliance & Clearance
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Review investor KYC submissions and manage clearance status
+          Review investor KYC submissions, set global status, and invite investors to deals
         </p>
       </div>
 
