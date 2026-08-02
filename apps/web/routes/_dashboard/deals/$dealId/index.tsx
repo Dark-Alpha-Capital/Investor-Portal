@@ -151,8 +151,7 @@ function DealTabs({ dealId, result }: { dealId: string; result: OkDeal }) {
 }
 
 function DealDetailContent({ data }: { data: DealDetailLoaderData }) {
-  const askAiDealId =
-    data.kind === "ok" ? data.result.deal.id : null;
+  const askAiDealId = data.kind === "ok" ? data.result.deal.id : null;
 
   return (
     <div className="min-h-screen">

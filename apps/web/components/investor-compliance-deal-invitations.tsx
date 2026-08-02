@@ -1,8 +1,9 @@
-import { useState, useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "@/hooks/use-app-navigation";
-import { Loader2, Plus } from "lucide-react";
+import { Search, X } from "lucide-react";
+import { useDebouncedCallback } from "use-debounce";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -18,15 +19,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { useTRPC } from "@/trpc/client";
@@ -73,7 +65,7 @@ const ACCESS_LABELS: Record<AccessSelection, string> = {
 };
 
 function participationBadgeVariant(
-  status: ParticipationStatus
+  status: ParticipationStatus,
 ): "default" | "secondary" | "outline" | "destructive" {
   switch (status) {
     case "funded":
@@ -92,6 +84,60 @@ function participationBadgeVariant(
   }
 }
 
+function DealSearchField({
+  value,
+  onValueChange,
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  const debouncedChange = useDebouncedCallback((next: string) => {
+    onValueChange(next);
+  }, 250);
+
+  return (
+    <div className="relative max-w-sm flex-1">
+      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        className={draft ? "pl-9 pr-9" : "pl-9"}
+        placeholder="Search live deals..."
+        value={draft}
+        onChange={(e) => {
+          const next = e.target.value;
+          setDraft(next);
+          debouncedChange(next);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+      />
+      {draft ? (
+        <Button
+          className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 p-0"
+          onClick={() => {
+            setDraft("");
+            debouncedChange.cancel();
+            onValueChange("");
+          }}
+          variant="ghost"
+          size="icon"
+          type="button"
+        >
+          <X className="h-4 w-4 text-muted-foreground" />
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 export function DealInvitations({
   investorId,
   invitations,
@@ -101,10 +147,7 @@ export function DealInvitations({
   const router = useRouter();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedDealId, setSelectedDealId] = useState<string>("");
-  const [inviteLevel, setInviteLevel] = useState<DealAccessLevel>("teaser");
+  const [dealSearch, setDealSearch] = useState("");
 
   const invitationByDeal = useMemo(() => {
     const map = new Map<string, Invitation>();
@@ -117,36 +160,28 @@ export function DealInvitations({
   const pendingRequests = useMemo(
     () =>
       invitations.filter(
-        (inv) =>
-          inv.accessLevel === "teaser" &&
-          !!inv.dataRoomRequestedAt
+        (inv) => inv.accessLevel === "teaser" && !!inv.dataRoomRequestedAt,
       ),
-    [invitations]
-  );
-
-  const dealsWithoutInvite = useMemo(
-    () => availableDeals.filter((d) => !invitationByDeal.has(d.id)),
-    [availableDeals, invitationByDeal]
+    [invitations],
   );
 
   const invalidate = useCallback(() => {
-    queryClient.invalidateQueries();
+    void queryClient.invalidateQueries({
+      queryKey: ["compliance", "investor", investorId],
+    });
     router.refresh();
-  }, [queryClient, router]);
+  }, [investorId, queryClient, router]);
 
   const inviteMutation = useMutation(
     trpc.compliance.inviteToDeal.mutationOptions({
       onSuccess: () => {
         toast.success("Invitation updated");
-        setDialogOpen(false);
-        setSelectedDealId("");
-        setInviteLevel("teaser");
         invalidate();
       },
       onError: (error) => {
         toast.error(error.message || "Failed to update invitation");
       },
-    })
+    }),
   );
 
   const withdrawMutation = useMutation(
@@ -158,7 +193,7 @@ export function DealInvitations({
       onError: (error) => {
         toast.error(error.message || "Failed to withdraw invitation");
       },
-    })
+    }),
   );
 
   const handleAccessChange = useCallback(
@@ -173,7 +208,7 @@ export function DealInvitations({
         accessLevel: value,
       });
     },
-    [investorId, inviteMutation, withdrawMutation]
+    [investorId, inviteMutation, withdrawMutation],
   );
 
   const handleGrantDataRoom = useCallback(
@@ -184,25 +219,20 @@ export function DealInvitations({
         accessLevel: "data_room",
       });
     },
-    [investorId, inviteMutation]
+    [investorId, inviteMutation],
   );
-
-  const handleInvite = useCallback(() => {
-    if (!selectedDealId) {
-      toast.error("Select a deal");
-      return;
-    }
-    inviteMutation.mutate({
-      userId: investorId,
-      dealId: selectedDealId,
-      accessLevel: inviteLevel,
-    });
-  }, [selectedDealId, inviteLevel, investorId, inviteMutation]);
 
   const isPending = inviteMutation.isPending || withdrawMutation.isPending;
 
   const rows = useMemo(() => {
-    return availableDeals.map((deal) => {
+    const query = dealSearch.trim().toLowerCase();
+    const deals = query
+      ? availableDeals.filter((deal) =>
+          deal.name.toLowerCase().includes(query),
+        )
+      : availableDeals;
+
+    return deals.map((deal) => {
       const inv = invitationByDeal.get(deal.id);
       const participation =
         inv?.participationStatus ?? deriveParticipationStatus(null, null);
@@ -215,92 +245,19 @@ export function DealInvitations({
         dataRoomRequestMessage: inv?.dataRoomRequestMessage ?? null,
       };
     });
-  }, [availableDeals, invitationByDeal]);
+  }, [availableDeals, dealSearch, invitationByDeal]);
 
   return (
     <div className="space-y-4 rounded-lg border p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold">Invitations</h2>
           <p className="text-sm text-muted-foreground">
-            Invite this investor to deals. Access level controls what they can
-            see and do.
+            Only live deals are listed here. Set access per deal — Teaser is
+            read-only; Data Room unlocks documents, interest, and commitments.
           </p>
         </div>
-
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button disabled={!isApproved || dealsWithoutInvite.length === 0}>
-              <Plus className="mr-2 h-4 w-4" />
-              Invite to deal
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invite to deal</DialogTitle>
-              <DialogDescription>
-                Choose a deal and access level. Teaser is read-only; Data Room
-                unlocks documents, interest, and commitments.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label>Deal</Label>
-                <Select
-                  value={selectedDealId}
-                  onValueChange={setSelectedDealId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select deal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {dealsWithoutInvite.map((deal) => (
-                      <SelectItem key={deal.id} value={deal.id}>
-                        {deal.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Access</Label>
-                <Select
-                  value={inviteLevel}
-                  onValueChange={(v) => setInviteLevel(v as DealAccessLevel)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="teaser">Teaser</SelectItem>
-                    <SelectItem value="data_room">Data Room</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setDialogOpen(false)}
-                disabled={isPending}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleInvite}
-                disabled={isPending || !selectedDealId}
-              >
-                {inviteMutation.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Invite
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <DealSearchField value={dealSearch} onValueChange={setDealSearch} />
       </div>
 
       {!isApproved && (
@@ -360,7 +317,9 @@ export function DealInvitations({
           {rows.length === 0 ? (
             <TableRow>
               <TableCell colSpan={3} className="text-muted-foreground">
-                No active deals available.
+                {dealSearch.trim()
+                  ? "No live deals match your search."
+                  : "No live deals available to invite to."}
               </TableCell>
             </TableRow>
           ) : (
@@ -384,7 +343,7 @@ export function DealInvitations({
                       handleAccessChange(row.dealId, v as AccessSelection)
                     }
                   >
-                    <SelectTrigger className="w-[160px]">
+                    <SelectTrigger className="w-40">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

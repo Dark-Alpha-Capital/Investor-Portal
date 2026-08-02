@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Link } from "@tanstack/react-router";
-import { Eye, Pencil, Users } from "lucide-react";
+import { Eye, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -80,20 +80,6 @@ function DealKanbanCardInner({ deal }: DealKanbanCardProps) {
             </Button>
           </TooltipTrigger>
           <TooltipContent>View</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="secondary" size="sm" className="h-7 w-7 p-0" asChild>
-              <Link
-                to="/admin/deals/$dealId/curate"
-                params={{ dealId: deal.id }}
-                aria-label={`Curate ${deal.name}`}
-              >
-                <Users className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Curate</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>

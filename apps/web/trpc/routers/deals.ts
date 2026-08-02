@@ -435,7 +435,6 @@ export const dealsRouter = createTRPCRouter({
   getInvites: baseProcedure
     .input(z.object({ dealId: z.string() }))
     .query(async ({ input, ctx }) => {
-      // Verify deal exists
       const [dealRecord] = await ctx.db
         .select()
         .from(deal)
@@ -449,13 +448,13 @@ export const dealsRouter = createTRPCRouter({
         });
       }
 
-      // Get all invites for this deal with user info
       const invites = await ctx.db
         .select({
-          id: dealInvite.id,
-          userId: dealInvite.userId,
-          curationNote: dealInvite.curationNote,
-          createdAt: dealInvite.createdAt,
+          id: vehiclePermission.id,
+          userId: vehiclePermission.userId,
+          accessLevel: vehiclePermission.accessLevel,
+          notes: vehiclePermission.notes,
+          grantedAt: vehiclePermission.grantedAt,
           user: {
             id: user.id,
             name: user.name,
@@ -465,16 +464,20 @@ export const dealsRouter = createTRPCRouter({
             isOnboardingCompleted: user.isOnboardingCompleted,
           },
         })
-        .from(dealInvite)
-        .innerJoin(user, eq(dealInvite.userId, user.id))
-        .where(eq(dealInvite.dealId, input.dealId));
+        .from(vehiclePermission)
+        .innerJoin(user, eq(user.id, vehiclePermission.userId))
+        .where(
+          and(
+            eq(vehiclePermission.dealId, input.dealId),
+            isNull(vehiclePermission.revokedAt),
+          ),
+        );
 
-      // Transform dates to ISO strings
       return {
         success: true,
         invites: invites.map((invite) => ({
           ...invite,
-          createdAt: invite.createdAt.toISOString(),
+          grantedAt: invite.grantedAt.toISOString(),
         })),
       };
     }),
@@ -885,149 +888,6 @@ export const dealsRouter = createTRPCRouter({
       })),
     };
   }),
-
-  addInvites: baseProcedure
-    .input(
-      z.object({
-        dealId: z.string(),
-        userIds: z.array(z.string()),
-        curationNote: z.string().optional(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      // Start session check early
-      const session = await authSession();
-
-      if (!session?.user || session.user.role !== "admin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only administrators can manage deal invites",
-        });
-      }
-
-      // Early validation: check for empty array
-      if (!input.userIds || input.userIds.length === 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "At least one user ID is required",
-        });
-      }
-
-      // Verify deal exists
-      const [dealRecord] = await ctx.db
-        .select()
-        .from(deal)
-        .where(eq(deal.id, input.dealId))
-        .limit(1);
-
-      if (!dealRecord) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Deal not found",
-        });
-      }
-
-      // Verify all users exist and are investors (not admins) in parallel
-      const userValidationPromises = input.userIds.map((userId) =>
-        ctx.db
-          .select()
-          .from(user)
-          .where(
-            and(
-              eq(user.id, userId),
-              or(ne(user.role, "admin"), isNull(user.role))
-            )
-          )
-          .limit(1)
-          .then((r) => ({ userId, isValid: r.length > 0 }))
-      );
-
-      const userValidations = await Promise.all(userValidationPromises);
-      const validUserIds = userValidations
-        .filter((v) => v.isValid)
-        .map((v) => v.userId);
-
-      if (validUserIds.length === 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "No valid investor user IDs provided",
-        });
-      }
-
-      // Insert invites with conflict-safe semantics to avoid race-condition failures
-      const inviteRows = validUserIds.map((userId) => ({
-        id: randomUUID(),
-        dealId: input.dealId,
-        userId,
-        curationNote: input.curationNote || null,
-      }));
-
-      const insertedInvites =
-        inviteRows.length > 0
-          ? await ctx.db
-            .insert(dealInvite)
-            .values(inviteRows)
-            .onConflictDoNothing()
-            .returning({ id: dealInvite.id })
-          : [];
-
-      const addedCount = insertedInvites.length;
-      const skippedCount = validUserIds.length - addedCount;
-
-      return {
-        success: true,
-        message: `Added ${addedCount} invite(s) to deal`,
-        addedCount,
-        skippedCount,
-      };
-    }),
-
-  removeInvites: baseProcedure
-    .input(
-      z.object({
-        dealId: z.string(),
-        userIds: z.array(z.string()),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      // Start session check early
-      const session = await authSession();
-
-      if (!session?.user || session.user.role !== "admin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only administrators can manage deal invites",
-        });
-      }
-
-      // Early validation
-      if (!input.userIds || input.userIds.length === 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "At least one user ID is required",
-        });
-      }
-
-      // Delete invites for specified users in parallel
-      const deletePromises = input.userIds.map((userId) =>
-        ctx.db
-          .delete(dealInvite)
-          .where(
-            and(
-              eq(dealInvite.dealId, input.dealId),
-              eq(dealInvite.userId, userId)
-            )
-          )
-      );
-
-      await Promise.all(deletePromises);
-
-      return {
-        success: true,
-        message: `Removed ${input.userIds.length} invite(s) from deal`,
-        removedCount: input.userIds.length,
-      };
-    }),
 
   getPublicDeals: baseProcedure.query(async () => {
     const session = await authSession();

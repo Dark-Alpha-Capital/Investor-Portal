@@ -8,12 +8,9 @@ import {
   getAdminDeals,
   getDealDetail,
   getDealByIdForEdit,
-  getInvestorsForCuration,
-  getDealInvitesForCuration,
-  getPendingInvestors,
   getInvestorComplianceDetails,
   getAllActiveDealsBasic,
-  countOpenKnowledgeRequests,
+  listKnowledgeRequestsByDeal,
 } from "@repo/db/queries";
 import { getDealFilesByDealId } from "@/lib/deals/list-deal-files";
 
@@ -82,6 +79,7 @@ export type AdminDealDetailPayload = Awaited<
   ReturnType<typeof getDealDetail>
 > & {
   files: Awaited<ReturnType<typeof getDealFilesByDealId>>;
+  questions: Awaited<ReturnType<typeof listKnowledgeRequestsByDeal>>;
   openQuestionsCount: number;
 };
 
@@ -90,19 +88,21 @@ export async function runFetchAdminDealDetailData(
 ): Promise<
   { tag: "not_found" } | { tag: "ok"; payload: AdminDealDetailPayload }
 > {
-  const [dealData, files, openQuestionsCount] = await Promise.all([
+  const [dealData, files, questions] = await Promise.all([
     getDealDetail(data.dealId),
     getDealFilesByDealId(data.dealId),
-    countOpenKnowledgeRequests(data.dealId),
+    listKnowledgeRequestsByDeal({ dealId: data.dealId }),
   ]);
 
   if (!dealData.success || !dealData.deal) {
     return { tag: "not_found" };
   }
 
+  const openQuestionsCount = questions.filter((q) => q.status === "open").length;
+
   return {
     tag: "ok",
-    payload: { ...dealData, files, openQuestionsCount },
+    payload: { ...dealData, files, questions, openQuestionsCount },
   };
 }
 
@@ -182,51 +182,6 @@ export async function runFetchAdminDealEditData(
   return { tag: "ok", formData };
 }
 
-export async function runFetchAdminDealCurateData(
-  data: DealIdInput,
-): Promise<{
-  tag: "ok";
-  investors: Awaited<ReturnType<typeof getInvestorsForCuration>>;
-  invites: Awaited<ReturnType<typeof getDealInvitesForCuration>>;
-}> {
-  const [investors, invites] = await Promise.all([
-    getInvestorsForCuration(),
-    getDealInvitesForCuration(data.dealId),
-  ]);
-
-  return { tag: "ok", investors, invites };
-}
-
-export async function runFetchComplianceListData(
-  data: RouteSearchStringInput,
-): Promise<{
-  tag: "ok";
-  initialData: Awaited<ReturnType<typeof getPendingInvestors>>;
-  clearanceStatus: string;
-}> {
-  const sp = new URLSearchParams(data.search);
-  const page = parseInt(sp.get("page") || "1", 10);
-  const search = sp.get("search") || undefined;
-  const clearanceStatusRaw = sp.get("clearanceStatus");
-  const clearanceStatus =
-    clearanceStatusRaw && clearanceStatusRaw !== "all"
-      ? clearanceStatusRaw
-      : undefined;
-
-  const initialData = await getPendingInvestors({
-    page,
-    limit: 12,
-    search,
-    clearanceStatus,
-  });
-
-  return {
-    tag: "ok",
-    initialData,
-    clearanceStatus: clearanceStatus || "all",
-  };
-}
-
 type ComplianceDetailsOk = Extract<
   Awaited<ReturnType<typeof getInvestorComplianceDetails>>,
   { success: true }
@@ -256,7 +211,7 @@ export async function runFetchComplianceInvestorData(
   }
 
   const availableDeals = deals
-    .filter((d) => d.status !== "draft")
+    .filter((d) => d.status === "live")
     .map((d) => ({
       id: d.id,
       name: d.name,

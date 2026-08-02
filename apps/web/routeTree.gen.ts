@@ -51,7 +51,6 @@ import { Route as DashboardAdminAdminComplianceIndexRouteImport } from './routes
 import { Route as DashboardAdminAdminDealsNewIndexRouteImport } from './routes/_dashboard/_admin/admin/deals/new/index'
 import { Route as DashboardAdminAdminDealsDealIdIndexRouteImport } from './routes/_dashboard/_admin/admin/deals/$dealId/index'
 import { Route as DashboardAdminAdminDealsDealIdEditIndexRouteImport } from './routes/_dashboard/_admin/admin/deals/$dealId/edit/index'
-import { Route as DashboardAdminAdminDealsDealIdCurateIndexRouteImport } from './routes/_dashboard/_admin/admin/deals/$dealId/curate/index'
 import { Route as DashboardAdminAdminComplianceInvestorsIdIndexRouteImport } from './routes/_dashboard/_admin/admin/compliance/investors/$id/index'
 
 const MainSiteRouteRoute = MainSiteRouteRouteImport.update({
@@ -274,12 +273,6 @@ const DashboardAdminAdminDealsDealIdEditIndexRoute =
     path: '/admin/deals/$dealId/edit/',
     getParentRoute: () => DashboardAdminRouteRoute,
   } as any)
-const DashboardAdminAdminDealsDealIdCurateIndexRoute =
-  DashboardAdminAdminDealsDealIdCurateIndexRouteImport.update({
-    id: '/admin/deals/$dealId/curate/',
-    path: '/admin/deals/$dealId/curate/',
-    getParentRoute: () => DashboardAdminRouteRoute,
-  } as any)
 const DashboardAdminAdminComplianceInvestorsIdIndexRoute =
   DashboardAdminAdminComplianceInvestorsIdIndexRouteImport.update({
     id: '/admin/compliance/investors/$id/',
@@ -325,7 +318,6 @@ export interface FileRoutesByFullPath {
   '/admin/deals/$dealId/': typeof DashboardAdminAdminDealsDealIdIndexRoute
   '/admin/deals/new/': typeof DashboardAdminAdminDealsNewIndexRoute
   '/admin/compliance/investors/$id/': typeof DashboardAdminAdminComplianceInvestorsIdIndexRoute
-  '/admin/deals/$dealId/curate/': typeof DashboardAdminAdminDealsDealIdCurateIndexRoute
   '/admin/deals/$dealId/edit/': typeof DashboardAdminAdminDealsDealIdEditIndexRoute
 }
 export interface FileRoutesByTo {
@@ -366,7 +358,6 @@ export interface FileRoutesByTo {
   '/admin/deals/$dealId': typeof DashboardAdminAdminDealsDealIdIndexRoute
   '/admin/deals/new': typeof DashboardAdminAdminDealsNewIndexRoute
   '/admin/compliance/investors/$id': typeof DashboardAdminAdminComplianceInvestorsIdIndexRoute
-  '/admin/deals/$dealId/curate': typeof DashboardAdminAdminDealsDealIdCurateIndexRoute
   '/admin/deals/$dealId/edit': typeof DashboardAdminAdminDealsDealIdEditIndexRoute
 }
 export interface FileRoutesById {
@@ -413,7 +404,6 @@ export interface FileRoutesById {
   '/_dashboard/_admin/admin/deals/$dealId/': typeof DashboardAdminAdminDealsDealIdIndexRoute
   '/_dashboard/_admin/admin/deals/new/': typeof DashboardAdminAdminDealsNewIndexRoute
   '/_dashboard/_admin/admin/compliance/investors/$id/': typeof DashboardAdminAdminComplianceInvestorsIdIndexRoute
-  '/_dashboard/_admin/admin/deals/$dealId/curate/': typeof DashboardAdminAdminDealsDealIdCurateIndexRoute
   '/_dashboard/_admin/admin/deals/$dealId/edit/': typeof DashboardAdminAdminDealsDealIdEditIndexRoute
 }
 export interface FileRouteTypes {
@@ -456,7 +446,6 @@ export interface FileRouteTypes {
     | '/admin/deals/$dealId/'
     | '/admin/deals/new/'
     | '/admin/compliance/investors/$id/'
-    | '/admin/deals/$dealId/curate/'
     | '/admin/deals/$dealId/edit/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -497,7 +486,6 @@ export interface FileRouteTypes {
     | '/admin/deals/$dealId'
     | '/admin/deals/new'
     | '/admin/compliance/investors/$id'
-    | '/admin/deals/$dealId/curate'
     | '/admin/deals/$dealId/edit'
   id:
     | '__root__'
@@ -543,7 +531,6 @@ export interface FileRouteTypes {
     | '/_dashboard/_admin/admin/deals/$dealId/'
     | '/_dashboard/_admin/admin/deals/new/'
     | '/_dashboard/_admin/admin/compliance/investors/$id/'
-    | '/_dashboard/_admin/admin/deals/$dealId/curate/'
     | '/_dashboard/_admin/admin/deals/$dealId/edit/'
   fileRoutesById: FileRoutesById
 }
@@ -863,13 +850,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAdminAdminDealsDealIdEditIndexRouteImport
       parentRoute: typeof DashboardAdminRouteRoute
     }
-    '/_dashboard/_admin/admin/deals/$dealId/curate/': {
-      id: '/_dashboard/_admin/admin/deals/$dealId/curate/'
-      path: '/admin/deals/$dealId/curate'
-      fullPath: '/admin/deals/$dealId/curate/'
-      preLoaderRoute: typeof DashboardAdminAdminDealsDealIdCurateIndexRouteImport
-      parentRoute: typeof DashboardAdminRouteRoute
-    }
     '/_dashboard/_admin/admin/compliance/investors/$id/': {
       id: '/_dashboard/_admin/admin/compliance/investors/$id/'
       path: '/admin/compliance/investors/$id'
@@ -921,7 +901,6 @@ interface DashboardAdminRouteRouteChildren {
   DashboardAdminAdminDealsDealIdIndexRoute: typeof DashboardAdminAdminDealsDealIdIndexRoute
   DashboardAdminAdminDealsNewIndexRoute: typeof DashboardAdminAdminDealsNewIndexRoute
   DashboardAdminAdminComplianceInvestorsIdIndexRoute: typeof DashboardAdminAdminComplianceInvestorsIdIndexRoute
-  DashboardAdminAdminDealsDealIdCurateIndexRoute: typeof DashboardAdminAdminDealsDealIdCurateIndexRoute
   DashboardAdminAdminDealsDealIdEditIndexRoute: typeof DashboardAdminAdminDealsDealIdEditIndexRoute
 }
 
@@ -935,8 +914,6 @@ const DashboardAdminRouteRouteChildren: DashboardAdminRouteRouteChildren = {
   DashboardAdminAdminDealsNewIndexRoute: DashboardAdminAdminDealsNewIndexRoute,
   DashboardAdminAdminComplianceInvestorsIdIndexRoute:
     DashboardAdminAdminComplianceInvestorsIdIndexRoute,
-  DashboardAdminAdminDealsDealIdCurateIndexRoute:
-    DashboardAdminAdminDealsDealIdCurateIndexRoute,
   DashboardAdminAdminDealsDealIdEditIndexRoute:
     DashboardAdminAdminDealsDealIdEditIndexRoute,
 }

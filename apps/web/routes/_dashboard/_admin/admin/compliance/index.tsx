@@ -1,44 +1,76 @@
+import {
+  keepPreviousData,
+  queryOptions,
+  useQuery,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { fetchComplianceListData } from "@/lib/server-fns/admin-route-data";
-import { ShieldCheck, Lock, Building2, Info } from "lucide-react";
+import { Building2, Info, Loader2, Lock, ShieldCheck } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ComplianceTableClient } from "@/components/compliance-table-client";
-import { serializeRouteSearch } from "@/lib/helpers/serialize-route-search";
+import {
+  complianceListSearchSchema,
+  loadComplianceList,
+  type ComplianceListData,
+  type ComplianceListSearch,
+} from "@/lib/loaders/compliance";
 
-type PendingPayload = Awaited<
-  ReturnType<typeof import("@repo/db/queries").getPendingInvestors>
->;
+function parseComplianceSearch(
+  search: Record<string, unknown>,
+): ComplianceListSearch {
+  return complianceListSearchSchema.parse(search);
+}
+
+function normalizeComplianceDeps(search: ComplianceListSearch) {
+  return {
+    page: search.page ?? 1,
+    search: search.search?.trim() || undefined,
+    clearanceStatus:
+      search.clearanceStatus && search.clearanceStatus !== "all"
+        ? search.clearanceStatus
+        : undefined,
+  };
+}
+
+function complianceListQueryOptions(deps: ComplianceListSearch) {
+  return queryOptions({
+    queryKey: ["compliance", "list", normalizeComplianceDeps(deps)],
+    queryFn: async (): Promise<ComplianceListData> =>
+      loadComplianceList({ data: deps }),
+    placeholderData: keepPreviousData,
+  });
+}
 
 export const Route = createFileRoute("/_dashboard/_admin/admin/compliance/")({
-  loader: async ({ location }) => {
-    const r = await fetchComplianceListData({
-      data: { search: serializeRouteSearch(location.search) },
-    });
-    return {
-      initialData: r.initialData,
-      clearanceStatus: r.clearanceStatus,
-    };
+  validateSearch: parseComplianceSearch,
+  loader: async ({ context: { queryClient }, location }) => {
+    const search = parseComplianceSearch(
+      location.search as Record<string, unknown>,
+    );
+    await queryClient.ensureQueryData(complianceListQueryOptions(search));
   },
   component: ComplianceListRoutePage,
 });
 
 function ComplianceListRoutePage() {
-  const { initialData, clearanceStatus } = Route.useLoaderData();
-  return (
-    <ComplianceListInner
-      initialData={initialData}
-      initialClearanceStatus={clearanceStatus}
-    />
-  );
-}
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
 
-function ComplianceListInner({
-  initialData,
-  initialClearanceStatus,
-}: {
-  initialData: PendingPayload;
-  initialClearanceStatus: string;
-}) {
+  const { data, isLoading, isFetching }: UseQueryResult<ComplianceListData> =
+    useQuery(complianceListQueryOptions(search));
+
+  if (isLoading && !data) {
+    return (
+      <div className="container mx-auto flex min-h-[40vh] max-w-7xl items-center justify-center px-4 py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return null;
+  }
+
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
       <div className="mb-6">
@@ -46,7 +78,8 @@ function ComplianceListInner({
           Compliance & Clearance
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Review investor KYC submissions, set global status, and invite investors to deals
+          Review investor KYC submissions, set global status, and invite
+          investors to deals
         </p>
       </div>
 
@@ -89,8 +122,36 @@ function ComplianceListInner({
       </Alert>
 
       <ComplianceTableClient
-        initialData={initialData}
-        initialClearanceStatus={initialClearanceStatus}
+        data={data}
+        search={search.search ?? ""}
+        clearanceStatus={search.clearanceStatus ?? "all"}
+        isFetching={isFetching}
+        onSearchChange={(value) => {
+          void navigate({
+            search: (current) => ({
+              ...current,
+              search: value.trim() ? value : undefined,
+              page: 1,
+            }),
+          });
+        }}
+        onClearanceStatusChange={(value) => {
+          void navigate({
+            search: (current) => ({
+              ...current,
+              clearanceStatus: value === "all" ? undefined : value,
+              page: 1,
+            }),
+          });
+        }}
+        onPageChange={(page) => {
+          void navigate({
+            search: (current) => ({
+              ...current,
+              page,
+            }),
+          });
+        }}
       />
     </div>
   );

@@ -1,6 +1,4 @@
-
-import { useSearchParams, useRouter, usePathname } from "@/hooks/use-app-navigation";
-import { useCallback, useTransition, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppLink as Link } from "@/components/app-link";
 import {
   CheckCircle2,
@@ -13,8 +11,10 @@ import {
   ShieldQuestion,
   Building2,
   Lock,
+  Search,
+  X,
 } from "lucide-react";
-import { SearchInput } from "@/components/search-input";
+import { useDebouncedCallback } from "use-debounce";
 import {
   Select,
   SelectContent,
@@ -33,6 +33,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Pagination,
   PaginationContent,
@@ -42,6 +43,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
+import type { ComplianceListData } from "@/lib/loaders/compliance";
 
 type Clearance = {
   status: string;
@@ -51,26 +53,8 @@ type Clearance = {
   clearedBy: string | null;
 };
 
-type Investor = {
-  id: string;
-  name: string | null;
-  email: string;
-  image: string | null;
-  createdAt: Date | null;
-  isOnboardingCompleted: boolean | null;
+type Investor = ComplianceListData["investors"][number] & {
   clearance: Clearance | null;
-  dealAccessCount: number;
-};
-
-type ComplianceData = {
-  success: boolean;
-  investors: Investor[];
-  pagination: {
-    page: number;
-    limit: number;
-    totalCount: number;
-    totalPages: number;
-  };
 };
 
 const CLEARANCE_STATUSES = [
@@ -82,9 +66,6 @@ const CLEARANCE_STATUSES = [
   { value: "rejected", label: "Rejected" },
 ];
 
-const ITEMS_PER_PAGE = 12;
-
-// Hoist statusConfig outside function to avoid recreation on every call
 const STATUS_CONFIG: Record<
   string,
   {
@@ -134,7 +115,7 @@ const getClearanceStatusBadge = (clearance: Clearance | null) => {
   );
 };
 
-const formatDate = (date: Date | null) => {
+const formatDate = (date: Date | string | null) => {
   if (!date) return "N/A";
   return new Date(date).toLocaleDateString("en-US", {
     year: "numeric",
@@ -153,97 +134,110 @@ const getInitials = (name: string | null) => {
     .slice(0, 2);
 };
 
+function ComplianceSearchField({
+  value,
+  onValueChange,
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  const debouncedChange = useDebouncedCallback((next: string) => {
+    onValueChange(next);
+  }, 300);
+
+  return (
+    <div className="relative max-w-sm flex-1">
+      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        className={draft ? "pl-9 pr-9" : "pl-9"}
+        placeholder="Search by name or email..."
+        value={draft}
+        onChange={(e) => {
+          const next = e.target.value;
+          setDraft(next);
+          debouncedChange(next);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+      />
+      {draft ? (
+        <Button
+          className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 p-0"
+          onClick={() => {
+            setDraft("");
+            debouncedChange.cancel();
+            onValueChange("");
+          }}
+          variant="ghost"
+          size="icon"
+          type="button"
+        >
+          <X className="h-4 w-4 text-muted-foreground" />
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 type ComplianceTableClientProps = {
-  initialData: ComplianceData;
-  initialClearanceStatus: string;
+  data: ComplianceListData;
+  search: string;
+  clearanceStatus: string;
+  isFetching?: boolean;
+  onSearchChange: (value: string) => void;
+  onClearanceStatusChange: (value: string) => void;
+  onPageChange: (page: number) => void;
 };
 
 export function ComplianceTableClient({
-  initialData,
-  initialClearanceStatus,
+  data,
+  search,
+  clearanceStatus,
+  isFetching = false,
+  onSearchChange,
+  onClearanceStatusChange,
+  onPageChange,
 }: ComplianceTableClientProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [isPending, startTransition] = useTransition();
+  const { investors, pagination } = data;
 
-  const updateQueryParams = useCallback(
-    (updates: Record<string, string | undefined>) => {
-      const params = new URLSearchParams(searchParams.toString());
-      Object.entries(updates).forEach(([key, value]) => {
-        if (value === undefined || value === "" || value === "all") {
-          params.delete(key);
-        } else {
-          params.set(key, value);
-        }
-      });
-      startTransition(() => {
-        router.push(`${pathname}?${params.toString()}`);
-      });
-    },
-    [pathname, router, searchParams],
-  );
-
-  const handleClearanceStatusChange = useCallback(
-    (value: string) => {
-      updateQueryParams({
-        clearanceStatus: value === "all" ? undefined : value,
-        page: "1",
-      });
-    },
-    [updateQueryParams],
-  );
-
-  const handlePageChange = useCallback(
-    (page: number) => {
-      updateQueryParams({ page: page.toString() });
-    },
-    [updateQueryParams],
-  );
-
-  const { investors, pagination } = initialData;
-
-  // Memoize pagination items to avoid recalculation on every render
   const paginationItems = useMemo(() => {
     const items: (number | "ellipsis")[] = [];
     const { page, totalPages } = pagination;
 
     if (totalPages <= 7) {
       for (let i = 1; i <= totalPages; i++) items.push(i);
+    } else if (page <= 4) {
+      for (let i = 1; i <= 5; i++) items.push(i);
+      items.push("ellipsis");
+      items.push(totalPages);
+    } else if (page >= totalPages - 3) {
+      items.push(1);
+      items.push("ellipsis");
+      for (let i = totalPages - 4; i <= totalPages; i++) items.push(i);
     } else {
-      if (page <= 4) {
-        for (let i = 1; i <= 5; i++) items.push(i);
-        items.push("ellipsis");
-        items.push(totalPages);
-      } else if (page >= totalPages - 3) {
-        items.push(1);
-        items.push("ellipsis");
-        for (let i = totalPages - 4; i <= totalPages; i++) items.push(i);
-      } else {
-        items.push(1);
-        items.push("ellipsis");
-        for (let i = page - 1; i <= page + 1; i++) items.push(i);
-        items.push("ellipsis");
-        items.push(totalPages);
-      }
+      items.push(1);
+      items.push("ellipsis");
+      for (let i = page - 1; i <= page + 1; i++) items.push(i);
+      items.push("ellipsis");
+      items.push(totalPages);
     }
     return items;
   }, [pagination]);
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
-          <SearchInput
-            placeholder="Search by name or email..."
-            className="w-full max-w-full"
-          />
-        </div>
-        <Select
-          value={initialClearanceStatus}
-          onValueChange={handleClearanceStatusChange}
-        >
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <ComplianceSearchField value={search} onValueChange={onSearchChange} />
+        <Select value={clearanceStatus} onValueChange={onClearanceStatusChange}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Clearance Status" />
           </SelectTrigger>
@@ -255,22 +249,15 @@ export function ComplianceTableClient({
             ))}
           </SelectContent>
         </Select>
+        {isFetching ? (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        ) : null}
       </div>
 
-      {/* Loading indicator */}
-      {isPending && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading...
-        </div>
-      )}
-
-      {/* Results count */}
       <div className="text-sm text-muted-foreground">
         Showing {investors.length} of {pagination.totalCount} investors
       </div>
 
-      {/* Table */}
       <div className="rounded-md border">
         <Table aria-label="Compliance investors table">
           <TableHeader>
@@ -292,10 +279,8 @@ export function ComplianceTableClient({
                 </TableCell>
               </TableRow>
             ) : (
-              investors.map((investor) => {
-                // Determine if investor can access deals
-                const isCleared =
-                  investor.clearance?.status === "approved";
+              (investors as Investor[]).map((investor) => {
+                const isCleared = investor.clearance?.status === "approved";
                 const hasAccess = isCleared && investor.dealAccessCount > 0;
 
                 return (
@@ -364,7 +349,7 @@ export function ComplianceTableClient({
                         <Link
                           href={`/admin/compliance/investors/${investor.id}`}
                         >
-                          <Eye className="h-4 w-4 mr-1" />
+                          <Eye className="mr-1 h-4 w-4" />
                           Review
                         </Link>
                       </Button>
@@ -377,14 +362,13 @@ export function ComplianceTableClient({
         </Table>
       </div>
 
-      {/* Pagination */}
       {pagination.totalPages > 1 && (
         <Pagination>
           <PaginationContent>
             <PaginationItem>
               <PaginationPrevious
                 onClick={() =>
-                  pagination.page > 1 && handlePageChange(pagination.page - 1)
+                  pagination.page > 1 && onPageChange(pagination.page - 1)
                 }
                 className={
                   pagination.page <= 1
@@ -404,7 +388,7 @@ export function ComplianceTableClient({
               ) : (
                 <PaginationItem key={item}>
                   <PaginationLink
-                    onClick={() => handlePageChange(item)}
+                    onClick={() => onPageChange(item)}
                     isActive={item === pagination.page}
                     className="cursor-pointer"
                     aria-label={`Go to page ${item}`}
@@ -420,7 +404,7 @@ export function ComplianceTableClient({
               <PaginationNext
                 onClick={() =>
                   pagination.page < pagination.totalPages &&
-                  handlePageChange(pagination.page + 1)
+                  onPageChange(pagination.page + 1)
                 }
                 className={
                   pagination.page >= pagination.totalPages

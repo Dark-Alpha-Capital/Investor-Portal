@@ -27,16 +27,6 @@ export const fetchAdminDealEditData = createServerFn({ method: "GET" })
   .validator((input) => dealIdInputSchema.parse(input))
   .handler(({ data }) => impl.runFetchAdminDealEditData(data));
 
-export const fetchAdminDealCurateData = createServerFn({ method: "GET" })
-  .middleware([adminOnlyServerFnMiddleware])
-  .validator((input) => dealIdInputSchema.parse(input))
-  .handler(({ data }) => impl.runFetchAdminDealCurateData(data));
-
-export const fetchComplianceListData = createServerFn({ method: "GET" })
-  .middleware([adminOnlyServerFnMiddleware])
-  .validator((input) => routeSearchStringSchema.parse(input))
-  .handler(({ data }) => impl.runFetchComplianceListData(data));
-
 export const fetchComplianceInvestorData = createServerFn({ method: "GET" })
   .middleware([adminOnlyServerFnMiddleware])
   .validator((input) => investorIdInputSchema.parse(input))

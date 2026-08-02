@@ -3,14 +3,13 @@ import { adminProcedure, createTRPCRouter } from "../init";
 import {
   user,
   deal,
-  dealInvite,
   dealInterest,
   investment,
 } from "@repo/db/schema";
 import { desc, eq, or, ne, isNull, and, ilike, sql } from "drizzle-orm";
 import {
   getDealById,
-  getDealInvitesWithUsersByDealId,
+  getDealInvitationsWithUsersByDealId,
   getDealInterestsWithUsersByDealId,
   getDealInvestmentsWithUsersByDealId,
 } from "@repo/db/queries";
@@ -409,7 +408,7 @@ export const adminRouter = createTRPCRouter({
       // Fetch all data in parallel
       const [dealRecord, invites, interests, investments] = await Promise.all([
         getDealById(dealId),
-        getDealInvitesWithUsersByDealId(dealId),
+        getDealInvitationsWithUsersByDealId(dealId),
         getDealInterestsWithUsersByDealId(dealId),
         getDealInvestmentsWithUsersByDealId(dealId),
       ]);
@@ -439,10 +438,10 @@ export const adminRouter = createTRPCRouter({
         updatedAt: dealRecord.updatedAt?.toISOString() ?? null,
       };
 
-      // Transform invites
+      // Transform invites (compliance vehicle_permission rows)
       const transformedInvites = invites.map((invite) => ({
         ...invite,
-        createdAt: invite.createdAt.toISOString(),
+        grantedAt: invite.grantedAt.toISOString(),
       }));
 
       // Transform interests

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { fetchAdminDealDetailData } from "@/lib/server-fns/admin-route-data";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, Edit } from "lucide-react";
+import { ArrowLeft, Edit } from "lucide-react";
 import { OverviewTab } from "@/components/deal-overview-tab";
 import { DescriptionTab } from "@/components/deal-description-tab";
 import { InvitesTab } from "@/components/deal-invites-tab";
@@ -78,12 +78,6 @@ function AdminDealDetailInner({
 
       <div>
         <div className="flex gap-2">
-          <Link params={{ dealId }} to="/admin/deals/$dealId/curate">
-            <Button variant="secondary">
-              <Users className="mr-2 h-4 w-4" />
-              Curate
-            </Button>
-          </Link>
           <Link params={{ dealId }} to="/admin/deals/$dealId/edit">
             <Button>
               <Edit className="mr-2 h-4 w-4" />
@@ -131,7 +125,7 @@ function AdminDealDetailInner({
         </TabsContent>
 
         <TabsContent value="questions" className="mt-6 space-y-4">
-          <DealQuestionsTab dealId={dealId} />
+          <DealQuestionsTab dealId={dealId} questions={data.questions} />
         </TabsContent>
       </Tabs>
     </div>

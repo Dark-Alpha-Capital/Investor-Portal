@@ -24,7 +24,10 @@ import {
   type DealsIndexData,
   type DealsIndexSearch,
 } from "@/lib/loaders/deals";
-import { dealLifecycleStatuses, dealLifecycleStatusLabels } from "@repo/db/deal-status";
+import {
+  dealLifecycleStatuses,
+  dealLifecycleStatusLabels,
+} from "@repo/db/deal-status";
 
 function parseDealsSearch(search: Record<string, unknown>): DealsIndexSearch {
   return dealsIndexSearchSchema.parse(search);
@@ -52,9 +55,7 @@ function dealsIndexQueryOptions(deps: DealsIndexSearch) {
 export const Route = createFileRoute("/_dashboard/_admin/admin/deals/")({
   validateSearch: parseDealsSearch,
   loader: async ({ context: { queryClient }, location }) => {
-    const search = parseDealsSearch(
-      location.search as Record<string, unknown>,
-    );
+    const search = parseDealsSearch(location.search as Record<string, unknown>);
     await queryClient.ensureQueryData(dealsIndexQueryOptions(search));
   },
   component: AdminDealsRoutePage,
@@ -145,7 +146,9 @@ function AdminDealsRoutePage() {
     <div className="container mx-auto max-w-7xl px-4 py-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Deals Management</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Deals Management
+          </h1>
           <p className="mt-2 text-muted-foreground">
             Create and manage investment deals
           </p>
@@ -212,7 +215,9 @@ function AdminDealsRoutePage() {
               search: (current) => ({
                 ...current,
                 view,
-                ...(view === "table" ? { page: current.page ?? 1 } : { page: undefined }),
+                ...(view === "table"
+                  ? { page: current.page ?? 1 }
+                  : { page: undefined }),
               }),
             });
           }}

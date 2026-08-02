@@ -1,52 +1,48 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Spinner } from "@/components/ui/spinner";
+import { useRouter } from "@/hooks/use-app-navigation";
+import type { AdminDealDetailPayload } from "@/lib/server-fns/admin-route-data";
 import { useTRPC } from "@/trpc/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 type DealQuestionsTabProps = {
   dealId: string;
+  questions: AdminDealDetailPayload["questions"];
 };
 
-export function DealQuestionsTab({ dealId }: DealQuestionsTabProps) {
+export function DealQuestionsTab({ dealId, questions }: DealQuestionsTabProps) {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<"open" | "answered" | "all">(
-    "open",
+    "all",
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
 
-  const listQuery = useQuery(
-    trpc.knowledgeRequests.listByDeal.queryOptions({
-      dealId,
-      status: statusFilter === "all" ? undefined : statusFilter,
-    }),
-  );
-
-  const requests = listQuery.data?.requests ?? [];
+  const requests =
+    statusFilter === "all"
+      ? questions
+      : questions.filter((r) => r.status === statusFilter);
   const selected =
     requests.find((r) => r.id === selectedId) ?? requests[0] ?? null;
 
-  const invalidate = async () => {
-    await queryClient.invalidateQueries({
-      queryKey: trpc.knowledgeRequests.listByDeal.queryKey({ dealId }),
-    });
+  const refresh = () => {
+    router.refresh();
   };
 
   const publishMutation = useMutation(
     trpc.knowledgeRequests.publishAnswer.mutationOptions({
-      onSuccess: async () => {
+      onSuccess: () => {
         toast.success("Answer published");
         setAnswer("");
-        await invalidate();
+        refresh();
       },
       onError: (error) => {
         toast.error(error.message || "Failed to publish answer");
@@ -68,24 +64,15 @@ export function DealQuestionsTab({ dealId }: DealQuestionsTabProps) {
 
   const closeMutation = useMutation(
     trpc.knowledgeRequests.close.mutationOptions({
-      onSuccess: async () => {
+      onSuccess: () => {
         toast.success("Question closed");
-        await invalidate();
+        refresh();
       },
       onError: (error) => {
         toast.error(error.message || "Failed to close question");
       },
     }),
   );
-
-  if (listQuery.isLoading) {
-    return (
-      <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
-        <Spinner className="size-4" />
-        Loading questions…
-      </div>
-    );
-  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">

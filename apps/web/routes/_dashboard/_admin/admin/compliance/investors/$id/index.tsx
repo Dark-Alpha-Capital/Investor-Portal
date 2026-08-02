@@ -1,7 +1,14 @@
+import {
+  queryOptions,
+  useQuery,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { Loader2, ArrowLeft } from "lucide-react";
+import { z } from "zod";
 import { fetchComplianceInvestorData } from "@/lib/server-fns/admin-route-data";
+import type { ComplianceInvestorLoaderData } from "@/lib/server-fns/admin-route-data";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,20 +18,49 @@ import { InvestorKycDetails } from "@/components/investor-compliance-investor-ky
 import { DealInvitations } from "@/components/investor-compliance-deal-invitations";
 import { AuditHistory } from "@/components/investor-compliance-audit-history";
 import { ClearanceForm } from "@/components/investor-compliance-clearance-form";
-import type { ComplianceInvestorLoaderData } from "@/lib/server-fns/admin-route-data";
 import type { ParticipationStatus } from "@/lib/participation";
+
+const TAB_VALUES = [
+  "documents",
+  "kyc",
+  "status",
+  "invitations",
+  "audit",
+] as const;
+
+const searchSchema = z.object({
+  tab: z.enum(TAB_VALUES).optional(),
+});
+
+type ComplianceInvestorSearch = z.infer<typeof searchSchema>;
+
+function parseSearch(search: Record<string, unknown>): ComplianceInvestorSearch {
+  return searchSchema.parse(search);
+}
+
+function complianceInvestorQueryOptions(investorId: string) {
+  return queryOptions({
+    queryKey: ["compliance", "investor", investorId] as const,
+    queryFn: async (): Promise<ComplianceInvestorLoaderData> => {
+      const r = await fetchComplianceInvestorData({
+        data: { investorId },
+      });
+      if (r.tag === "not_found") {
+        throw notFound();
+      }
+      return r.data;
+    },
+  });
+}
 
 export const Route = createFileRoute(
   "/_dashboard/_admin/admin/compliance/investors/$id/",
 )({
-  loader: async ({ params }: { params: { id: string } }) => {
-    const r = await fetchComplianceInvestorData({
-      data: { investorId: params.id },
-    });
-    if (r.tag === "not_found") {
-      throw notFound();
-    }
-    return r.data;
+  validateSearch: parseSearch,
+  loader: async ({ context: { queryClient }, params }) => {
+    await queryClient.ensureQueryData(
+      complianceInvestorQueryOptions(params.id),
+    );
   },
   component: InvestorComplianceRoutePage,
 });
@@ -40,14 +76,52 @@ function getInitials(name: string | null) {
 }
 
 function InvestorComplianceRoutePage() {
-  const data = Route.useLoaderData();
-  return <InvestorComplianceInner data={data} />;
+  const { id } = Route.useParams();
+  const { tab } = Route.useSearch();
+  const navigate = Route.useNavigate();
+
+  const { data, isLoading }: UseQueryResult<ComplianceInvestorLoaderData> =
+    useQuery(complianceInvestorQueryOptions(id));
+
+  if (isLoading && !data) {
+    return (
+      <div className="container mx-auto flex min-h-[40vh] max-w-7xl items-center justify-center px-4 py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const activeTab = tab ?? "documents";
+
+  return (
+    <InvestorComplianceInner
+      data={data}
+      activeTab={activeTab}
+      onTabChange={(next) => {
+        void navigate({
+          search: (prev) => ({
+            ...prev,
+            tab: next === "documents" ? undefined : next,
+          }),
+          replace: true,
+        });
+      }}
+    />
+  );
 }
 
 function InvestorComplianceInner({
   data,
+  activeTab,
+  onTabChange,
 }: {
   data: ComplianceInvestorLoaderData;
+  activeTab: (typeof TAB_VALUES)[number];
+  onTabChange: (tab: (typeof TAB_VALUES)[number]) => void;
 }) {
   const {
     investorId,
@@ -102,7 +176,7 @@ function InvestorComplianceInner({
         (p.dataRoomRequestedAt as Date | string | null | undefined) ?? null,
       dataRoomRequestMessage:
         (p.dataRoomRequestMessage as string | null | undefined) ?? null,
-    })
+    }),
   );
 
   return (
@@ -151,7 +225,13 @@ function InvestorComplianceInner({
           isOnboardingCompleted={investor.isOnboardingCompleted ?? false}
         />
 
-        <Tabs defaultValue="documents" className="space-y-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) =>
+            onTabChange(value as (typeof TAB_VALUES)[number])
+          }
+          className="space-y-6"
+        >
           <TabsList className="flex flex-wrap">
             <TabsTrigger value="documents">Documents Review</TabsTrigger>
             <TabsTrigger value="kyc">KYC Information</TabsTrigger>

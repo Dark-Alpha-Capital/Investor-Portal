@@ -6,7 +6,6 @@ import {
   Edit,
   Eye,
   Trash2,
-  Users,
   Plus,
   ChevronLeft,
   ChevronRight,
@@ -359,19 +358,6 @@ export function DealsTable({
                           </Link>
                         </TooltipTrigger>
                         <TooltipContent>View Deal</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Link
-                            to="/admin/deals/$dealId/curate"
-                            params={{ dealId: deal.id }}
-                          >
-                            <Button variant="outline" size="sm">
-                              <Users className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                        </TooltipTrigger>
-                        <TooltipContent>Manage Investors</TooltipContent>
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>

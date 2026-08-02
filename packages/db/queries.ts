@@ -5,7 +5,6 @@ import {
   onboardingDocument,
   onboardingEditHistory,
   deal,
-  dealInvite,
   dealInterest,
   investment,
   investorClearance,
@@ -366,41 +365,6 @@ export const getAllInvestors = async () => {
 };
 
 /**
- * Get all investors for deal curation with ISO string dates
- * @returns Array of investors with dates as ISO strings
- */
-export const getInvestorsForCuration = async () => {
-  try {
-    const investors = await getAllInvestors();
-    return investors.map((investor) => ({
-      ...investor,
-      createdAt: investor.createdAt.toISOString(),
-    }));
-  } catch (error) {
-    console.error("Error fetching investors for curation:", error);
-    return [];
-  }
-};
-
-/**
- * Get deal invites for curation with ISO string dates
- * @param dealId The deal ID
- * @returns Array of deal invites with user data and ISO string dates
- */
-export const getDealInvitesForCuration = async (dealId: string) => {
-  try {
-    const invites = await getDealInvitesWithUsersByDealId(dealId);
-    return invites.map((invite) => ({
-      ...invite,
-      createdAt: invite.createdAt.toISOString(),
-    }));
-  } catch (error) {
-    console.error("Error fetching deal invites for curation:", error);
-    return [];
-  }
-};
-
-/**
  * Get a deal by its ID
  * @param dealId The deal ID
  * @returns The deal record or null if not found
@@ -469,18 +433,17 @@ export const getDealByIdForEdit = async (dealId: string) => {
 };
 
 /**
- * Get all deal invites with user information for a specific deal
- * @param dealId The deal ID
- * @returns Array of deal invites with user data
+ * Active compliance invitations (vehicle_permission) for a deal, with investor info.
  */
-export const getDealInvitesWithUsersByDealId = async (dealId: string) => {
+export const getDealInvitationsWithUsersByDealId = async (dealId: string) => {
   try {
-    const invites = await db
+    return await db
       .select({
-        id: dealInvite.id,
-        userId: dealInvite.userId,
-        curationNote: dealInvite.curationNote,
-        createdAt: dealInvite.createdAt,
+        id: vehiclePermission.id,
+        userId: vehiclePermission.userId,
+        accessLevel: vehiclePermission.accessLevel,
+        notes: vehiclePermission.notes,
+        grantedAt: vehiclePermission.grantedAt,
         user: {
           id: user.id,
           name: user.name,
@@ -489,13 +452,17 @@ export const getDealInvitesWithUsersByDealId = async (dealId: string) => {
           isOnboardingCompleted: user.isOnboardingCompleted,
         },
       })
-      .from(dealInvite)
-      .innerJoin(user, eq(dealInvite.userId, user.id))
-      .where(eq(dealInvite.dealId, dealId));
-
-    return invites;
+      .from(vehiclePermission)
+      .innerJoin(user, eq(user.id, vehiclePermission.userId))
+      .where(
+        and(
+          eq(vehiclePermission.dealId, dealId),
+          isNull(vehiclePermission.revokedAt),
+        ),
+      )
+      .orderBy(desc(vehiclePermission.grantedAt));
   } catch (error) {
-    console.error("Error fetching deal invites with users:", error);
+    console.error("Error fetching deal invitations with users:", error);
     return [];
   }
 };
@@ -720,7 +687,7 @@ export const getDealDetail = async (dealId: string) => {
     // Fetch all data in parallel
     const [dealRecord, invites, interests, investments] = await Promise.all([
       getDealById(dealId),
-      getDealInvitesWithUsersByDealId(dealId),
+      getDealInvitationsWithUsersByDealId(dealId),
       getDealInterestsWithUsersByDealId(dealId),
       getDealInvestmentsWithUsersByDealId(dealId),
     ]);
@@ -755,10 +722,10 @@ export const getDealDetail = async (dealId: string) => {
       updatedAt: dealRecord.updatedAt?.toISOString() ?? null,
     };
 
-    // Transform invites
+    // Transform invites (compliance vehicle_permission rows)
     const transformedInvites = invites.map((invite) => ({
       ...invite,
-      createdAt: invite.createdAt.toISOString(),
+      grantedAt: invite.grantedAt.toISOString(),
     }));
 
     // Transform interests

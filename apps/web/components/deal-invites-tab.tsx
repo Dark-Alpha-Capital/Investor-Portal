@@ -7,13 +7,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { AppLink as Link } from "@/components/app-link";
 
 type Invite = {
   id: string;
   userId: string;
-  curationNote: string | null;
-  createdAt: string;
+  accessLevel: "teaser" | "data_room";
+  notes: string | null;
+  grantedAt: string;
   user: {
     id: string;
     name: string;
@@ -21,6 +23,11 @@ type Invite = {
     image: string | null;
     isOnboardingCompleted: boolean;
   };
+};
+
+const ACCESS_LABELS: Record<Invite["accessLevel"], string> = {
+  teaser: "Teaser",
+  data_room: "Data Room",
 };
 
 const formatDate = (dateString: string | null | undefined): string => {
@@ -38,14 +45,15 @@ export function InvitesTab({ invites }: { invites: Invite[] }) {
       <div>
         <h2 className="text-lg font-semibold">Invited Investors</h2>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Investors who have been invited to view this deal
+          Investors granted access via Compliance
         </p>
       </div>
 
       {invites.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-sm text-muted-foreground">
-            No investors have been invited to this deal yet.
+            No investors have been invited to this deal yet. Invite them from
+            Compliance.
           </p>
         </div>
       ) : (
@@ -55,7 +63,8 @@ export function InvitesTab({ invites }: { invites: Invite[] }) {
               <TableRow>
                 <TableHead className="font-medium">Investor</TableHead>
                 <TableHead className="font-medium">Email</TableHead>
-                <TableHead className="font-medium">Curation Note</TableHead>
+                <TableHead className="font-medium">Access</TableHead>
+                <TableHead className="font-medium">Notes</TableHead>
                 <TableHead className="font-medium">Invited</TableHead>
               </TableRow>
             </TableHeader>
@@ -85,14 +94,19 @@ export function InvitesTab({ invites }: { invites: Invite[] }) {
                     {invite.user.email}
                   </TableCell>
                   <TableCell>
-                    {invite.curationNote ? (
-                      <span className="text-sm">{invite.curationNote}</span>
+                    <Badge variant="secondary">
+                      {ACCESS_LABELS[invite.accessLevel]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {invite.notes ? (
+                      <span className="text-sm">{invite.notes}</span>
                     ) : (
                       <span className="text-sm text-muted-foreground">-</span>
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {formatDate(invite.createdAt)}
+                    {formatDate(invite.grantedAt)}
                   </TableCell>
                 </TableRow>
               ))}
