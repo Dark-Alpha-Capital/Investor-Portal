@@ -499,16 +499,76 @@ export const deal_status_enum = pgEnum("deal_status", [
   "cancelled", // Hidden from marketplace; not investor-accessible
 ]);
 
-// 3. Status of a specific User's Investment (capital commitment lifecycle)
+// 3. Status of a specific User's Investment (subscription closing lifecycle)
 export const investment_status_enum = pgEnum("investment_status", [
-  "committed", // Investor submitted commitment amount
-  "pending", // Under review / docs in progress
-  "confirmed", // Commitment accepted; awaiting wire
-  "funded", // Money received
-  "transferred", // Sold to someone else
-  "liquidated", // Deal exited, money returned
-  "written_off", // Loss
+  "draft",
+  "pending_documents",
+  "documents_generated",
+  "awaiting_signature",
+  "awaiting_funds",
+  "funded",
+  "closed",
+  "cancelled",
+  "expired",
+  "rejected",
+  // Exit / portfolio statuses
+  "transferred",
+  "liquidated",
+  "written_off",
 ]);
+
+export const subscription_package_status_enum = pgEnum(
+  "subscription_package_status",
+  ["pending", "generating", "ready", "sent", "completed", "superseded"]
+);
+
+export const subscription_document_status_enum = pgEnum(
+  "subscription_document_status",
+  [
+    "not_generated",
+    "generated",
+    "available",
+    "sent",
+    "signed",
+    "downloaded",
+    "executed",
+  ]
+);
+
+export const subscription_document_type_enum = pgEnum(
+  "subscription_document_type",
+  [
+    "subscription_agreement",
+    "operating_agreement",
+    "investor_questionnaire",
+    "tax_form",
+    "wire_instructions",
+  ]
+);
+
+export const signature_provider_enum = pgEnum("signature_provider", [
+  "mock",
+  "docusign",
+  "dropbox_sign",
+]);
+
+export const signature_request_status_enum = pgEnum("signature_request_status", [
+  "pending",
+  "sent",
+  "signed",
+  "declined",
+  "voided",
+]);
+
+export const signature_signer_role_enum = pgEnum("signature_signer_role", [
+  "investor",
+  "admin_countersign",
+]);
+
+export const document_generation_job_status_enum = pgEnum(
+  "document_generation_job_status",
+  ["queued", "processing", "completed", "failed"]
+);
 
 // 4. User's interest level in a prospective deal
 // Investor UI writes interested | pass only. soft_committed / meeting_requested
@@ -723,8 +783,8 @@ export const dealInterest = pgTable(
   ]
 );
 
-// --- D. CURRENT INVESTMENTS (The Portfolio/Holdings) ---
-// This is the source of truth for "My Portfolio"
+// --- D. CURRENT INVESTMENTS (The Portfolio/Holdings + Closing Aggregate) ---
+// This is the source of truth for "My Portfolio" and subscription closing.
 export const investment = pgTable(
   "investment",
   {
@@ -747,10 +807,16 @@ export const investment = pgTable(
     currentValue: doublePrecision("current_value"), // NAV
     distributions: doublePrecision("distributions").default(0), // Cash returned
 
-    status: investment_status_enum("status").default("committed").notNull(),
+    status: investment_status_enum("status").default("draft").notNull(),
 
     // Ownership specific
     ownershipPercentage: doublePrecision("ownership_percentage"),
+
+    // Closing workflow snapshots
+    entityName: text("entity_name"),
+    entityType: legal_entity_type_enum("entity_type"),
+    acknowledgementAcceptedAt: timestamp("acknowledgement_accepted_at"),
+    expiresAt: timestamp("expires_at"),
 
     createdAt: timestamp("created_at")
       .default(sql`(unixepoch() * 1000)`)
@@ -760,7 +826,10 @@ export const investment = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
-    uniqueIndex("investment_deal_user_uniq").on(table.dealId, table.userId),
+    // One active commitment per deal+user is enforced in application code
+    // (archived cancelled/expired/rejected attempts may coexist for audit).
+    index("investment_deal_user_idx").on(table.dealId, table.userId),
+    index("investment_status_idx").on(table.status),
   ]
 );
 
@@ -804,6 +873,218 @@ export const investmentDocument = pgTable(
   ]
 );
 
+// ============================================================================
+// SUBSCRIPTION CLOSING (packages, templates, signatures, audit)
+// ============================================================================
+
+export const documentTemplate = pgTable(
+  "document_template",
+  {
+    id: text("id").primaryKey(),
+    key: text("key").notNull().unique(),
+    documentType: subscription_document_type_enum("document_type").notNull(),
+    name: text("name").notNull(),
+    body: text("body").notNull(),
+    version: integer("version").default(1).notNull(),
+    signatureRequired: boolean("signature_required").default(true).notNull(),
+    countersignRequired: boolean("countersign_required").default(true).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+    updatedAt: timestamp("updated_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("document_template_documentType_idx").on(table.documentType),
+    index("document_template_isActive_idx").on(table.isActive),
+  ]
+);
+
+export const subscriptionPackage = pgTable(
+  "subscription_package",
+  {
+    id: text("id").primaryKey(),
+    investmentId: text("investment_id")
+      .notNull()
+      .references(() => investment.id, { onDelete: "cascade" }),
+    status: subscription_package_status_enum("status")
+      .default("pending")
+      .notNull(),
+    generatedAt: timestamp("generated_at"),
+    regenerationCount: integer("regeneration_count").default(0).notNull(),
+    createdAt: timestamp("created_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+    updatedAt: timestamp("updated_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("subscription_package_investmentId_uniq").on(
+      table.investmentId
+    ),
+    index("subscription_package_status_idx").on(table.status),
+  ]
+);
+
+export const subscriptionDocument = pgTable(
+  "subscription_document",
+  {
+    id: text("id").primaryKey(),
+    packageId: text("package_id")
+      .notNull()
+      .references(() => subscriptionPackage.id, { onDelete: "cascade" }),
+    templateId: text("template_id").references(() => documentTemplate.id, {
+      onDelete: "set null",
+    }),
+    documentType: subscription_document_type_enum("document_type").notNull(),
+    version: integer("version").default(1).notNull(),
+    status: subscription_document_status_enum("status")
+      .default("not_generated")
+      .notNull(),
+    signatureRequired: boolean("signature_required").default(true).notNull(),
+    requiresCountersign: boolean("requires_countersign")
+      .default(true)
+      .notNull(),
+    htmlPath: text("html_path"),
+    pdfPath: text("pdf_path"),
+    signedPdfPath: text("signed_pdf_path"),
+    generatedAt: timestamp("generated_at"),
+    generatedBy: text("generated_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    sentAt: timestamp("sent_at"),
+    viewedAt: timestamp("viewed_at"),
+    lastViewedAt: timestamp("last_viewed_at"),
+    downloadedAt: timestamp("downloaded_at"),
+    openedCount: integer("opened_count").default(0).notNull(),
+    signedAt: timestamp("signed_at"),
+    countersignedAt: timestamp("countersigned_at"),
+    executedAt: timestamp("executed_at"),
+    createdAt: timestamp("created_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+    updatedAt: timestamp("updated_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("subscription_document_packageId_idx").on(table.packageId),
+    index("subscription_document_status_idx").on(table.status),
+    index("subscription_document_documentType_idx").on(table.documentType),
+  ]
+);
+
+export const signatureRequest = pgTable(
+  "signature_request",
+  {
+    id: text("id").primaryKey(),
+    documentId: text("document_id")
+      .notNull()
+      .references(() => subscriptionDocument.id, { onDelete: "cascade" }),
+    provider: signature_provider_enum("provider").default("mock").notNull(),
+    externalId: text("external_id"),
+    signerUserId: text("signer_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    signerRole: signature_signer_role_enum("signer_role").notNull(),
+    status: signature_request_status_enum("status").default("pending").notNull(),
+    sentAt: timestamp("sent_at"),
+    viewedAt: timestamp("viewed_at"),
+    signedAt: timestamp("signed_at"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+    updatedAt: timestamp("updated_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("signature_request_documentId_idx").on(table.documentId),
+    index("signature_request_signerUserId_idx").on(table.signerUserId),
+    index("signature_request_status_idx").on(table.status),
+  ]
+);
+
+export const investmentStatusHistory = pgTable(
+  "investment_status_history",
+  {
+    id: text("id").primaryKey(),
+    investmentId: text("investment_id")
+      .notNull()
+      .references(() => investment.id, { onDelete: "cascade" }),
+    fromStatus: text("from_status"),
+    toStatus: text("to_status").notNull(),
+    changedBy: text("changed_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    reason: text("reason"),
+    createdAt: timestamp("created_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+  },
+  (table) => [
+    index("investment_status_history_investmentId_idx").on(table.investmentId),
+    index("investment_status_history_createdAt_idx").on(table.createdAt),
+  ]
+);
+
+export const investmentClosingEvent = pgTable(
+  "investment_closing_event",
+  {
+    id: text("id").primaryKey(),
+    investmentId: text("investment_id")
+      .notNull()
+      .references(() => investment.id, { onDelete: "cascade" }),
+    eventType: text("event_type").notNull(),
+    actorUserId: text("actor_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    payload: jsonb("payload"),
+    createdAt: timestamp("created_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+  },
+  (table) => [
+    index("investment_closing_event_investmentId_idx").on(table.investmentId),
+    index("investment_closing_event_eventType_idx").on(table.eventType),
+    index("investment_closing_event_createdAt_idx").on(table.createdAt),
+  ]
+);
+
+export const documentGenerationJob = pgTable(
+  "document_generation_job",
+  {
+    id: text("id").primaryKey(),
+    packageId: text("package_id")
+      .notNull()
+      .references(() => subscriptionPackage.id, { onDelete: "cascade" }),
+    status: document_generation_job_status_enum("status")
+      .default("queued")
+      .notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+    updatedAt: timestamp("updated_at")
+      .default(sql`(unixepoch() * 1000)`)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("document_generation_job_packageId_idx").on(table.packageId),
+    index("document_generation_job_status_idx").on(table.status),
+  ]
+);
+
 // Add these to your existing 'relations' block
 
 export const dealRelations = relations(deal, ({ many }) => ({
@@ -826,6 +1107,9 @@ export const investmentRelations = relations(investment, ({ one, many }) => ({
     references: [deal.id],
   }),
   documents: many(investmentDocument), // Documents linked to this investment
+  subscriptionPackage: one(subscriptionPackage),
+  statusHistory: many(investmentStatusHistory),
+  closingEvents: many(investmentClosingEvent),
 }));
 
 export const investmentDocumentRelations = relations(
@@ -834,6 +1118,96 @@ export const investmentDocumentRelations = relations(
     investment: one(investment, {
       fields: [investmentDocument.investmentId],
       references: [investment.id],
+    }),
+  })
+);
+
+export const documentTemplateRelations = relations(
+  documentTemplate,
+  ({ many }) => ({
+    documents: many(subscriptionDocument),
+  })
+);
+
+export const subscriptionPackageRelations = relations(
+  subscriptionPackage,
+  ({ one, many }) => ({
+    investment: one(investment, {
+      fields: [subscriptionPackage.investmentId],
+      references: [investment.id],
+    }),
+    documents: many(subscriptionDocument),
+    generationJobs: many(documentGenerationJob),
+  })
+);
+
+export const subscriptionDocumentRelations = relations(
+  subscriptionDocument,
+  ({ one, many }) => ({
+    package: one(subscriptionPackage, {
+      fields: [subscriptionDocument.packageId],
+      references: [subscriptionPackage.id],
+    }),
+    template: one(documentTemplate, {
+      fields: [subscriptionDocument.templateId],
+      references: [documentTemplate.id],
+    }),
+    generatedByUser: one(user, {
+      fields: [subscriptionDocument.generatedBy],
+      references: [user.id],
+    }),
+    signatureRequests: many(signatureRequest),
+  })
+);
+
+export const signatureRequestRelations = relations(
+  signatureRequest,
+  ({ one }) => ({
+    document: one(subscriptionDocument, {
+      fields: [signatureRequest.documentId],
+      references: [subscriptionDocument.id],
+    }),
+    signer: one(user, {
+      fields: [signatureRequest.signerUserId],
+      references: [user.id],
+    }),
+  })
+);
+
+export const investmentStatusHistoryRelations = relations(
+  investmentStatusHistory,
+  ({ one }) => ({
+    investment: one(investment, {
+      fields: [investmentStatusHistory.investmentId],
+      references: [investment.id],
+    }),
+    changedByUser: one(user, {
+      fields: [investmentStatusHistory.changedBy],
+      references: [user.id],
+    }),
+  })
+);
+
+export const investmentClosingEventRelations = relations(
+  investmentClosingEvent,
+  ({ one }) => ({
+    investment: one(investment, {
+      fields: [investmentClosingEvent.investmentId],
+      references: [investment.id],
+    }),
+    actor: one(user, {
+      fields: [investmentClosingEvent.actorUserId],
+      references: [user.id],
+    }),
+  })
+);
+
+export const documentGenerationJobRelations = relations(
+  documentGenerationJob,
+  ({ one }) => ({
+    package: one(subscriptionPackage, {
+      fields: [documentGenerationJob.packageId],
+      references: [subscriptionPackage.id],
     }),
   })
 );

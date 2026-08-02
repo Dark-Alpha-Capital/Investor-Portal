@@ -5,6 +5,9 @@ import {
   OnboardingAdminNotification,
   KnowledgeRequestAdmin,
   KnowledgeRequestAnswered,
+  ClosingPackageSent,
+  ClosingDocumentsExecuted,
+  ClosingFundsReceived,
 } from "./emails";
 import type { EmailJobData } from "./types";
 import { EMAIL_CONFIG } from "./types";
@@ -132,6 +135,40 @@ export const renderEmailTemplate = async (
           title: jobData.title,
           answerPreview: jobData.answerPreview,
           chatUrl: jobData.chatUrl,
+        })
+      );
+      return { subject, html };
+    }
+
+    case "closing-package-sent": {
+      const subject = `Action Required: Subscription Documents for ${jobData.dealName}`;
+      const html = await render(
+        ClosingPackageSent({
+          investorName: jobData.investorName,
+          dealName: jobData.dealName,
+        })
+      );
+      return { subject, html };
+    }
+
+    case "closing-documents-executed": {
+      const subject = `Your ${jobData.dealName} subscription documents are executed`;
+      const html = await render(
+        ClosingDocumentsExecuted({
+          investorName: jobData.investorName,
+          dealName: jobData.dealName,
+        })
+      );
+      return { subject, html };
+    }
+
+    case "closing-funds-received": {
+      const subject = `Your investment in ${jobData.dealName} has been funded`;
+      const html = await render(
+        ClosingFundsReceived({
+          investorName: jobData.investorName,
+          dealName: jobData.dealName,
+          committedAmount: jobData.committedAmount,
         })
       );
       return { subject, html };

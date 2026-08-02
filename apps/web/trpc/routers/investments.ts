@@ -1,72 +1,109 @@
 import { TRPCError } from "@trpc/server";
 import { investment, deal } from "@repo/db/schema";
 import {
+  getNextAdminAdvanceStatus,
+  INVESTMENT_EXIT_STATUSES,
+  isActiveCommitmentStatus,
+  isPortfolioModeStatus,
+  PORTFOLIO_EXIT_STATUSES,
+} from "@repo/db/investment-closing";
+import {
   adminProcedure,
   createTRPCRouter,
   protectedProcedure,
 } from "../init";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
-import { randomUUID } from "crypto";
 import { getDealPermissions } from "@/lib/auth/permissions";
 import { isOpenForCommitments } from "@repo/db/deal-marketplace";
+import {
+  createCommitment,
+  recordFunding,
+  resolveEntitySnapshot,
+  transitionInvestmentStatus,
+} from "@/lib/closing/services/investment-closing-service";
 
-const commitmentLifecycleStatuses = [
-  "committed",
-  "pending",
-  "confirmed",
-  "funded",
-] as const;
+const portfolioExitStatusSchema = z.enum(PORTFOLIO_EXIT_STATUSES);
 
-const exitStatuses = ["transferred", "liquidated", "written_off"] as const;
+function toTrpcError(error: unknown): never {
+  if (error instanceof TRPCError) throw error;
+  const message =
+    error instanceof Error ? error.message : "Investment closing error";
+  if (message === "Forbidden") {
+    throw new TRPCError({ code: "FORBIDDEN", message });
+  }
+  if (message.includes("not found") || message.includes("Not found")) {
+    throw new TRPCError({ code: "NOT_FOUND", message });
+  }
+  if (
+    message.includes("Illegal") ||
+    message.includes("Cannot") ||
+    message.includes("required") ||
+    message.includes("Acknowledgement")
+  ) {
+    throw new TRPCError({ code: "BAD_REQUEST", message });
+  }
+  throw new TRPCError({
+    code: "INTERNAL_SERVER_ERROR",
+    message,
+    cause: error,
+  });
+}
 
-const investmentStatusSchema = z.enum([
-  ...commitmentLifecycleStatuses,
-  ...exitStatuses,
-]);
+async function findActiveCommitment(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  dealId: string,
+  userId: string,
+) {
+  const rows = await db
+    .select({ id: investment.id, status: investment.status })
+    .from(investment)
+    .where(and(eq(investment.dealId, dealId), eq(investment.userId, userId)))
+    .orderBy(desc(investment.createdAt));
 
-const ADVANCE_MAP = {
-  committed: "pending",
-  pending: "confirmed",
-} as const;
-
-type AdvanceFrom = keyof typeof ADVANCE_MAP;
-
-function isUniqueConstraintError(error: unknown): boolean {
   return (
-    error instanceof Error &&
-    (error.message.includes("unique") ||
-      error.message.includes("UNIQUE") ||
-      error.message.includes("duplicate") ||
-      error.message.includes("23505"))
+    (rows as Array<{ id: string; status: string }>).find((row) =>
+      isActiveCommitmentStatus(row.status),
+    ) ?? null
   );
 }
 
 export const investmentsRouter = createTRPCRouter({
   /**
-   * Investor commits capital to a deal.
-   * Creates an investment at status `committed`.
+   * Investor commits capital to a deal (starts subscription closing).
+   * Archived cancelled/expired/rejected attempts do not block a new commitment.
    */
   commit: protectedProcedure
     .input(
       z.object({
         dealId: z.string().min(1),
         committedAmount: z.number().positive(),
+        entityName: z.string().min(1).optional(),
+        entityType: z.enum(["individual", "entity"]).optional(),
+        acknowledgementAccepted: z.boolean().default(true),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       const isAdmin = ctx.session.user.role === "admin";
 
-      if (!isAdmin) {
-        const permissions = await getDealPermissions(userId, input.dealId);
-        if (!permissions?.canInvest) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message:
-              "You do not have permission to commit capital to this deal",
-          });
-        }
+      // Admins manage closing; investors originate commitments.
+      if (isAdmin) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Admins cannot create commitments. Investors commit from the deal page.",
+        });
+      }
+
+      const permissions = await getDealPermissions(userId, input.dealId);
+      if (!permissions?.canInvest) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "You do not have permission to commit capital to this deal",
+        });
       }
 
       const [dealRow] = await ctx.db
@@ -86,7 +123,7 @@ export const investmentsRouter = createTRPCRouter({
         });
       }
 
-      if (!isAdmin && !isOpenForCommitments(dealRow)) {
+      if (!isOpenForCommitments(dealRow)) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "This deal is not open for new commitments",
@@ -103,156 +140,70 @@ export const investmentsRouter = createTRPCRouter({
         });
       }
 
-      const [existing] = await ctx.db
-        .select({ id: investment.id })
-        .from(investment)
-        .where(
-          and(
-            eq(investment.dealId, input.dealId),
-            eq(investment.userId, userId),
-          ),
-        )
-        .limit(1);
-
+      const existing = await findActiveCommitment(
+        ctx.db,
+        input.dealId,
+        userId,
+      );
       if (existing) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: "You already have a capital commitment for this deal",
+          message: "You already have an active capital commitment for this deal",
         });
       }
 
-      const id = randomUUID();
-      const now = new Date();
-
       try {
-        const [created] = await ctx.db
-          .insert(investment)
-          .values({
-            id,
+        const entity = await resolveEntitySnapshot(ctx.db, userId, {
+          entityName: input.entityName,
+          entityType: input.entityType,
+        });
+
+        const result = await createCommitment(
+          ctx.db,
+          {
             dealId: input.dealId,
             userId,
             committedAmount: input.committedAmount,
-            committedDate: now,
-            fundedAmount: 0,
-            status: "committed",
-          })
-          .returning();
+            entityName: entity.entityName,
+            entityType: entity.entityType,
+            acknowledgementAccepted: input.acknowledgementAccepted,
+          },
+          { userId, role: "investor" },
+        );
+
+        const [fresh] = await ctx.db
+          .select()
+          .from(investment)
+          .where(eq(investment.id, result.investment.id))
+          .limit(1);
 
         return {
           success: true,
-          investment: created,
+          investment: fresh ?? result.investment,
+          packageId: result.packageId,
           message: "Capital commitment recorded",
         };
       } catch (error) {
-        if (isUniqueConstraintError(error)) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "You already have a capital commitment for this deal",
-            cause: error,
-          });
-        }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to create commitment",
-          cause: error,
-        });
+        toTrpcError(error);
       }
     }),
 
   /**
-   * Admin creates a capital commitment for any investor.
+   * @deprecated Admin-created commitments removed. Investors commit from the deal page.
    */
   create: adminProcedure
-    .input(
-      z.object({
-        dealId: z.string().min(1),
-        userId: z.string().min(1),
-        committedAmount: z.number().positive(),
-        committedDate: z.string().optional(),
-        ownershipPercentage: z.number().min(0).max(100).optional().nullable(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const [dealRow] = await ctx.db
-        .select({ id: deal.id })
-        .from(deal)
-        .where(eq(deal.id, input.dealId))
-        .limit(1);
-
-      if (!dealRow) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Deal not found",
-        });
-      }
-
-      const [existing] = await ctx.db
-        .select({ id: investment.id })
-        .from(investment)
-        .where(
-          and(
-            eq(investment.dealId, input.dealId),
-            eq(investment.userId, input.userId),
-          ),
-        )
-        .limit(1);
-
-      if (existing) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "This investor already has a commitment for this deal",
-        });
-      }
-
-      const id = randomUUID();
-      const committedDate = input.committedDate
-        ? new Date(input.committedDate)
-        : new Date();
-
-      try {
-        const [created] = await ctx.db
-          .insert(investment)
-          .values({
-            id,
-            dealId: input.dealId,
-            userId: input.userId,
-            committedAmount: input.committedAmount,
-            committedDate,
-            fundedAmount: 0,
-            status: "committed",
-            ownershipPercentage: input.ownershipPercentage ?? null,
-          })
-          .returning();
-
-        return {
-          success: true,
-          investment: created,
-          message: "Capital commitment created",
-        };
-      } catch (error) {
-        if (isUniqueConstraintError(error)) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "This investor already has a commitment for this deal",
-            cause: error,
-          });
-        }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to create commitment",
-          cause: error,
-        });
-      }
+    .input(z.object({ dealId: z.string().min(1) }).passthrough())
+    .mutation(async () => {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message:
+          "Admins cannot create commitments. Investors commit from the deal page; use Closing to manage the workflow.",
+      });
     }),
 
   /**
-   * Admin advances commitment: committed → pending → confirmed.
+   * Admin advances along the happy-path closing map where defined.
+   * Prefer Closing drawer actions (generate / send / fund) over this.
    */
   advanceStatus: adminProcedure
     .input(
@@ -274,31 +225,35 @@ export const investmentsRouter = createTRPCRouter({
         });
       }
 
-      if (!(row.status in ADVANCE_MAP)) {
+      const nextStatus = getNextAdminAdvanceStatus(row.status);
+      if (!nextStatus) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `Cannot advance status from "${row.status}". Use record funding to mark as funded, or update for exit statuses.`,
+          message: `Cannot advance status from "${row.status}". Use the Closing drawer.`,
         });
       }
 
-      const nextStatus = ADVANCE_MAP[row.status as AdvanceFrom];
+      try {
+        const updated = await transitionInvestmentStatus(ctx.db, {
+          investmentId: input.investmentId,
+          toStatus: nextStatus,
+          actor: "admin",
+          actorUserId: ctx.session.user.id,
+          reason: `Admin advanced to ${nextStatus}`,
+        });
 
-      const [updated] = await ctx.db
-        .update(investment)
-        .set({ status: nextStatus })
-        .where(eq(investment.id, input.investmentId))
-        .returning();
-
-      return {
-        success: true,
-        investment: updated,
-        message: `Status advanced to ${nextStatus}`,
-      };
+        return {
+          success: true,
+          investment: updated,
+          message: `Status advanced to ${nextStatus}`,
+        };
+      } catch (error) {
+        toTrpcError(error);
+      }
     }),
 
   /**
-   * Admin records that capital has been wired.
-   * Sets fundedAmount and status to `funded`.
+   * Admin records that capital has been wired (Closing → Mark Funds Received).
    */
   recordFunding: adminProcedure
     .input(
@@ -308,48 +263,27 @@ export const investmentsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const [row] = await ctx.db
-        .select()
-        .from(investment)
-        .where(eq(investment.id, input.investmentId))
-        .limit(1);
+      try {
+        const updated = await recordFunding(
+          ctx.db,
+          input.investmentId,
+          input.fundedAmount,
+          ctx.session.user.id,
+        );
 
-      if (!row) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Investment not found",
-        });
+        return {
+          success: true,
+          investment: updated,
+          message: "Funding recorded",
+        };
+      } catch (error) {
+        toTrpcError(error);
       }
-
-      if (
-        row.status === "transferred" ||
-        row.status === "liquidated" ||
-        row.status === "written_off"
-      ) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Cannot record funding for a ${row.status} investment`,
-        });
-      }
-
-      const [updated] = await ctx.db
-        .update(investment)
-        .set({
-          fundedAmount: input.fundedAmount,
-          status: "funded",
-        })
-        .where(eq(investment.id, input.investmentId))
-        .returning();
-
-      return {
-        success: true,
-        investment: updated,
-        message: "Funding recorded",
-      };
     }),
 
   /**
-   * Admin updates ownership, NAV, distributions, or exit status.
+   * Portfolio administration — only after funding.
+   * Closing status is never set here; exit statuses only.
    */
   update: adminProcedure
     .input(
@@ -358,7 +292,7 @@ export const investmentsRouter = createTRPCRouter({
         currentValue: z.number().min(0).optional(),
         distributions: z.number().min(0).optional(),
         ownershipPercentage: z.number().min(0).max(100).optional().nullable(),
-        status: investmentStatusSchema.optional(),
+        status: portfolioExitStatusSchema.optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -375,11 +309,19 @@ export const investmentsRouter = createTRPCRouter({
         });
       }
 
+      if (!isPortfolioModeStatus(row.status)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Portfolio fields can only be updated after the investment is funded. Use Closing for the subscription workflow.",
+        });
+      }
+
       const updates: {
         currentValue?: number;
         distributions?: number;
         ownershipPercentage?: number | null;
-        status?: z.infer<typeof investmentStatusSchema>;
+        status?: (typeof INVESTMENT_EXIT_STATUSES)[number];
       } = {};
 
       if (input.currentValue !== undefined) {
@@ -411,7 +353,7 @@ export const investmentsRouter = createTRPCRouter({
       return {
         success: true,
         investment: updated,
-        message: "Investment updated",
+        message: "Portfolio updated",
       };
     }),
 });

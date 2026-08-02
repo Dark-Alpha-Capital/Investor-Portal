@@ -1,5 +1,6 @@
 import { CheckCircle2, FileText, DollarSign, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { INVESTMENT_STATUS_LABELS } from "@repo/db/investment-closing";
 
 type UserInterest = {
   id: string;
@@ -25,6 +26,7 @@ type DealPermissions = {
   canViewDocuments: boolean;
   canExpressInterest: boolean;
   canInvest: boolean;
+  isAdminPreview?: boolean;
   accessLevel?: "teaser" | "data_room" | null;
 };
 
@@ -41,10 +43,9 @@ const interestStatusLabels: Record<string, string> = {
   meeting_requested: "Interested",
 };
 
-/** Investor-facing: hide internal ops states until funded. */
+/** Investor-facing closing / portfolio status label. */
 function investorCommitmentLabel(status: string): string {
-  if (status === "funded") return "Funded";
-  return "Committed";
+  return INVESTMENT_STATUS_LABELS[status] ?? status.replace(/_/g, " ");
 }
 
 const formatCurrency = (value: string | null | undefined): string => {
@@ -86,6 +87,12 @@ export function UserStatusCard({
       </div>
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
+          {permissions.isAdminPreview ? (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200">
+              <Eye className="h-3 w-3" />
+              Admin preview
+            </div>
+          ) : (
           <div
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
               permissions.accessLevel === "data_room"
@@ -102,6 +109,7 @@ export function UserStatusCard({
                 ? "Teaser Access"
                 : "No Access"}
           </div>
+          )}
           {permissions.canViewDocuments && (
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
               <FileText className="h-3 w-3" />

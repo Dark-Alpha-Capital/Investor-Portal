@@ -16,6 +16,7 @@
     "./queries": "./queries.ts",
     "./deal-marketplace": "./deal-marketplace.ts",
     "./deal-status": "./deal-status.ts",
+    "./investment-closing": "./investment-closing.ts",
     "./kanban-cursor": "./kanban-cursor.ts",
     "./deal-kanban-queries": "./deal-kanban-queries.ts"
   },

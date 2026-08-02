@@ -31,6 +31,7 @@ import { Route as AuthRegisterIndexRouteImport } from './routes/_auth/register/i
 import { Route as AuthLoginIndexRouteImport } from './routes/_auth/login/index'
 import { Route as AuthForgotPasswordIndexRouteImport } from './routes/_auth/forgot-password/index'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
+import { Route as ApiSubscriptionDocumentsDownloadRouteImport } from './routes/api/subscription-documents/download'
 import { Route as ApiOnboardingSubmitRouteImport } from './routes/api/onboarding/submit'
 import { Route as ApiKanbanCardsRouteImport } from './routes/api/kanban/cards'
 import { Route as ApiDocumentsDownloadRouteImport } from './routes/api/documents/download'
@@ -159,6 +160,12 @@ const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
   path: '/api/trpc/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSubscriptionDocumentsDownloadRoute =
+  ApiSubscriptionDocumentsDownloadRouteImport.update({
+    id: '/api/subscription-documents/download',
+    path: '/api/subscription-documents/download',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiOnboardingSubmitRoute = ApiOnboardingSubmitRouteImport.update({
   id: '/api/onboarding/submit',
   path: '/api/onboarding/submit',
@@ -293,6 +300,7 @@ export interface FileRoutesByFullPath {
   '/api/documents/download': typeof ApiDocumentsDownloadRoute
   '/api/kanban/cards': typeof ApiKanbanCardsRoute
   '/api/onboarding/submit': typeof ApiOnboardingSubmitRoute
+  '/api/subscription-documents/download': typeof ApiSubscriptionDocumentsDownloadRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/forgot-password/': typeof AuthForgotPasswordIndexRoute
   '/login/': typeof AuthLoginIndexRoute
@@ -333,6 +341,7 @@ export interface FileRoutesByTo {
   '/api/documents/download': typeof ApiDocumentsDownloadRoute
   '/api/kanban/cards': typeof ApiKanbanCardsRoute
   '/api/onboarding/submit': typeof ApiOnboardingSubmitRoute
+  '/api/subscription-documents/download': typeof ApiSubscriptionDocumentsDownloadRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/forgot-password': typeof AuthForgotPasswordIndexRoute
   '/login': typeof AuthLoginIndexRoute
@@ -379,6 +388,7 @@ export interface FileRoutesById {
   '/api/documents/download': typeof ApiDocumentsDownloadRoute
   '/api/kanban/cards': typeof ApiKanbanCardsRoute
   '/api/onboarding/submit': typeof ApiOnboardingSubmitRoute
+  '/api/subscription-documents/download': typeof ApiSubscriptionDocumentsDownloadRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/_auth/forgot-password/': typeof AuthForgotPasswordIndexRoute
   '/_auth/login/': typeof AuthLoginIndexRoute
@@ -421,6 +431,7 @@ export interface FileRouteTypes {
     | '/api/documents/download'
     | '/api/kanban/cards'
     | '/api/onboarding/submit'
+    | '/api/subscription-documents/download'
     | '/api/trpc/$'
     | '/forgot-password/'
     | '/login/'
@@ -461,6 +472,7 @@ export interface FileRouteTypes {
     | '/api/documents/download'
     | '/api/kanban/cards'
     | '/api/onboarding/submit'
+    | '/api/subscription-documents/download'
     | '/api/trpc/$'
     | '/forgot-password'
     | '/login'
@@ -506,6 +518,7 @@ export interface FileRouteTypes {
     | '/api/documents/download'
     | '/api/kanban/cards'
     | '/api/onboarding/submit'
+    | '/api/subscription-documents/download'
     | '/api/trpc/$'
     | '/_auth/forgot-password/'
     | '/_auth/login/'
@@ -549,6 +562,7 @@ export interface RootRouteChildren {
   ApiDocumentsDownloadRoute: typeof ApiDocumentsDownloadRoute
   ApiKanbanCardsRoute: typeof ApiKanbanCardsRoute
   ApiOnboardingSubmitRoute: typeof ApiOnboardingSubmitRoute
+  ApiSubscriptionDocumentsDownloadRoute: typeof ApiSubscriptionDocumentsDownloadRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
   ApiDocumentsDocumentIdStatusRoute: typeof ApiDocumentsDocumentIdStatusRoute
   ApiOnboardingOnboardingIdStatusRoute: typeof ApiOnboardingOnboardingIdStatusRoute
@@ -708,6 +722,13 @@ declare module '@tanstack/react-router' {
       path: '/api/trpc/$'
       fullPath: '/api/trpc/$'
       preLoaderRoute: typeof ApiTrpcSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/subscription-documents/download': {
+      id: '/api/subscription-documents/download'
+      path: '/api/subscription-documents/download'
+      fullPath: '/api/subscription-documents/download'
+      preLoaderRoute: typeof ApiSubscriptionDocumentsDownloadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/onboarding/submit': {
@@ -981,6 +1002,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDocumentsDownloadRoute: ApiDocumentsDownloadRoute,
   ApiKanbanCardsRoute: ApiKanbanCardsRoute,
   ApiOnboardingSubmitRoute: ApiOnboardingSubmitRoute,
+  ApiSubscriptionDocumentsDownloadRoute: ApiSubscriptionDocumentsDownloadRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
   ApiDocumentsDocumentIdStatusRoute: ApiDocumentsDocumentIdStatusRoute,
   ApiOnboardingOnboardingIdStatusRoute: ApiOnboardingOnboardingIdStatusRoute,

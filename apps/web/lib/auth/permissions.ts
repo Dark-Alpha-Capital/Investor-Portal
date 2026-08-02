@@ -149,12 +149,13 @@ export function capabilitiesFromAccessLevel(
   canInvest: boolean;
   accessLevel: DealAccessLevel | null;
 } {
+  // Admins may preview teaser/docs; they do not participate as LPs.
   if (opts?.isAdmin) {
     return {
       canViewTeaser: true,
       canViewDocuments: true,
-      canExpressInterest: true,
-      canInvest: true,
+      canExpressInterest: false,
+      canInvest: false,
       accessLevel: "data_room",
     };
   }

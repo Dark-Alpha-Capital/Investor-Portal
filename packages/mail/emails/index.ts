@@ -17,3 +17,18 @@ export {
   KnowledgeRequestAnswered,
   type KnowledgeRequestAnsweredProps,
 } from "./knowledge-request-answered";
+
+export {
+  ClosingPackageSent,
+  type ClosingPackageSentProps,
+} from "./closing-emails";
+
+export {
+  ClosingDocumentsExecuted,
+  type ClosingDocumentsExecutedProps,
+} from "./closing-emails";
+
+export {
+  ClosingFundsReceived,
+  type ClosingFundsReceivedProps,
+} from "./closing-emails";

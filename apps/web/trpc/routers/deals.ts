@@ -1154,26 +1154,32 @@ export const dealsRouter = createTRPCRouter({
         });
       }
 
-      // Require data room invitation to express interest
-      if (session.user.role !== "admin") {
-        const [invitation] = await ctx.db
-          .select({ accessLevel: vehiclePermission.accessLevel })
-          .from(vehiclePermission)
-          .where(
-            and(
-              eq(vehiclePermission.userId, session.user.id),
-              eq(vehiclePermission.dealId, actualDealId),
-              isNull(vehiclePermission.revokedAt)
-            )
-          )
-          .limit(1);
+      if (session.user.role === "admin") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Admins cannot express interest. Use Admin → Deals to manage this deal.",
+        });
+      }
 
-        if (!invitation || invitation.accessLevel !== "data_room") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Data room access is required to express interest",
-          });
-        }
+      // Require data room invitation to express interest
+      const [invitation] = await ctx.db
+        .select({ accessLevel: vehiclePermission.accessLevel })
+        .from(vehiclePermission)
+        .where(
+          and(
+            eq(vehiclePermission.userId, session.user.id),
+            eq(vehiclePermission.dealId, actualDealId),
+            isNull(vehiclePermission.revokedAt)
+          )
+        )
+        .limit(1);
+
+      if (!invitation || invitation.accessLevel !== "data_room") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Data room access is required to express interest",
+        });
       }
 
       // Normalize legacy soft_commit / meeting → interested; keep pass.

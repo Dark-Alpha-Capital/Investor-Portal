@@ -28,6 +28,8 @@ const searchSchema = z.object({
     .optional(),
 });
 
+type DealTab = NonNullable<z.infer<typeof searchSchema>["tab"]>;
+
 export const Route = createFileRoute(
   "/_dashboard/_admin/admin/deals/$dealId/",
 )({
@@ -47,11 +49,20 @@ export const Route = createFileRoute(
 function AdminDealDetailRoutePage() {
   const { dealId, data } = Route.useLoaderData();
   const { tab } = Route.useSearch();
+  const navigate = Route.useNavigate();
   return (
     <AdminDealDetailInner
       dealId={dealId}
       data={data}
-      defaultTab={tab ?? "overview"}
+      activeTab={(tab ?? "overview") as DealTab}
+      onTabChange={(value) =>
+        void navigate({
+          search: (current) => ({
+            ...current,
+            tab: value === "overview" ? undefined : (value as DealTab),
+          }),
+        })
+      }
     />
   );
 }
@@ -59,11 +70,13 @@ function AdminDealDetailRoutePage() {
 function AdminDealDetailInner({
   dealId,
   data,
-  defaultTab,
+  activeTab,
+  onTabChange,
 }: {
   dealId: string;
   data: AdminDealDetailPayload;
-  defaultTab: string;
+  activeTab: DealTab;
+  onTabChange: (value: string) => void;
 }) {
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
@@ -87,7 +100,11 @@ function AdminDealDetailInner({
         </div>
       </div>
 
-      <Tabs defaultValue={defaultTab} className="mt-6 space-y-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={onTabChange}
+        className="mt-6 space-y-6"
+      >
         <TabCounts
           invitesCount={data.invites.length}
           interestsCount={data.interests.length}

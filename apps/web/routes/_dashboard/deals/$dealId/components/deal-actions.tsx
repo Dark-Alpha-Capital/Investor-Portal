@@ -11,11 +11,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatIntegerInput, parseFormattedInteger } from "@/lib/utils";
 import { investorDealDetailQueryKey } from "@/lib/types/investor-route-loaders";
+import { AppLink as Link } from "@/components/app-link";
 
 type UserInterest = {
   id: string;
@@ -30,6 +32,7 @@ type DealPermissions = {
   canViewDocuments: boolean;
   canExpressInterest: boolean;
   canInvest: boolean;
+  isAdminPreview?: boolean;
   accessLevel?: "teaser" | "data_room" | null;
   dataRoomRequestedAt?: string | null;
 };
@@ -75,6 +78,8 @@ export function DealActions({
   const [commitAmount, setCommitAmount] = useState(() =>
     formatIntegerInput(userInterest?.proposedAmount),
   );
+  const [entityName, setEntityName] = useState("");
+  const [acknowledgementAccepted, setAcknowledgementAccepted] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
   const canExpressInterest = permissions.canExpressInterest;
@@ -86,6 +91,11 @@ export function DealActions({
   const hasInterest =
     !!userInterest &&
     userInterest.status !== "pass";
+
+  const entitySnapshotQuery = useQuery({
+    ...trpc.subscriptionClosing.getEntitySnapshot.queryOptions(),
+    enabled: isCommitDialogOpen && canInvest,
+  });
 
   const invalidateDealDetail = () =>
     queryClient.invalidateQueries({
@@ -127,9 +137,10 @@ export function DealActions({
   const { mutate: commitCapital } = useMutation(
     trpc.investments.commit.mutationOptions({
       onSuccess: () => {
-        toast.success("Capital commitment recorded.");
+        toast.success("Capital commitment recorded. Subscription closing started.");
         setIsCommitDialogOpen(false);
         setCommitAmount("");
+        setAcknowledgementAccepted(false);
         setLoadingAction(null);
         void invalidateDealDetail();
       },
@@ -160,12 +171,37 @@ export function DealActions({
       toast.error("Please enter a valid commitment amount");
       return;
     }
+    if (!acknowledgementAccepted) {
+      toast.error("Please acknowledge the commitment terms");
+      return;
+    }
+    const snapshot = entitySnapshotQuery.data;
+    const resolvedEntityName =
+      entityName.trim() || snapshot?.entityName || undefined;
     setLoadingAction("commit");
     commitCapital({
       dealId,
       committedAmount: amount,
+      acknowledgementAccepted: true,
+      ...(resolvedEntityName ? { entityName: resolvedEntityName } : {}),
+      ...(snapshot?.entityType ? { entityType: snapshot.entityType } : {}),
     });
   };
+
+  if (permissions.isAdminPreview) {
+    return (
+      <div className="rounded-lg border border-dashed p-8 text-center space-y-3">
+        <p className="font-medium text-foreground">Admin preview</p>
+        <p className="text-sm text-muted-foreground">
+          Interest and capital commitments are investor-only. Manage
+          invitations, closing, and funding from the admin deal page.
+        </p>
+        <Button asChild size="sm">
+          <Link href={`/admin/deals/${dealId}`}>Open admin deal page</Link>
+        </Button>
+      </div>
+    );
+  }
 
   if (isTeaserOnly || !canExpressInterest) {
     return (
@@ -361,10 +397,11 @@ export function DealActions({
             </div>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Commit Capital</DialogTitle>
+                <DialogTitle>Commit Investment</DialogTitle>
                 <DialogDescription>
-                  Enter the exact amount you are committing. This records your
-                  commitment only — money is not wired yet.
+                  Confirm amount, investing entity, and acknowledgement. This
+                  starts the subscription document workflow — funds are not
+                  wired yet.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -392,6 +429,41 @@ export function DealActions({
                     </p>
                   ) : null}
                 </div>
+                <div>
+                  <Label htmlFor="entity-name">Investing Entity</Label>
+                  <Input
+                    id="entity-name"
+                    className="mt-2"
+                    placeholder={
+                      entitySnapshotQuery.data?.entityName ?? "Loading…"
+                    }
+                    value={
+                      entityName ||
+                      entitySnapshotQuery.data?.entityName ||
+                      ""
+                    }
+                    onChange={(e) => setEntityName(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Prefilled from your onboarding profile. You may adjust the
+                    display name for this commitment.
+                  </p>
+                </div>
+                <div className="flex items-start gap-3 rounded-lg border p-3">
+                  <Checkbox
+                    id="ack"
+                    checked={acknowledgementAccepted}
+                    onCheckedChange={(checked) =>
+                      setAcknowledgementAccepted(checked === true)
+                    }
+                  />
+                  <Label htmlFor="ack" className="text-sm font-normal leading-snug">
+                    I acknowledge this is a capital commitment that will
+                    initiate subscription documents for electronic signature. It
+                    is not a wire instruction and does not create a legally
+                    binding instrument in this MVP workflow.
+                  </Label>
+                </div>
               </div>
               <DialogFooter>
                 <Button
@@ -399,6 +471,7 @@ export function DealActions({
                   onClick={() => {
                     setIsCommitDialogOpen(false);
                     setCommitAmount("");
+                    setAcknowledgementAccepted(false);
                   }}
                 >
                   Cancel
@@ -407,10 +480,11 @@ export function DealActions({
                   onClick={handleCommitCapital}
                   disabled={
                     loadingAction === "commit" ||
+                    !acknowledgementAccepted ||
                     (parseFormattedInteger(commitAmount) ?? 0) <= 0
                   }
                 >
-                  {loadingAction === "commit" ? "Committing…" : "I Commit"}
+                  {loadingAction === "commit" ? "Committing…" : "Commit Investment"}
                 </Button>
               </DialogFooter>
             </DialogContent>

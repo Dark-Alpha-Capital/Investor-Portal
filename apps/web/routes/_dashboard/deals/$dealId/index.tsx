@@ -35,6 +35,7 @@ import { DealExecutiveSummary } from "./components/deal-executive-summary";
 import { DealThesisRisks } from "./components/deal-thesis-risks";
 import { DealCapitalStructure } from "./components/deal-capital-structure";
 import { DealDocuments } from "./components/deal-documents";
+import { ClosingPackagePanel } from "@/components/closing/closing-package-panel";
 import type { DealFile } from "@/lib/deals/list-deal-files";
 
 type GetDealResult = Awaited<
@@ -155,24 +156,10 @@ function DealTabs({
 
       <TabsContent value="actions" className="mt-0">
         {result.userInvestment ? (
-          <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
-            <p className="font-medium text-foreground">
-              Capital commitment on file
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Status:{" "}
-              {result.userInvestment.status === "funded"
-                ? "Funded"
-                : "Committed"}
-              {result.userInvestment.committedAmount
-                ? ` · ${new Intl.NumberFormat("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                    maximumFractionDigits: 0,
-                  }).format(parseFloat(result.userInvestment.committedAmount))}`
-                : null}
-            </p>
-          </div>
+          <ClosingPackagePanel
+            dealId={dealId}
+            investmentId={result.userInvestment.id}
+          />
         ) : (
           <DealActions
             dealId={dealId}

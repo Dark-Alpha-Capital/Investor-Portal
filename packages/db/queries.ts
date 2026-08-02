@@ -34,6 +34,7 @@ import {
   isAccessibleDealDetail,
   isOpenForCommitments,
 } from "./deal-marketplace";
+import { isActiveCommitmentStatus } from "./investment-closing";
 
 /**
  * Get paginated deals for admin with filtering
@@ -1285,11 +1286,13 @@ export const getDealForView = async ({
     // Check access based on deal invitation (admins bypass)
     // canInvest also requires deal lifecycle open for commitments (live).
     const dealOpenForCommitments = isOpenForCommitments(dealRecord);
+    // Admins may preview the investor deal page; they cannot act as LPs.
     let permissions = {
       canViewTeaser: isAdmin,
       canViewDocuments: isAdmin,
-      canExpressInterest: isAdmin,
-      canInvest: isAdmin && dealOpenForCommitments,
+      canExpressInterest: false,
+      canInvest: false,
+      isAdminPreview: isAdmin,
       accessLevel: (isAdmin ? "data_room" : null) as
         | "teaser"
         | "data_room"
@@ -1361,6 +1364,7 @@ export const getDealForView = async ({
         canViewDocuments: isDataRoom,
         canExpressInterest: isDataRoom,
         canInvest: isDataRoom && dealOpenForCommitments,
+        isAdminPreview: false,
         accessLevel: invitationResult.accessLevel as "teaser" | "data_room",
         dataRoomRequestedAt:
           invitationResult.dataRoomRequestedAt?.toISOString() ?? null,
@@ -1390,8 +1394,11 @@ export const getDealForView = async ({
             eq(investment.userId, userId)
           )
         )
-        .limit(1)
-        .then(([record]) => record ?? null),
+        .orderBy(desc(investment.createdAt))
+        .then((rows) => {
+          // Prefer active commitment; archived cancels do not block recommit UI.
+          return rows.find((row) => isActiveCommitmentStatus(row.status)) ?? null;
+        }),
     ]);
 
     return {
