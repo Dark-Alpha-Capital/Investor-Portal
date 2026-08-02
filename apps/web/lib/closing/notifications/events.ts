@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import type { Db as RepoDb } from "@repo/db";
 import {
@@ -7,9 +7,15 @@ import {
   investment,
   investmentClosingEvent,
   sideEffectOutbox,
+  signatureRequest,
+  subscriptionDocument,
+  subscriptionPackage,
   user,
 } from "@repo/db/schema";
-import type { ClosingEventType } from "@repo/db/investment-closing";
+import {
+  SUBSCRIPTION_DOCUMENT_TYPE_LABELS,
+  type ClosingEventType,
+} from "@repo/db/investment-closing";
 import type { EmailJobData, EmailJobType } from "@repo/mail";
 import { dispatchPendingOutbox } from "@/lib/queues/outbox";
 
@@ -77,6 +83,46 @@ function formatMoney(value: number | string | null | undefined): string {
   return `$${num.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
+/** Investor-facing per-document signing links for the package-sent email. */
+async function buildSigningLinkList(
+  db: Db,
+  investmentId: string
+): Promise<Array<{ documentName: string; signingUrl: string }>> {
+  const rows = await db
+    .select({
+      documentType: subscriptionDocument.documentType,
+      metadata: signatureRequest.metadata,
+    })
+    .from(signatureRequest)
+    .innerJoin(
+      subscriptionDocument,
+      eq(subscriptionDocument.id, signatureRequest.documentId)
+    )
+    .innerJoin(
+      subscriptionPackage,
+      eq(subscriptionPackage.id, subscriptionDocument.packageId)
+    )
+    .where(
+      and(
+        eq(subscriptionPackage.investmentId, investmentId),
+        eq(signatureRequest.signerRole, "investor")
+      )
+    );
+
+  return rows
+    .map((row) => {
+      const signingUrl =
+        (row.metadata as Record<string, unknown> | null)?.signingUrl;
+      if (typeof signingUrl !== "string" || !signingUrl) return null;
+      return {
+        documentName:
+          SUBSCRIPTION_DOCUMENT_TYPE_LABELS[row.documentType] ?? row.documentType,
+        signingUrl,
+      };
+    })
+    .filter((d): d is { documentName: string; signingUrl: string } => d !== null);
+}
+
 async function enqueueClosingEmail(
   db: Db,
   event: ClosingNotificationEvent,
@@ -119,6 +165,9 @@ async function enqueueClosingEmail(
     dealName: dealRow?.name ?? "the Fund",
     ...(jobType === "closing-funds-received"
       ? { committedAmount: formatMoney(inv.committedAmount) }
+      : {}),
+    ...(jobType === "closing-package-sent"
+      ? { documents: await buildSigningLinkList(db, payload.investmentId) }
       : {}),
   } as EmailJobData;
 

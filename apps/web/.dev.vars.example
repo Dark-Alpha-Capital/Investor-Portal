@@ -13,6 +13,16 @@ REVALIDATE_SECRET=
 OPENAI_API_KEY=
 DEEPSEEK_API_KEY=
 
+# OpenSign e-signature integration (https://sign.darkalphacapital.com)
+OPEN_SIGN_BASE_URL=https://sign.darkalphacapital.com
+OPEN_SIGN_APP_ID=opensign
+OPEN_SIGN_USERNAME=
+OPEN_SIGN_PASSWORD=
+OPEN_SIGN_TENANT_ID=
+OPEN_SIGN_SENDER_USERS_PTR=
+OPEN_SIGN_LOGIN_USER_PTR=
+OPEN_SIGN_WEBHOOK_SECRET=
+
 # Client-safe vars for Vite (also in `.env` at repo root or apps/web)
 # VITE_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
 # VITE_PUBLIC_PRISMIC_ENVIRONMENT=darkalphacapital

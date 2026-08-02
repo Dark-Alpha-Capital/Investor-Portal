@@ -548,6 +548,7 @@ export const subscription_document_type_enum = pgEnum(
 
 export const signature_provider_enum = pgEnum("signature_provider", [
   "mock",
+  "opensign",
   "docusign",
   "dropbox_sign",
 ]);

@@ -20,10 +20,12 @@ import {
   uploadReplacementPdf,
 } from "@/lib/closing/services/package-service";
 import {
+  attachSigningLinks,
   countersignDocument,
   markDocumentViewed,
   sendForSignature,
   signDocument,
+  syncSignatureStatuses,
 } from "@/lib/closing/services/signature-service";
 
 function toTrpcError(error: unknown): never {
@@ -79,15 +81,23 @@ export const subscriptionClosingRouter = createTRPCRouter({
         .where(eq(investment.id, input.investmentId))
         .limit(1);
 
+      // Best-effort reconcile of OpenSign status (missed-webhook fallback).
+      await syncSignatureStatuses(ctx.db, input.investmentId).catch(() => {});
+
       const closing = await getClosingPackageForInvestment(
         ctx.db,
         input.investmentId,
       );
 
+      const links = await attachSigningLinks(ctx.db, closing?.documents ?? []);
+
       return {
         investment: inv,
         package: closing?.package ?? null,
-        documents: closing?.documents ?? [],
+        documents: (closing?.documents ?? []).map((doc) => ({
+          ...doc,
+          ...(links[doc.id] ?? {}),
+        })),
         events: closing?.events ?? [],
         history: closing?.history ?? [],
       };
@@ -114,10 +124,14 @@ export const subscriptionClosingRouter = createTRPCRouter({
       }
 
       const closing = await getClosingPackageForInvestment(ctx.db, owned.id);
+      const links = await attachSigningLinks(ctx.db, closing?.documents ?? []);
       return {
         investment: owned,
         package: closing?.package ?? null,
-        documents: closing?.documents ?? [],
+        documents: (closing?.documents ?? []).map((doc) => ({
+          ...doc,
+          ...(links[doc.id] ?? {}),
+        })),
         events: closing?.events ?? [],
         history: closing?.history ?? [],
       };

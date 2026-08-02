@@ -12,6 +12,7 @@ import {
 export interface ClosingPackageSentProps {
   investorName: string;
   dealName: string;
+  documents: Array<{ documentName: string; signingUrl: string }>;
 }
 
 export interface ClosingDocumentsExecutedProps {
@@ -57,6 +58,7 @@ function Layout({
 export const ClosingPackageSent = ({
   investorName,
   dealName,
+  documents,
 }: ClosingPackageSentProps) => {
   return (
     <Layout preview={`Action Required: Subscription Documents for ${dealName}`}>
@@ -66,15 +68,20 @@ export const ClosingPackageSent = ({
       <Text style={paragraph}>Dear {investorName},</Text>
       <Text style={paragraph}>
         Your subscription package for <strong>{dealName}</strong> is now ready.
+        Please review and sign each document below.
       </Text>
-      <Text style={paragraph}>Please log in to the Investor Portal to:</Text>
-      <Text style={paragraph}>
-        &bull; Review your documents
-        <br />
-        &bull; Complete required signatures
-        <br />
-        &bull; Review funding instructions
-      </Text>
+      {documents.length > 0 ? (
+        <Section style={docList}>
+          {documents.map((doc) => (
+            <Text key={doc.signingUrl} style={docItem}>
+              &bull; <strong>{doc.documentName}</strong> —{" "}
+              <a href={doc.signingUrl} target="_blank" rel="noreferrer">
+                Review &amp; Sign
+              </a>
+            </Text>
+          ))}
+        </Section>
+      ) : null}
       <Text style={paragraph}>Best regards,</Text>
       <Text style={paragraph}>The Dark Alpha Capital Team</Text>
     </Layout>
@@ -175,6 +182,18 @@ const paragraph = {
   lineHeight: "24px",
   color: "#525f7f",
   marginBottom: "16px",
+};
+
+const docList = {
+  marginBottom: "16px",
+};
+
+const docItem = {
+  fontSize: "14px",
+  lineHeight: "24px",
+  color: "#525f7f",
+  marginBottom: "8px",
+  marginTop: "0",
 };
 
 const footer = {

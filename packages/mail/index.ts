@@ -146,6 +146,7 @@ export const renderEmailTemplate = async (
         ClosingPackageSent({
           investorName: jobData.investorName,
           dealName: jobData.dealName,
+          documents: jobData.documents,
         })
       );
       return { subject, html };

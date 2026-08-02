@@ -189,6 +189,7 @@ export function ClosingPackagePanel({
                     doc.status === "sent" &&
                     investment.status === "awaiting_signature";
                   const canDownload = Boolean(doc.pdfPath);
+                  const signingUrl = doc.signingUrl ?? null;
 
                   return (
                     <TableRow key={doc.id}>
@@ -207,15 +208,30 @@ export function ClosingPackagePanel({
                           </Button>
                         ) : null}
                         {canSign ? (
-                          <Button
-                            size="sm"
-                            disabled={signMutation.isPending}
-                            onClick={() =>
-                              signMutation.mutate({ documentId: doc.id })
-                            }
-                          >
-                            Sign
-                          </Button>
+                          signingUrl ? (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                window.open(
+                                  signingUrl,
+                                  "_blank",
+                                  "noopener,noreferrer",
+                                )
+                              }
+                            >
+                              Review &amp; Sign
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              disabled={signMutation.isPending}
+                              onClick={() =>
+                                signMutation.mutate({ documentId: doc.id })
+                              }
+                            >
+                              Sign
+                            </Button>
+                          )
                         ) : null}
                       </TableCell>
                     </TableRow>

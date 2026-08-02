@@ -23,7 +23,8 @@
         "NEXTCLOUD_USER",
         "NEXTCLOUD_PASSWORD",
         "RESEND_API_KEY",
-        "REVALIDATE_SECRET"
+        "REVALIDATE_SECRET",
+        "OPEN_SIGN_*"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"],

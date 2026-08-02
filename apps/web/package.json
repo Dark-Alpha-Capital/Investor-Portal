@@ -12,7 +12,9 @@
     "slicemachine": "start-slicemachine",
     "preview": "vite preview",
     "deploy": "bun run build && wrangler deploy",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "opensign:roundtrip": "bun run scripts/opensign-roundtrip.ts",
+    "opensign:webhook-sim": "bun run scripts/opensign-webhook-sim.ts"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.47",

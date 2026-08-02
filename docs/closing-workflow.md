@@ -88,9 +88,9 @@ Five document types are seeded per package (`SUBSCRIPTION_DOCUMENT_TYPES`):
 |---|---|---|---|---|---|
 | 1 | Investor commits capital | `investments.commit` → `createCommitment` | `pending_documents` | package created; 5 docs `not_generated` | **No** (investor sees "Preparing subscription package…") |
 | 2 | Admin generates package | `subscriptionClosing.generateDocuments` → `generatePackage` | `documents_generated` | each `generated`; package `ready` | **No** (generation is internal — admin reviews first) |
-| 3 | Admin sends package | `subscriptionClosing.sendForSignature` → `sendForSignature` | `awaiting_signature` | signature docs `sent`; wire `available`; package `sent` | **YES — email #1 "Action Required: Subscription Documents…"** |
-| 4 | Investor signs | `subscriptionClosing.signDocument` → `signDocument` | (unchanged) | doc → `signed` | **No** |
-| 5 | Admin countersigns (only if `requires_countersign`) | `subscriptionClosing.countersignDocument` → `countersignDocument` | (unchanged) | doc → `executed` | **No** |
+| 3 | Admin sends package | `subscriptionClosing.sendForSignature` → `sendForSignature` | `awaiting_signature` | signature docs `sent`; wire `available`; package `sent` | **YES — email #1 "Action Required: Subscription Documents…" (with per-doc Review & Sign links)** |
+| 4 | Investor signs | **OpenSign widget** (link from email or portal) | (unchanged) | doc → `signed` via `document.signed` webhook | **No** |
+| 5 | GP countersigns (only if `requires_countersign`) | **OpenSign** — GP signs their link (shown in admin panel) | (unchanged) | doc → `executed` once all signers signed | **No** |
 | 6 | All required docs complete (auto, after last sign/countersign) | `checkCompletionAndAdvanceToAwaitingFunds` | `awaiting_funds` (system) | — | **YES — email #2 "documents executed / wire instructions available"** |
 | 7 | Admin marks funds received | `investments.recordFunding` → `recordFunding` | `funded` | — | **YES — email #3 "investment funded"** |
 | 8 | Admin closes | `investments.advanceStatus` (or closing flow) | `closed` | — | **No** |
@@ -118,6 +118,53 @@ lifecycle event (transitionInvestmentStatus → notification port)
   → Cloudflare Queue consumer (lib/queues/consume.ts)
   → runOutboundEmailSend (lib/handlers/outbound-email-send.ts)
   → @repo/mail renderEmailTemplate → Resend
+```
+
+The package-sent email includes **per-document Review & Sign links** built from the
+created `signature_request.metadata.signingUrl` (OpenSign links).
+
+---
+
+## 9b. OpenSign e-signature integration
+
+Signing happens **outside the portal** in OpenSign (`sign.darkalphacapital.com`); the portal
+creates contacts/documents, emails the signing links, and receives status via webhooks.
+
+- Provider: `apps/web/lib/closing/signatures/opensign-provider.ts` (selected when `OPEN_SIGN_BASE_URL` is set; otherwise the in-app mock provider is used).
+- Flow: login (1-yr token, cached) → `savecontact` (error 137 = reuse) → upload PDF from Nextcloud → `createdocumentfromapp` (`Signers: [investor]` or `[investor, GP]` when `requires_countersign`, `SendinOrder`) → signing link `base64("docId/email/contactId")` → persisted on `signature_request`.
+- Investor link → emailed + shown in portal ("Review & Sign"). GP link → **admin panel only** ("GP Signing Link").
+
+### Webhook status sync — `POST /api/webhooks/opensign`
+
+Verifies `X-OpenSign-Signature` = `HMAC-SHA256(body, OPEN_SIGN_WEBHOOK_SECRET)`, then idempotently applies:
+
+| Event | Effect |
+|---|---|
+| `document.viewed` | Doc telemetry (`viewed_at`, `opened_count++`, audit `document_viewed` w/ IP) |
+| `document.signed` | Request → `signed`; doc → `signed` (investor) or `executed` (all signers) |
+| `document.completed` | Doc → `executed`; signed PDF re-hosted to Nextcloud (`signed_pdf_path`) |
+| `document.declined` | Request → `declined`; audit `document_declined` |
+
+Completion auto-advance to `awaiting_funds` + email #2 happens from the webhook path
+(`applyOpenSignEvent` → `checkCompletionAndAdvanceToAwaitingFunds`). A best-effort
+fallback reconcile (`syncSignatureStatuses`) polls `getdocument`/`getsigners` on package load.
+
+### Env
+
+Non-secret (in `wrangler.jsonc` vars): `OPEN_SIGN_BASE_URL`, `OPEN_SIGN_APP_ID`,
+`OPEN_SIGN_TENANT_ID`, `OPEN_SIGN_SENDER_USERS_PTR`, `OPEN_SIGN_LOGIN_USER_PTR`.
+Secrets (`.dev.vars` / `wrangler secret put`): `OPEN_SIGN_USERNAME`, `OPEN_SIGN_PASSWORD`,
+`OPEN_SIGN_WEBHOOK_SECRET`, `OPEN_SIGN_GP_EMAIL`.
+
+### Local testing (no tunnel needed)
+
+```bash
+# Simulate webhook events against a running dev portal
+bun run opensign:webhook-sim --event document.signed --doc <externalId> --email investor@example.com
+bun run opensign:webhook-sim --event document.completed --doc <externalId>
+
+# Live round-trip against the real OpenSign (needs creds in env)
+bun run opensign:roundtrip
 ```
 
 ---

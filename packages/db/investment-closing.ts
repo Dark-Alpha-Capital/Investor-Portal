@@ -85,6 +85,7 @@ export const CLOSING_EVENT_TYPES = [
   "document_downloaded",
   "document_signed",
   "document_countersigned",
+  "document_declined",
   "package_fully_signed",
   "funds_required",
   "funds_received",

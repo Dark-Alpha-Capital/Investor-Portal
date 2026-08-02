@@ -119,9 +119,7 @@ export function AdminClosingPackagePanel({
         window.open(result.downloadUrl, "_blank", "noopener,noreferrer");
       }
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Preview failed",
-      );
+      toast.error(error instanceof Error ? error.message : "Preview failed");
     }
   };
 
@@ -131,7 +129,9 @@ export function AdminClosingPackagePanel({
 
   if (!packageQuery.data?.investment) {
     return (
-      <p className="text-sm text-destructive">Unable to load closing package.</p>
+      <p className="text-sm text-destructive">
+        Unable to load closing package.
+      </p>
     );
   }
 
@@ -248,37 +248,56 @@ export function AdminClosingPackagePanel({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {documents.map((doc) => (
-              <TableRow key={doc.id}>
-                <TableCell>{documentTypeLabel(doc.documentType)}</TableCell>
-                <TableCell>
-                  <DocumentStatusChip status={doc.status} />
-                </TableCell>
-                <TableCell className="space-x-2 text-right">
-                  {doc.pdfPath ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handlePreview(doc.id)}
-                    >
-                      Preview
-                    </Button>
-                  ) : null}
-                  {doc.status === "signed" && doc.requiresCountersign ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={countersignMutation.isPending}
-                      onClick={() =>
-                        countersignMutation.mutate({ documentId: doc.id })
-                      }
-                    >
-                      Countersign
-                    </Button>
-                  ) : null}
-                </TableCell>
-              </TableRow>
-            ))}
+            {documents.map((doc) => {
+              const gpSigningUrl = doc.gpSigningUrl ?? null;
+              return (
+                <TableRow key={doc.id}>
+                  <TableCell>{documentTypeLabel(doc.documentType)}</TableCell>
+                  <TableCell>
+                    <DocumentStatusChip status={doc.status} />
+                  </TableCell>
+                  <TableCell className="space-x-2 text-right">
+                    {doc.pdfPath ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handlePreview(doc.id)}
+                      >
+                        Preview
+                      </Button>
+                    ) : null}
+                    {doc.status === "signed" && doc.requiresCountersign ? (
+                      gpSigningUrl ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            window.open(
+                              gpSigningUrl,
+                              "_blank",
+                              "noopener,noreferrer",
+                            )
+                          }
+                        >
+                          GP Signing Link
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={countersignMutation.isPending}
+                          onClick={() =>
+                            countersignMutation.mutate({ documentId: doc.id })
+                          }
+                        >
+                          Countersign
+                        </Button>
+                      )
+                    ) : null}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

@@ -57,6 +57,7 @@ export interface ClosingPackageSentJobData extends BaseEmailJobData {
   type: "closing-package-sent";
   investorName: string;
   dealName: string;
+  documents: Array<{ documentName: string; signingUrl: string }>;
 }
 
 export interface ClosingDocumentsExecutedJobData extends BaseEmailJobData {

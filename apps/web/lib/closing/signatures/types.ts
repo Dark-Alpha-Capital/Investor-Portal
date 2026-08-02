@@ -1,4 +1,8 @@
-export type SignatureProviderName = "mock" | "docusign" | "dropbox_sign";
+export type SignatureProviderName =
+  | "mock"
+  | "opensign"
+  | "docusign"
+  | "dropbox_sign";
 
 export type SignatureSignerRole = "investor" | "admin_countersign";
 

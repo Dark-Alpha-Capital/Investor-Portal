@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import {
   investment,
@@ -6,7 +6,11 @@ import {
   subscriptionDocument,
   subscriptionPackage,
 } from "@repo/db/schema";
-import { createMockSignatureProvider } from "../signatures/mock-provider";
+import { createSignatureProvider } from "../signatures";
+import {
+  fetchOpenSignDocumentState,
+  rehostSignedPdfToNextcloud,
+} from "../signatures/opensign-provider";
 import {
   appendClosingEvent,
   transitionInvestmentStatus,
@@ -38,6 +42,51 @@ async function loadPackageContext(db: Db, investmentId: string) {
 }
 
 /**
+ * Attach per-document signing links (investor link + GP countersign link)
+ * from the persisted signature requests. Used by the package queries.
+ */
+export async function attachSigningLinks(
+  db: Db,
+  documents: Array<{ id: string }>
+): Promise<
+  Record<
+    string,
+    { signingUrl?: string | null; gpSigningUrl?: string | null }
+  >
+> {
+  if (documents.length === 0) return {};
+  const rows = await db
+    .select()
+    .from(signatureRequest)
+    .where(
+      inArray(
+        signatureRequest.documentId,
+        documents.map((d) => d.id)
+      )
+    );
+
+  const map: Record<
+    string,
+    { signingUrl?: string | null; gpSigningUrl?: string | null }
+  > = {};
+  for (const row of rows) {
+    const meta = (row.metadata as Record<string, unknown> | null) ?? {};
+    const link =
+      typeof meta.signingUrl === "string" && meta.signingUrl
+        ? meta.signingUrl
+        : null;
+    const entry = map[row.documentId] ?? {};
+    if (row.signerRole === "admin_countersign") {
+      entry.gpSigningUrl = link;
+    } else {
+      entry.signingUrl = link;
+    }
+    map[row.documentId] = entry;
+  }
+  return map;
+}
+
+/**
  * Release the subscription package to the investor.
  * Signature docs → `sent`; informational docs (wire instructions) → `available`.
  * Emails fire via the awaiting_signature transition.
@@ -55,7 +104,7 @@ export async function sendForSignature(
     );
   }
 
-  const provider = createMockSignatureProvider(db);
+  const provider = createSignatureProvider(db);
   const now = new Date();
 
   for (const doc of documents) {
@@ -80,7 +129,11 @@ export async function sendForSignature(
       documentId: doc.id,
       signerUserId: inv.userId,
       signerRole: "investor",
-      metadata: { investmentId: inv.id },
+      metadata: {
+        investmentId: inv.id,
+        // GP countersigns on the same OpenSign document when required.
+        ...(doc.requiresCountersign ? { countersignerUserId: actorUserId } : {}),
+      },
     });
   }
 
@@ -142,7 +195,7 @@ export async function markDocumentViewed(
     })
     .where(eq(subscriptionDocument.id, documentId));
 
-  const provider = createMockSignatureProvider(db);
+  const provider = createSignatureProvider(db);
   const [req] = await db
     .select()
     .from(signatureRequest)
@@ -249,7 +302,7 @@ export async function signDocument(
     throw new Error("Forbidden");
   }
 
-  const provider = createMockSignatureProvider(db);
+  const provider = createSignatureProvider(db);
   const [req] = await db
     .select()
     .from(signatureRequest)
@@ -318,7 +371,7 @@ export async function countersignDocument(
     .limit(1);
   if (!pkg) throw new Error("Package not found");
 
-  const provider = createMockSignatureProvider(db);
+  const provider = createSignatureProvider(db);
   const request = await provider.createRequest({
     documentId,
     signerUserId: adminUserId,
@@ -364,7 +417,7 @@ export async function countersignDocument(
 async function checkCompletionAndAdvanceToAwaitingFunds(
   db: Db,
   investmentId: string,
-  actorUserId: string
+  actorUserId: string | null
 ) {
   const { inv, documents } = await loadPackageContext(db, investmentId);
   const required = documents.filter((d) => d.signatureRequired);
@@ -390,5 +443,297 @@ async function checkCompletionAndAdvanceToAwaitingFunds(
       eventType: "package_fully_signed",
       actorUserId,
     });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// OpenSign webhook handling (idempotent)
+// ---------------------------------------------------------------------------
+
+export type OpenSignWebhookEvent = {
+  event: "document.viewed" | "document.signed" | "document.completed" | "document.declined";
+  documentId: string; // OpenSign document id == signature_request.externalId
+  signerEmail?: string;
+  signerName?: string;
+  signedUrl?: string;
+  viewedAt?: string | number;
+  signedAt?: string | number;
+  completedAt?: string | number;
+  ipAddress?: string;
+  declineReason?: string;
+};
+
+function parseOpenSignTime(value?: string | number): Date {
+  if (!value) return new Date();
+  if (typeof value === "number") return new Date(value);
+  const num = Number(value);
+  if (!Number.isNaN(num)) return new Date(num);
+  return new Date(value);
+}
+
+function requestSignerEmail(row: typeof signatureRequest.$inferSelect): string {
+  return (
+    (row.metadata as Record<string, unknown> | null)?.signerEmail as
+      | string
+      | undefined
+  ) ?? "";
+}
+
+async function markDocumentExecuted(
+  db: Db,
+  docId: string,
+  event: OpenSignWebhookEvent
+) {
+  const [doc] = await db
+    .select()
+    .from(subscriptionDocument)
+    .where(eq(subscriptionDocument.id, docId))
+    .limit(1);
+  if (!doc) return;
+
+  const now = parseOpenSignTime(event.completedAt ?? event.signedAt);
+  const signedPdfPath = doc.signedPdfPath;
+  if (!signedPdfPath && event.signedUrl) {
+    const path = await rehostSignedPdfToNextcloud(db, {
+      documentId: docId,
+      signedUrl: event.signedUrl,
+    }).catch((error) => {
+      console.error("[opensign] rehost failed:", error);
+      return null;
+    });
+    await db
+      .update(subscriptionDocument)
+      .set({
+        status: "executed",
+        signedAt: doc.signedAt ?? now,
+        executedAt: doc.executedAt ?? now,
+        countersignedAt: doc.countersignedAt ?? now,
+        signedPdfPath: path ?? doc.signedPdfPath,
+      })
+      .where(eq(subscriptionDocument.id, docId));
+  } else {
+    await db
+      .update(subscriptionDocument)
+      .set({
+        status: "executed",
+        signedAt: doc.signedAt ?? now,
+        executedAt: doc.executedAt ?? now,
+        countersignedAt: doc.countersignedAt ?? now,
+      })
+      .where(eq(subscriptionDocument.id, docId));
+  }
+}
+
+/**
+ * Single idempotent entry point for OpenSign events (webhooks + reconcile).
+ * Never throws for unknown documents — it simply no-ops.
+ */
+export async function applyOpenSignEvent(
+  db: Db,
+  event: OpenSignWebhookEvent
+): Promise<void> {
+  const requests = await db
+    .select()
+    .from(signatureRequest)
+    .where(eq(signatureRequest.externalId, event.documentId));
+
+  if (requests.length === 0) return;
+
+  const docId = requests[0].documentId;
+  const [doc] = await db
+    .select()
+    .from(subscriptionDocument)
+    .where(eq(subscriptionDocument.id, docId))
+    .limit(1);
+  if (!doc) return;
+
+  const [pkg] = await db
+    .select()
+    .from(subscriptionPackage)
+    .where(eq(subscriptionPackage.id, doc.packageId))
+    .limit(1);
+  if (!pkg) return;
+
+  // Restrict to the matching signer where the event names one.
+  let matched = requests;
+  if (event.signerEmail) {
+    const byEmail = requests.filter(
+      (r) =>
+        requestSignerEmail(r).toLowerCase() ===
+        event.signerEmail!.toLowerCase(),
+    );
+    if (byEmail.length > 0) matched = byEmail;
+  }
+
+  const now = new Date();
+
+  switch (event.event) {
+    case "document.viewed": {
+      const viewedAt = parseOpenSignTime(event.viewedAt);
+      await db
+        .update(subscriptionDocument)
+        .set({
+          viewedAt: doc.viewedAt ?? viewedAt,
+          lastViewedAt: now,
+          openedCount: (doc.openedCount ?? 0) + 1,
+        })
+        .where(eq(subscriptionDocument.id, docId));
+      await appendClosingEvent(db, {
+        investmentId: pkg.investmentId,
+        eventType: "document_viewed",
+        actorUserId: null,
+        payload: {
+          documentId: docId,
+          ...(event.ipAddress ? { ipAddress: event.ipAddress } : {}),
+        },
+      });
+      return;
+    }
+
+    case "document.signed": {
+      const signedAt = parseOpenSignTime(event.signedAt);
+      for (const req of matched) {
+        if (req.status !== "signed") {
+          await db
+            .update(signatureRequest)
+            .set({ status: "signed", signedAt })
+            .where(eq(signatureRequest.id, req.id));
+        }
+      }
+      await appendClosingEvent(db, {
+        investmentId: pkg.investmentId,
+        eventType: "document_signed",
+        actorUserId: null,
+        payload: {
+          documentId: docId,
+          signerEmail: event.signerEmail ?? null,
+        },
+      });
+
+      // All required signers signed → executed, else signed.
+      const allSigned = requests.every(
+        (r) =>
+          r.status === "signed" ||
+          matched.some((m) => m.id === r.id),
+      );
+      if (allSigned && doc.requiresCountersign) {
+        await markDocumentExecuted(db, docId, event);
+      } else if (!doc.requiresCountersign) {
+        await db
+          .update(subscriptionDocument)
+          .set({
+            status: "signed",
+            signedAt: doc.signedAt ?? signedAt,
+            lastViewedAt: now,
+          })
+          .where(eq(subscriptionDocument.id, docId));
+      }
+      break;
+    }
+
+    case "document.completed": {
+      for (const req of requests) {
+        if (req.status !== "signed") {
+          await db
+            .update(signatureRequest)
+            .set({ status: "signed", signedAt: req.signedAt ?? now })
+            .where(eq(signatureRequest.id, req.id));
+        }
+      }
+      await markDocumentExecuted(db, docId, event);
+      break;
+    }
+
+    case "document.declined": {
+      for (const req of matched) {
+        await db
+          .update(signatureRequest)
+          .set({ status: "declined" })
+          .where(eq(signatureRequest.id, req.id));
+      }
+      await appendClosingEvent(db, {
+        investmentId: pkg.investmentId,
+        eventType: "document_declined",
+        actorUserId: null,
+        payload: {
+          documentId: docId,
+          signerEmail: event.signerEmail ?? null,
+          reason: event.declineReason ?? null,
+        },
+      });
+      return;
+    }
+  }
+
+  await checkCompletionAndAdvanceToAwaitingFunds(db, pkg.investmentId, null);
+}
+
+/**
+ * Best-effort fallback for missed webhooks: reconcile each non-terminal
+ * OpenSign request from `getdocument`/`getsigners`. Never throws — a failure
+ * here must not break the read path.
+ */
+export async function syncSignatureStatuses(
+  db: Db,
+  investmentId: string
+): Promise<void> {
+  if (!process.env.OPEN_SIGN_BASE_URL) return;
+
+  const [pkg] = await db
+    .select()
+    .from(subscriptionPackage)
+    .where(eq(subscriptionPackage.investmentId, investmentId))
+    .limit(1);
+  if (!pkg) return;
+
+  const docs = await db
+    .select()
+    .from(subscriptionDocument)
+    .where(eq(subscriptionDocument.packageId, pkg.id));
+
+  const requests = await db
+    .select()
+    .from(signatureRequest)
+    .where(eq(signatureRequest.provider, "opensign"));
+
+  for (const doc of docs) {
+    if (doc.status === "executed") continue;
+    const docRequests = requests.filter((r) => r.documentId === doc.id);
+    if (docRequests.length === 0) continue;
+    const anyPending = docRequests.some((r) =>
+      ["pending", "sent"].includes(r.status),
+    );
+    if (!anyPending) continue;
+
+    const externalId = docRequests[0].externalId;
+    if (!externalId) continue;
+
+    try {
+      const state = await fetchOpenSignDocumentState(externalId);
+      for (const signer of state.signers) {
+        if (signer.status === "signed") {
+          await applyOpenSignEvent(db, {
+            event: "document.signed",
+            documentId: externalId,
+            signerEmail: signer.email,
+            signedUrl: state.signedUrl ?? undefined,
+            signedAt: signer.signedAt ?? undefined,
+          });
+        }
+      }
+      if (state.signedUrl) {
+        await applyOpenSignEvent(db, {
+          event: "document.completed",
+          documentId: externalId,
+          signedUrl: state.signedUrl,
+          completedAt: state.completedAt ?? undefined,
+        });
+      }
+    } catch (error) {
+      console.error(
+        `[opensign] reconcile failed for ${externalId}:`,
+        error,
+      );
+    }
   }
 }

@@ -8,7 +8,12 @@
   "vars": {
     "VITE_PUBLIC_BETTER_AUTH_URL": "https://investors.darkalphacapital.com",
     "BETTER_AUTH_URL": "https://investors.darkalphacapital.com",
-    "VITE_PUBLIC_PRISMIC_ENVIRONMENT": "darkalphacapital"
+    "VITE_PUBLIC_PRISMIC_ENVIRONMENT": "darkalphacapital",
+    "OPEN_SIGN_BASE_URL": "https://sign.darkalphacapital.com",
+    "OPEN_SIGN_APP_ID": "opensign",
+    "OPEN_SIGN_TENANT_ID": "BSLnEdbZ6L",
+    "OPEN_SIGN_SENDER_USERS_PTR": "nYyWAOMQNN",
+    "OPEN_SIGN_LOGIN_USER_PTR": "6cxQy4TjsT"
   },
   "d1_databases": [
     {

@@ -30,6 +30,7 @@ import { Route as AuthResetPasswordIndexRouteImport } from './routes/_auth/reset
 import { Route as AuthRegisterIndexRouteImport } from './routes/_auth/register/index'
 import { Route as AuthLoginIndexRouteImport } from './routes/_auth/login/index'
 import { Route as AuthForgotPasswordIndexRouteImport } from './routes/_auth/forgot-password/index'
+import { Route as ApiWebhooksOpensignRouteImport } from './routes/api/webhooks/opensign'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
 import { Route as ApiSubscriptionDocumentsDownloadRouteImport } from './routes/api/subscription-documents/download'
 import { Route as ApiOnboardingSubmitRouteImport } from './routes/api/onboarding/submit'
@@ -154,6 +155,11 @@ const AuthForgotPasswordIndexRoute = AuthForgotPasswordIndexRouteImport.update({
   id: '/forgot-password/',
   path: '/forgot-password/',
   getParentRoute: () => AuthRouteRoute,
+} as any)
+const ApiWebhooksOpensignRoute = ApiWebhooksOpensignRouteImport.update({
+  id: '/api/webhooks/opensign',
+  path: '/api/webhooks/opensign',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
   id: '/api/trpc/$',
@@ -302,6 +308,7 @@ export interface FileRoutesByFullPath {
   '/api/onboarding/submit': typeof ApiOnboardingSubmitRoute
   '/api/subscription-documents/download': typeof ApiSubscriptionDocumentsDownloadRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/webhooks/opensign': typeof ApiWebhooksOpensignRoute
   '/forgot-password/': typeof AuthForgotPasswordIndexRoute
   '/login/': typeof AuthLoginIndexRoute
   '/register/': typeof AuthRegisterIndexRoute
@@ -343,6 +350,7 @@ export interface FileRoutesByTo {
   '/api/onboarding/submit': typeof ApiOnboardingSubmitRoute
   '/api/subscription-documents/download': typeof ApiSubscriptionDocumentsDownloadRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/webhooks/opensign': typeof ApiWebhooksOpensignRoute
   '/forgot-password': typeof AuthForgotPasswordIndexRoute
   '/login': typeof AuthLoginIndexRoute
   '/register': typeof AuthRegisterIndexRoute
@@ -390,6 +398,7 @@ export interface FileRoutesById {
   '/api/onboarding/submit': typeof ApiOnboardingSubmitRoute
   '/api/subscription-documents/download': typeof ApiSubscriptionDocumentsDownloadRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/webhooks/opensign': typeof ApiWebhooksOpensignRoute
   '/_auth/forgot-password/': typeof AuthForgotPasswordIndexRoute
   '/_auth/login/': typeof AuthLoginIndexRoute
   '/_auth/register/': typeof AuthRegisterIndexRoute
@@ -433,6 +442,7 @@ export interface FileRouteTypes {
     | '/api/onboarding/submit'
     | '/api/subscription-documents/download'
     | '/api/trpc/$'
+    | '/api/webhooks/opensign'
     | '/forgot-password/'
     | '/login/'
     | '/register/'
@@ -474,6 +484,7 @@ export interface FileRouteTypes {
     | '/api/onboarding/submit'
     | '/api/subscription-documents/download'
     | '/api/trpc/$'
+    | '/api/webhooks/opensign'
     | '/forgot-password'
     | '/login'
     | '/register'
@@ -520,6 +531,7 @@ export interface FileRouteTypes {
     | '/api/onboarding/submit'
     | '/api/subscription-documents/download'
     | '/api/trpc/$'
+    | '/api/webhooks/opensign'
     | '/_auth/forgot-password/'
     | '/_auth/login/'
     | '/_auth/register/'
@@ -564,6 +576,7 @@ export interface RootRouteChildren {
   ApiOnboardingSubmitRoute: typeof ApiOnboardingSubmitRoute
   ApiSubscriptionDocumentsDownloadRoute: typeof ApiSubscriptionDocumentsDownloadRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
+  ApiWebhooksOpensignRoute: typeof ApiWebhooksOpensignRoute
   ApiDocumentsDocumentIdStatusRoute: typeof ApiDocumentsDocumentIdStatusRoute
   ApiOnboardingOnboardingIdStatusRoute: typeof ApiOnboardingOnboardingIdStatusRoute
 }
@@ -716,6 +729,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/forgot-password/'
       preLoaderRoute: typeof AuthForgotPasswordIndexRouteImport
       parentRoute: typeof AuthRouteRoute
+    }
+    '/api/webhooks/opensign': {
+      id: '/api/webhooks/opensign'
+      path: '/api/webhooks/opensign'
+      fullPath: '/api/webhooks/opensign'
+      preLoaderRoute: typeof ApiWebhooksOpensignRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/trpc/$': {
       id: '/api/trpc/$'
@@ -1004,6 +1024,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOnboardingSubmitRoute: ApiOnboardingSubmitRoute,
   ApiSubscriptionDocumentsDownloadRoute: ApiSubscriptionDocumentsDownloadRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
+  ApiWebhooksOpensignRoute: ApiWebhooksOpensignRoute,
   ApiDocumentsDocumentIdStatusRoute: ApiDocumentsDocumentIdStatusRoute,
   ApiOnboardingOnboardingIdStatusRoute: ApiOnboardingOnboardingIdStatusRoute,
 }
