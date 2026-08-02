@@ -23,10 +23,23 @@ export function createMarketplaceChatTools(options: {
           "Optional deal status filter: coming_soon, live, closing, funded, exited, cancelled, or all.",
         ),
       sector: z.string().optional().describe("Optional sector filter."),
+      geography: z.string().optional().describe("Optional geography filter."),
+      dealType: z
+        .string()
+        .optional()
+        .describe("Optional deal type filter (e.g. Equity, Debt)."),
       page: z.number().int().min(1).optional().default(1),
       limit: z.number().int().min(1).max(50).optional().default(12),
     }),
-    execute: async ({ search, status, sector, page, limit }) => {
+    execute: async ({
+      search,
+      status,
+      sector,
+      geography,
+      dealType,
+      page,
+      limit,
+    }) => {
       const result = await getMarketplaceDeals({
         userId,
         page: page ?? 1,
@@ -34,6 +47,8 @@ export function createMarketplaceChatTools(options: {
         search,
         status,
         sector,
+        geography,
+        dealType,
       });
 
       if (!result.success) {

@@ -956,6 +956,8 @@ export const getMarketplaceDeals = async ({
   search,
   status,
   sector,
+  geography,
+  dealType,
 }: {
   userId: string;
   page: number;
@@ -963,6 +965,8 @@ export const getMarketplaceDeals = async ({
   search?: string;
   status?: string;
   sector?: string;
+  geography?: string;
+  dealType?: string;
 }) => {
   try {
     const offset = (page - 1) * limit;
@@ -1047,6 +1051,20 @@ export const getMarketplaceDeals = async ({
       baseConditions.push(ilike(deal.sector, sector));
     }
 
+    if (geography && geography !== "all") {
+      baseConditions.push(ilike(deal.geography, geography));
+    }
+
+    if (dealType && dealType !== "all") {
+      baseConditions.push(ilike(deal.dealType, dealType));
+    }
+
+    const emptyFilters = {
+      sectors: [] as string[],
+      geographies: [] as string[],
+      dealTypes: [] as string[],
+    };
+
     let whereCondition;
 
     if (isAdmin) {
@@ -1064,9 +1082,7 @@ export const getMarketplaceDeals = async ({
             hasNextPage: false,
             hasPrevPage: false,
           },
-          filters: {
-            sectors: [],
-          },
+          filters: emptyFilters,
           clearanceStatus,
         };
       }
@@ -1087,51 +1103,52 @@ export const getMarketplaceDeals = async ({
           hasNextPage: false,
           hasPrevPage: false,
         },
-        filters: {
-          sectors: [],
-        },
+        filters: emptyFilters,
         clearanceStatus,
       };
     }
 
-    const [countResult] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(deal)
-      .where(whereCondition);
+    const filterScopeWhere = isAdmin
+      ? ne(deal.status, "draft")
+      : and(
+          inArray(deal.status, [...MARKETPLACE_VISIBLE_STATUSES]),
+          inArray(deal.id, invitedDealIds),
+        );
+
+    const [countResult, deals, filterRows] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(deal)
+        .where(whereCondition)
+        .then(([row]) => row),
+      db
+        .select()
+        .from(deal)
+        .where(whereCondition)
+        .orderBy(desc(deal.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({
+          sector: deal.sector,
+          geography: deal.geography,
+          dealType: deal.dealType,
+        })
+        .from(deal)
+        .where(filterScopeWhere),
+    ]);
 
     const totalCount = countResult?.count ?? 0;
     const totalPages = Math.ceil(totalCount / limit);
 
-    const deals = await db
-      .select()
-      .from(deal)
-      .where(whereCondition)
-      .orderBy(desc(deal.createdAt))
-      .limit(limit)
-      .offset(offset);
+    const uniqueSorted = (values: Array<string | null>) =>
+      [...new Set(values.filter((v): v is string => !!v?.trim()))].sort((a, b) =>
+        a.localeCompare(b),
+      );
 
-    let sectorsResult: { sector: string | null }[] = [];
-    if (isAdmin) {
-      sectorsResult = await db
-        .selectDistinct({ sector: deal.sector })
-        .from(deal)
-        .where(ne(deal.status, "draft"));
-    } else if (isApproved && invitedDealIds.length > 0) {
-      sectorsResult = await db
-        .selectDistinct({ sector: deal.sector })
-        .from(deal)
-        .where(
-          and(
-            inArray(deal.status, [...MARKETPLACE_VISIBLE_STATUSES]),
-            inArray(deal.id, invitedDealIds)
-          )
-        );
-    }
-
-    const sectors = sectorsResult
-      .map((s) => s.sector)
-      .filter((s): s is string => s !== null)
-      .sort();
+    const sectors = uniqueSorted(filterRows.map((r) => r.sector));
+    const geographies = uniqueSorted(filterRows.map((r) => r.geography));
+    const dealTypes = uniqueSorted(filterRows.map((r) => r.dealType));
 
     return {
       success: true,
@@ -1160,6 +1177,8 @@ export const getMarketplaceDeals = async ({
       },
       filters: {
         sectors,
+        geographies,
+        dealTypes,
       },
       clearanceStatus,
     };
@@ -1178,6 +1197,8 @@ export const getMarketplaceDeals = async ({
       },
       filters: {
         sectors: [],
+        geographies: [],
+        dealTypes: [],
       },
       clearanceStatus: null,
     };

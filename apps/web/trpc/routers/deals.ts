@@ -932,6 +932,8 @@ export const dealsRouter = createTRPCRouter({
         search: z.string().optional(),
         status: z.string().optional(),
         sector: z.string().optional(),
+        geography: z.string().optional(),
+        dealType: z.string().optional(),
       })
     )
     .query(async ({ input }) => {
@@ -950,6 +952,8 @@ export const dealsRouter = createTRPCRouter({
         search: input.search,
         status: input.status,
         sector: input.sector,
+        geography: input.geography,
+        dealType: input.dealType,
       });
     }),
 

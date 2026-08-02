@@ -1,4 +1,5 @@
 import type { ClearanceStatus } from "@/lib/auth/permissions";
+import type { DealFile } from "@/lib/deals/list-deal-files";
 
 type PortfolioPayload = Awaited<
   ReturnType<typeof import("@repo/db/queries").getPortfolioData>
@@ -33,9 +34,16 @@ type ForbiddenDeal = Extract<
 >;
 
 export type DealDetailLoaderData =
-  | { dealId: string; kind: "ok"; result: OkDeal }
+  | { dealId: string; kind: "ok"; result: OkDeal; files: DealFile[] }
   | {
       dealId: string;
       kind: "forbidden";
       clearanceStatus: ForbiddenDeal["clearanceStatus"];
     };
+
+export const investorDealDetailQueryKey = (dealId: string) =>
+  ["investor", "deal", dealId] as const;
+
+export const marketplaceDealsQueryKey = (
+  deps: Record<string, unknown>,
+) => ["investor", "marketplace-deals", deps] as const;

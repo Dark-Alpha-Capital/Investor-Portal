@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useRouter } from "@/hooks/use-app-navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,8 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatIntegerInput, parseFormattedInteger } from "@/lib/utils";
+import { investorDealDetailQueryKey } from "@/lib/types/investor-route-loaders";
 
 type UserInterest = {
   id: string;
@@ -65,8 +65,8 @@ export function DealActions({
   minInvestment,
   permissions,
 }: DealActionsProps) {
-  const router = useRouter();
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [isInterestDialogOpen, setIsInterestDialogOpen] = useState(false);
   const [isCommitDialogOpen, setIsCommitDialogOpen] = useState(false);
   const [estimatedAmount, setEstimatedAmount] = useState(() =>
@@ -87,13 +87,18 @@ export function DealActions({
     !!userInterest &&
     userInterest.status !== "pass";
 
+  const invalidateDealDetail = () =>
+    queryClient.invalidateQueries({
+      queryKey: investorDealDetailQueryKey(dealId),
+    });
+
   const { mutate: requestDataRoom, isPending: isRequestingAccess } =
     useMutation(
       trpc.deals.requestDataRoomAccess.mutationOptions({
         onSuccess: (data) => {
           toast.success(data.message);
           setLoadingAction(null);
-          router.refresh();
+          void invalidateDealDetail();
         },
         onError: (error: { message?: string }) => {
           toast.error(error.message || "Failed to request access");
@@ -110,7 +115,7 @@ export function DealActions({
         );
         setIsInterestDialogOpen(false);
         setLoadingAction(null);
-        router.refresh();
+        void invalidateDealDetail();
       },
       onError: (error: { message?: string }) => {
         toast.error(error.message || "Failed to express interest");
@@ -126,7 +131,7 @@ export function DealActions({
         setIsCommitDialogOpen(false);
         setCommitAmount("");
         setLoadingAction(null);
-        router.refresh();
+        void invalidateDealDetail();
       },
       onError: (error: { message?: string }) => {
         toast.error(error.message || "Failed to commit capital");

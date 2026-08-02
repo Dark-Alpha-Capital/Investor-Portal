@@ -1,10 +1,19 @@
 import {
+  queryOptions,
+  useQuery,
+  type UseQueryResult,
+} from "@tanstack/react-query";
+import {
   createFileRoute,
   Link as RouterLink,
   notFound,
   redirect,
 } from "@tanstack/react-router";
-import type { DealDetailLoaderData } from "@/lib/types/investor-route-loaders";
+import { Loader2 } from "lucide-react";
+import {
+  investorDealDetailQueryKey,
+  type DealDetailLoaderData,
+} from "@/lib/types/investor-route-loaders";
 import { fetchDealDetailRouteData } from "@/lib/server-fns/investor-route-data";
 import { AppLink as Link } from "@/components/app-link";
 import { Button } from "@/components/ui/button";
@@ -26,6 +35,7 @@ import { DealExecutiveSummary } from "./components/deal-executive-summary";
 import { DealThesisRisks } from "./components/deal-thesis-risks";
 import { DealCapitalStructure } from "./components/deal-capital-structure";
 import { DealDocuments } from "./components/deal-documents";
+import type { DealFile } from "@/lib/deals/list-deal-files";
 
 type GetDealResult = Awaited<
   ReturnType<typeof import("@repo/db/queries").getDealForView>
@@ -35,6 +45,24 @@ type ForbiddenDeal = Extract<
   GetDealResult,
   { success: false; error: "FORBIDDEN" }
 >;
+
+export function investorDealDetailQueryOptions(dealId: string) {
+  return queryOptions({
+    queryKey: investorDealDetailQueryKey(dealId),
+    queryFn: async (): Promise<DealDetailLoaderData> => {
+      const r = await fetchDealDetailRouteData({
+        data: { dealId },
+      });
+      if (r.tag === "redirect") {
+        throw redirect({ to: r.to });
+      }
+      if (r.tag === "not_found") {
+        throw notFound();
+      }
+      return r.data;
+    },
+  });
+}
 
 function forbiddenReason(
   clearanceStatus: ForbiddenDeal["clearanceStatus"],
@@ -54,7 +82,15 @@ function forbiddenReason(
   return "You don't have access to this deal. Please contact support if you believe this is an error.";
 }
 
-function DealTabs({ dealId, result }: { dealId: string; result: OkDeal }) {
+function DealTabs({
+  dealId,
+  result,
+  files,
+}: {
+  dealId: string;
+  result: OkDeal;
+  files: DealFile[];
+}) {
   const deal = result.deal;
 
   return (
@@ -112,7 +148,7 @@ function DealTabs({ dealId, result }: { dealId: string; result: OkDeal }) {
 
       <TabsContent value="documents" className="mt-0">
         <DealDocuments
-          dealId={deal.id}
+          files={files}
           canViewDocuments={result.permissions.canViewDocuments}
         />
       </TabsContent>
@@ -183,7 +219,11 @@ function DealDetailContent({ data }: { data: DealDetailLoaderData }) {
             reason={forbiddenReason(data.clearanceStatus)}
           />
         ) : (
-          <DealTabs dealId={data.dealId} result={data.result} />
+          <DealTabs
+            dealId={data.dealId}
+            result={data.result}
+            files={data.files}
+          />
         )}
       </div>
     </div>
@@ -191,22 +231,31 @@ function DealDetailContent({ data }: { data: DealDetailLoaderData }) {
 }
 
 export const Route = createFileRoute("/_dashboard/deals/$dealId/")({
-  loader: async ({ params }: { params: { dealId: string } }) => {
-    const r = await fetchDealDetailRouteData({
-      data: { dealId: params.dealId },
-    });
-    if (r.tag === "redirect") {
-      throw redirect({ to: r.to });
-    }
-    if (r.tag === "not_found") {
-      throw notFound();
-    }
-    return r.data;
+  loader: async ({ context: { queryClient }, params }) => {
+    await queryClient.ensureQueryData(
+      investorDealDetailQueryOptions(params.dealId),
+    );
   },
   component: DealDetailRoutePage,
 });
 
 function DealDetailRoutePage() {
-  const data = Route.useLoaderData();
+  const { dealId } = Route.useParams();
+  const { data, isLoading }: UseQueryResult<DealDetailLoaderData> = useQuery(
+    investorDealDetailQueryOptions(dealId),
+  );
+
+  if (isLoading && !data) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return null;
+  }
+
   return <DealDetailContent data={data} />;
 }

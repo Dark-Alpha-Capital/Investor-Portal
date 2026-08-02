@@ -1,5 +1,3 @@
-import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -9,11 +7,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Download, File, Loader2, Lock } from "lucide-react";
+import { Download, File, Lock } from "lucide-react";
+import type { DealFile } from "@/lib/deals/list-deal-files";
 
 type DealDocumentsProps = {
-  dealId: string;
+  files: DealFile[];
   canViewDocuments: boolean;
 };
 
@@ -38,16 +36,9 @@ const formatDate = (dateString: string): string => {
 };
 
 export function DealDocuments({
-  dealId,
+  files,
   canViewDocuments,
 }: DealDocumentsProps) {
-  const trpc = useTRPC();
-
-  const { data, isLoading, isError, error } = useQuery({
-    ...trpc.deals.getFiles.queryOptions({ dealId }),
-    enabled: canViewDocuments,
-  });
-
   if (!canViewDocuments) {
     return (
       <div className="rounded-lg border border-dashed p-8 text-center space-y-3">
@@ -64,27 +55,6 @@ export function DealDocuments({
       </div>
     );
   }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center gap-2 p-8 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading documents…
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <Alert variant="destructive">
-        <AlertDescription>
-          {error.message || "Failed to load documents"}
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  const files = data?.files ?? [];
 
   if (files.length === 0) {
     return (

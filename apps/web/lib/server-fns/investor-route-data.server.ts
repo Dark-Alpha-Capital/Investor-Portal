@@ -8,6 +8,7 @@ import type {
 } from "@/lib/types/investor-route-loaders";
 import type { DealIdInput, RouteSearchStringInput } from "@/lib/schemas/server-fn/inputs";
 import { isAdminUser } from "@/lib/auth/user-role-guards";
+import { getDealFilesByDealId } from "@/lib/deals/list-deal-files";
 import {
   getClearanceData,
   getDealForView,
@@ -115,6 +116,12 @@ export async function runFetchMarketplaceDealsRouteData(
   const sectorRaw = sp.get("sector");
   const sector =
     sectorRaw && sectorRaw !== "all" ? sectorRaw : undefined;
+  const geographyRaw = sp.get("geography");
+  const geography =
+    geographyRaw && geographyRaw !== "all" ? geographyRaw : undefined;
+  const dealTypeRaw = sp.get("dealType");
+  const dealType =
+    dealTypeRaw && dealTypeRaw !== "all" ? dealTypeRaw : undefined;
 
   const initialData = await getMarketplaceDeals({
     userId,
@@ -123,6 +130,8 @@ export async function runFetchMarketplaceDealsRouteData(
     search,
     status,
     sector,
+    geography,
+    dealType,
   });
 
   return { tag: "ok", data: { initialData } };
@@ -165,12 +174,17 @@ export async function runFetchDealDetailRouteData(
     throw new Error("Failed to load deal");
   }
 
+  const files = result.permissions.canViewDocuments
+    ? await getDealFilesByDealId(result.deal.id)
+    : [];
+
   return {
     tag: "ok",
     data: {
       dealId,
       kind: "ok",
       result,
+      files,
     },
   };
 }
