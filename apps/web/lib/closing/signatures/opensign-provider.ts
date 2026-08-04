@@ -306,80 +306,37 @@ export function buildOpenSignSigningLink(
 // Status / state fetch (used by fallback reconcile)
 // ---------------------------------------------------------------------------
 
-export type OpenSignSignerState = {
-  email: string;
-  status: "not_signed" | "viewed" | "signed" | "declined";
-  signedAt?: string | null;
-  viewedAt?: string | null;
-};
-
 export type OpenSignDocumentState = {
   docId: string;
-  signedUrl?: string | null;
-  completedAt?: string | null;
-  signers: OpenSignSignerState[];
-  auditTrail?: Array<Record<string, unknown>>;
+  signedUrl: string | null;
 };
 
+/**
+ * Completion check for the fallback reconcile. This OpenSign build has no
+ * `getdocument`; `getsignedurl` returns the executed PDF URL once fully signed
+ * and `{}` while unsigned. Per-signer status comes from webhooks instead.
+ */
 export async function fetchOpenSignDocumentState(
   docId: string,
 ): Promise<OpenSignDocumentState> {
-  const docResp = await api("/api/app/functions/getdocument", {
+  const resp = await api("/api/app/functions/getsignedurl", {
     method: "POST",
     body: JSON.stringify({ docId }),
   });
-  const doc = (await jsonOrThrow(docResp, "getdocument")) as Record<string, unknown>;
+  const json = await jsonOrThrow(resp, "getsignedurl");
 
-  const signersResp = await api("/api/app/functions/getsigners", {
-    method: "POST",
-    body: JSON.stringify({ documentId: docId }),
-  });
-  const signersJson = (await jsonOrThrow(signersResp, "getsigners")) as {
-    result?: Array<Record<string, unknown>>;
-    signers?: Array<Record<string, unknown>>;
-    results?: Array<Record<string, unknown>>;
-  };
-  const rawSigners =
-    (signersJson.result as Array<Record<string, unknown>> | undefined) ??
-    (signersJson.signers as Array<Record<string, unknown>> | undefined) ??
-    (signersJson.results as Array<Record<string, unknown>> | undefined) ??
-    [];
+  let signedUrl: string | null = null;
+  if (json && typeof json === "object") {
+    const b = json as Record<string, unknown>;
+    signedUrl =
+      [b.url, b.signedUrl, b.SignedUrl, b.presignedUrl].find(
+        (v): v is string => typeof v === "string",
+      ) ?? null;
+  } else if (typeof json === "string") {
+    signedUrl = json;
+  }
 
-  const signers: OpenSignSignerState[] = rawSigners
-    .map((s) => {
-      const email =
-        (s.email as string | undefined) ??
-        ((s.signer as Record<string, unknown> | undefined)?.email as
-          | string
-          | undefined) ??
-        "";
-      const statusRaw = String(s.status ?? s.signStatus ?? "").toLowerCase();
-      const status: OpenSignSignerState["status"] = statusRaw.includes("signed")
-        ? "signed"
-        : statusRaw.includes("declin")
-          ? "declined"
-          : statusRaw.includes("view")
-            ? "viewed"
-            : "not_signed";
-      return {
-        email,
-        status,
-        signedAt: (s.signedAt as string | undefined) ?? null,
-        viewedAt: (s.viewedAt as string | undefined) ?? null,
-      };
-    })
-    .filter((s) => s.email);
-
-  return {
-    docId,
-    signedUrl: (doc.SignedUrl as string | undefined) ?? (doc.signedUrl as string | undefined) ?? null,
-    completedAt:
-      (doc.CompletedAt as string | undefined) ??
-      (doc.completedAt as string | undefined) ??
-      null,
-    signers,
-    auditTrail: (doc.AuditTrail as Array<Record<string, unknown>> | undefined) ?? [],
-  };
+  return { docId, signedUrl };
 }
 
 // ---------------------------------------------------------------------------

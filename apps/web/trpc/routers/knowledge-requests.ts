@@ -17,7 +17,6 @@ import {
   type KnowledgeRequestAdminJobData,
   type KnowledgeRequestAnsweredJobData,
 } from "@repo/mail";
-import { sideEffectOutbox } from "@repo/db/schema";
 import {
   logKnowledgeRequestAnswered,
   logKnowledgeRequestClosed,
@@ -25,7 +24,7 @@ import {
 } from "@/lib/audit";
 import { getDealPermissions } from "@/lib/auth/permissions";
 import { isAdminUser } from "@/lib/auth/user-role-guards";
-import { dispatchPendingOutbox } from "@/lib/queues/outbox";
+import { enqueueEmail } from "@/lib/queues/enqueue";
 import {
   adminProcedure,
   createTRPCRouter,
@@ -104,7 +103,7 @@ export const knowledgeRequestsRouter = createTRPCRouter({
       recipientEmails.add(ADMIN_NOTIFICATION_EMAIL);
 
       const emailJobs = [...recipientEmails].map((to) => {
-        const payload: KnowledgeRequestAdminJobData = {
+        const data: KnowledgeRequestAdminJobData = {
           type: "knowledge-request-admin",
           to,
           dealName,
@@ -116,21 +115,15 @@ export const knowledgeRequestsRouter = createTRPCRouter({
           adminUrl,
         };
         return {
-          id: randomUUID(),
-          topic: "queue",
           dedupeKey: `knowledge-request:admin:${id}:${to}`,
-          payload: {
-            queue: "email" as const,
-            jobName: "knowledge-request-admin",
-            jobId: `knowledge-request-admin-${id}-${to.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
-            data: payload,
-          },
+          jobName: "knowledge-request-admin",
+          jobId: `knowledge-request-admin-${id}-${to.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
+          data,
         };
       });
 
       if (emailJobs.length > 0) {
-        await ctx.db.insert(sideEffectOutbox).values(emailJobs);
-        await dispatchPendingOutbox(ctx.db);
+        await enqueueEmail(ctx.db, emailJobs);
       }
 
       return {
@@ -268,18 +261,14 @@ export const knowledgeRequestsRouter = createTRPCRouter({
         chatUrl,
       };
 
-      await ctx.db.insert(sideEffectOutbox).values({
-        id: randomUUID(),
-        topic: "queue",
-        dedupeKey: `knowledge-request:answered:${input.requestId}`,
-        payload: {
-          queue: "email",
+      await enqueueEmail(ctx.db, [
+        {
+          dedupeKey: `knowledge-request:answered:${input.requestId}`,
           jobName: "knowledge-request-answered",
           jobId: `knowledge-request-answered-${input.requestId}`,
           data: investorEmailPayload,
         },
-      });
-      await dispatchPendingOutbox(ctx.db);
+      ]);
 
       return { success: true as const, request: updated };
     }),

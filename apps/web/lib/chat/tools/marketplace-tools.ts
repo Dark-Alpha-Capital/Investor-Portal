@@ -5,7 +5,7 @@ import { serializeForToolResult } from "@/lib/chat/tools/serialize";
 
 export function createMarketplaceChatTools(options: {
   userId: string;
-}): ToolSet {
+}) {
   const { userId } = options;
 
   const listMarketplaceDeals = tool({

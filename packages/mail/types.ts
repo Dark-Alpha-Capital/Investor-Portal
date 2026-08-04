@@ -1,5 +1,6 @@
 // Email job types for async side-effect / workflow dispatch
 export type EmailJobType =
+  | "auth-email"
   | "onboarding-investor-confirmation"
   | "onboarding-admin-notification"
   | "knowledge-request-admin"
@@ -11,6 +12,13 @@ export type EmailJobType =
 export interface BaseEmailJobData {
   type: EmailJobType;
   to: string;
+}
+
+/** Raw auth email (verification / password reset) carrying subject + html. */
+export interface AuthEmailJobData extends BaseEmailJobData {
+  type: "auth-email";
+  subject: string;
+  html: string;
 }
 
 export interface OnboardingInvestorConfirmationJobData extends BaseEmailJobData {
@@ -74,6 +82,7 @@ export interface ClosingFundsReceivedJobData extends BaseEmailJobData {
 }
 
 export type EmailJobData =
+  | AuthEmailJobData
   | OnboardingInvestorConfirmationJobData
   | OnboardingAdminNotificationJobData
   | KnowledgeRequestAdminJobData

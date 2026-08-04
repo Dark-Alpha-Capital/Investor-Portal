@@ -411,8 +411,9 @@ export async function countersignDocument(
  * "documents executed / wire instructions available" email exactly once.
  *
  * A document is complete when:
- *   - it needs a GP countersign → it must be `executed`
- *   - it does NOT need a GP countersign → the investor's `signed` is final
+ *   - it needs a GP countersign → it must be `executed` (both signers)
+ *   - it does NOT need a GP countersign → the investor's `signed` is final,
+ *     and `executed` (from a `document.completed` event) is also complete
  */
 async function checkCompletionAndAdvanceToAwaitingFunds(
   db: Db,
@@ -423,11 +424,10 @@ async function checkCompletionAndAdvanceToAwaitingFunds(
   const required = documents.filter((d) => d.signatureRequired);
   if (required.length === 0) return;
 
-  const allComplete = required.every((d) =>
-    d.requiresCountersign
-      ? d.status === "executed"
-      : d.status === "signed"
-  );
+  const allComplete = required.every((d) => {
+    if (d.requiresCountersign) return d.status === "executed";
+    return d.status === "signed" || d.status === "executed";
+  });
   if (!allComplete) return;
 
   if (inv.status === "awaiting_signature") {
@@ -709,24 +709,14 @@ export async function syncSignatureStatuses(
     if (!externalId) continue;
 
     try {
+      // This build has no getdocument; getsignedurl returns the executed PDF
+      // URL once the document is fully signed (webhooks give per-signer events).
       const state = await fetchOpenSignDocumentState(externalId);
-      for (const signer of state.signers) {
-        if (signer.status === "signed") {
-          await applyOpenSignEvent(db, {
-            event: "document.signed",
-            documentId: externalId,
-            signerEmail: signer.email,
-            signedUrl: state.signedUrl ?? undefined,
-            signedAt: signer.signedAt ?? undefined,
-          });
-        }
-      }
       if (state.signedUrl) {
         await applyOpenSignEvent(db, {
           event: "document.completed",
           documentId: externalId,
           signedUrl: state.signedUrl,
-          completedAt: state.completedAt ?? undefined,
         });
       }
     } catch (error) {

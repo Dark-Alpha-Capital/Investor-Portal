@@ -2,42 +2,33 @@ import { TRPCError } from "@trpc/server";
 import { randomUUID } from "crypto";
 import {
   deal,
-  dealInvite,
   dealInterest,
   investment,
   sideEffectOutbox,
   user,
   vehiclePermission,
   investorClearance,
+  auditLog,
+  chat,
+  capitalNotice,
 } from "@repo/db/schema";
-import { adminProcedure, baseProcedure, createTRPCRouter } from "../init";
+import { adminProcedure, createTRPCRouter, protectedProcedure } from "../init";
 import slugify from "slugify";
 import { createDealSchema } from "@/lib/schemas/create-deal-schema";
 import { dispatchPendingOutbox } from "@/lib/queues/outbox";
 import {
-  desc,
   eq,
   or,
-  ne,
   isNull,
   and,
-  ilike,
   sql,
-  inArray,
 } from "drizzle-orm";
 import { z } from "zod";
-import {
-  createNextcloudClientFromEnv,
-  fileExists,
-  listFiles,
-  ensureDirectory,
-  uploadBuffer,
-  sanitizeUploadFileName,
-  sanitizeDealFolderSegment,
-} from "@repo/nextcloud";
-import { authSession } from "@/lib/auth/session-from-request";
+import { createDealFileStore } from "@/lib/deals/deal-file-store";
 import { logDataRoomAccessRequest } from "@/lib/audit";
 import { getMarketplaceDeals as getMarketplaceDealsQuery } from "@repo/db/queries";
+
+const dealFileStore = createDealFileStore();
 
 const parseNumericField = (value: string | undefined | null): number | null => {
   if (!value) return null;
@@ -58,27 +49,9 @@ const makeOutboxPayload = (
 });
 
 export const dealsRouter = createTRPCRouter({
-  getDeals: baseProcedure.query(async ({ ctx }) => {
-    const deals = await ctx.db
-      .select()
-      .from(deal)
-      .orderBy(desc(deal.createdAt));
-    return deals;
-  }),
-  create: baseProcedure
+  create: adminProcedure
     .input(createDealSchema)
     .mutation(async ({ input, ctx }) => {
-      // Start session check early (async-api-routes pattern)
-      const sessionPromise = authSession();
-      const session = await sessionPromise;
-
-      if (!session?.user || session.user.role !== "admin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only administrators can create deals",
-        });
-      }
-
       // Generate slug from name
       const slug = slugify(input.name, { lower: true, strict: true });
       const dealId = randomUUID();
@@ -180,22 +153,13 @@ export const dealsRouter = createTRPCRouter({
       }
     }),
 
-  update: baseProcedure
+  update: adminProcedure
     .input(
       createDealSchema.extend({
         dealId: z.string().min(1, "Deal ID is required"),
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const session = await authSession();
-
-      if (!session?.user || session.user.role !== "admin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only administrators can update deals",
-        });
-      }
-
       const { dealId, ...updateData } = input;
 
       // Check if deal exists and get existing deal in parallel with slug check prep
@@ -341,7 +305,134 @@ export const dealsRouter = createTRPCRouter({
       }
     }),
 
-  delete: adminProcedure
+  remove: adminProcedure
+    .input(
+      z.object({
+        dealId: z.string().min(1, "Deal ID is required"),
+        reason: z
+          .string()
+          .trim()
+          .min(5, "Please provide a reason (min 5 characters)"),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      // Check if deal exists
+      const [existingDeal] = await ctx.db
+        .select()
+        .from(deal)
+        .where(eq(deal.id, input.dealId))
+        .limit(1);
+
+      if (!existingDeal) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Deal not found",
+        });
+      }
+
+      if (existingDeal.deletedAt) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This deal is already deleted",
+        });
+      }
+
+      try {
+        await ctx.db.transaction(async (tx) => {
+          await tx
+            .update(deal)
+            .set({
+              deletedAt: new Date(),
+              deletedBy: ctx.session.user.id,
+              deletedReason: input.reason,
+              updatedAt: new Date(),
+            })
+            .where(eq(deal.id, input.dealId));
+
+          await tx.insert(auditLog).values({
+            id: randomUUID(),
+            userId: ctx.session.user.id,
+            action: "deal_deleted",
+            targetType: "deal",
+            targetId: input.dealId,
+            newValue: { reason: input.reason, dealName: existingDeal.name },
+          });
+        });
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error ? error.message : "Failed to delete deal",
+          cause: error,
+        });
+      }
+
+      return {
+        success: true,
+        message: "Deal deleted successfully",
+      };
+    }),
+
+  restore: adminProcedure
+    .input(z.object({ dealId: z.string().min(1, "Deal ID is required") }))
+    .mutation(async ({ input, ctx }) => {
+      const [existingDeal] = await ctx.db
+        .select()
+        .from(deal)
+        .where(eq(deal.id, input.dealId))
+        .limit(1);
+
+      if (!existingDeal) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Deal not found",
+        });
+      }
+
+      if (!existingDeal.deletedAt) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This deal is not deleted",
+        });
+      }
+
+      try {
+        await ctx.db.transaction(async (tx) => {
+          await tx
+            .update(deal)
+            .set({
+              deletedAt: null,
+              deletedBy: null,
+              deletedReason: null,
+              updatedAt: new Date(),
+            })
+            .where(eq(deal.id, input.dealId));
+
+          await tx.insert(auditLog).values({
+            id: randomUUID(),
+            userId: ctx.session.user.id,
+            action: "deal_restored",
+            targetType: "deal",
+            targetId: input.dealId,
+            newValue: { dealName: existingDeal.name },
+          });
+        });
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error ? error.message : "Failed to restore deal",
+          cause: error,
+        });
+      }
+
+      return {
+        success: true,
+        message: "Deal restored successfully",
+      };
+    }),
+
+  purge: adminProcedure
     .input(z.object({ dealId: z.string().min(1, "Deal ID is required") }))
     .mutation(async ({ input, ctx }) => {
       // Check if deal exists
@@ -355,6 +446,43 @@ export const dealsRouter = createTRPCRouter({
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Deal not found",
+        });
+      }
+
+      // A deal with any engagement cannot be physically removed — the FK graph
+      // (investments RESTRICT, chats/capital notices NO ACTION) enforces this.
+      const [investmentCount, chatCount, noticeCount] = await Promise.all([
+        ctx.db
+          .select({ count: sql<number>`count(*)` })
+          .from(investment)
+          .where(eq(investment.dealId, input.dealId))
+          .then(([row]) => Number(row?.count ?? 0)),
+        ctx.db
+          .select({ count: sql<number>`count(*)` })
+          .from(chat)
+          .where(eq(chat.dealId, input.dealId))
+          .then(([row]) => Number(row?.count ?? 0)),
+        ctx.db
+          .select({ count: sql<number>`count(*)` })
+          .from(capitalNotice)
+          .where(eq(capitalNotice.dealId, input.dealId))
+          .then(([row]) => Number(row?.count ?? 0)),
+      ]);
+
+      if (investmentCount > 0 || chatCount > 0 || noticeCount > 0) {
+        const blockers: string[] = [];
+        if (investmentCount > 0) {
+          blockers.push(`${investmentCount} investment(s)`);
+        }
+        if (chatCount > 0) {
+          blockers.push(`${chatCount} chat(s)`);
+        }
+        if (noticeCount > 0) {
+          blockers.push(`${noticeCount} capital notice(s)`);
+        }
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Cannot permanently delete this deal because it has ${blockers.join(", ")}. Delete those records first, or soft-delete the deal instead.`,
         });
       }
 
@@ -375,6 +503,15 @@ export const dealsRouter = createTRPCRouter({
               }
             ),
           });
+
+          await tx.insert(auditLog).values({
+            id: randomUUID(),
+            userId: ctx.session.user.id,
+            action: "deal_purged",
+            targetType: "deal",
+            targetId: input.dealId,
+            newValue: { dealName: existingDeal.name },
+          });
         });
 
         await dispatchPendingOutbox(ctx.db);
@@ -389,542 +526,76 @@ export const dealsRouter = createTRPCRouter({
 
       return {
         success: true,
-        message: "Deal deleted successfully",
+        message: "Deal permanently deleted",
       };
     }),
 
-  getById: baseProcedure
-    .input(z.object({ dealId: z.string() }))
-    .query(async ({ input, ctx }) => {
-      const [dealRecord] = await ctx.db
-        .select()
-        .from(deal)
-        .where(eq(deal.id, input.dealId))
-        .limit(1);
-
-      if (!dealRecord) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Deal not found",
-        });
-      }
-
-      // Transform numeric fields to strings and dates to ISO strings
-      return {
-        success: true,
-        deal: {
-          ...dealRecord,
-          targetRaise: dealRecord.targetRaise?.toString() ?? null,
-          minInvestment: dealRecord.minInvestment?.toString() ?? null,
-          targetIrr: dealRecord.targetIrr?.toString() ?? null,
-          targetMoic: dealRecord.targetMoic?.toString() ?? null,
-          revenue: dealRecord.revenue?.toString() ?? null,
-          ebitda: dealRecord.ebitda?.toString() ?? null,
-          purchasePrice: dealRecord.purchasePrice?.toString() ?? null,
-          debt: dealRecord.debt?.toString() ?? null,
-          sponsorEquity: dealRecord.sponsorEquity?.toString() ?? null,
-          lpEquity: dealRecord.lpEquity?.toString() ?? null,
-          launchDate: dealRecord.launchDate?.toISOString() ?? null,
-          closeDate: dealRecord.closeDate?.toISOString() ?? null,
-          createdAt: dealRecord.createdAt.toISOString(),
-          updatedAt: dealRecord.updatedAt?.toISOString() ?? null,
-        },
-      };
-    }),
-
-  getInvites: baseProcedure
-    .input(z.object({ dealId: z.string() }))
-    .query(async ({ input, ctx }) => {
-      const [dealRecord] = await ctx.db
-        .select()
-        .from(deal)
-        .where(eq(deal.id, input.dealId))
-        .limit(1);
-
-      if (!dealRecord) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Deal not found",
-        });
-      }
-
-      const invites = await ctx.db
-        .select({
-          id: vehiclePermission.id,
-          userId: vehiclePermission.userId,
-          accessLevel: vehiclePermission.accessLevel,
-          notes: vehiclePermission.notes,
-          grantedAt: vehiclePermission.grantedAt,
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            image: user.image,
-            kycStatus: user.kycStatus,
-            isOnboardingCompleted: user.isOnboardingCompleted,
-          },
-        })
-        .from(vehiclePermission)
-        .innerJoin(user, eq(user.id, vehiclePermission.userId))
-        .where(
-          and(
-            eq(vehiclePermission.dealId, input.dealId),
-            isNull(vehiclePermission.revokedAt),
-          ),
-        );
-
-      return {
-        success: true,
-        invites: invites.map((invite) => ({
-          ...invite,
-          grantedAt: invite.grantedAt.toISOString(),
-        })),
-      };
-    }),
-
-  getInterests: baseProcedure
-    .input(z.object({ dealId: z.string() }))
-    .query(async ({ input, ctx }) => {
-
-
-      // Verify deal exists
-      const [dealRecord] = await ctx.db
-        .select()
-        .from(deal)
-        .where(eq(deal.id, input.dealId))
-        .limit(1);
-
-      if (!dealRecord) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Deal not found",
-        });
-      }
-
-      // Get all interests for this deal with user info
-      const interests = await ctx.db
-        .select({
-          id: dealInterest.id,
-          userId: dealInterest.userId,
-          status: dealInterest.status,
-          proposedAmount: dealInterest.proposedAmount,
-          createdAt: dealInterest.createdAt,
-          updatedAt: dealInterest.updatedAt,
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            image: user.image,
-          },
-        })
-        .from(dealInterest)
-        .innerJoin(user, eq(dealInterest.userId, user.id))
-        .where(eq(dealInterest.dealId, input.dealId));
-
-      // Transform numeric fields to strings and dates to ISO strings
-      return {
-        success: true,
-        interests: interests.map((interest) => ({
-          ...interest,
-          proposedAmount: interest.proposedAmount?.toString() ?? null,
-          createdAt: interest.createdAt.toISOString(),
-          updatedAt: interest.updatedAt?.toISOString() ?? null,
-        })),
-      };
-    }),
-
-  getInvestments: baseProcedure
-    .input(z.object({ dealId: z.string() }))
-    .query(async ({ input, ctx }) => {
-
-
-      // Verify deal exists
-      const [dealRecord] = await ctx.db
-        .select()
-        .from(deal)
-        .where(eq(deal.id, input.dealId))
-        .limit(1);
-
-      if (!dealRecord) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Deal not found",
-        });
-      }
-
-      // Get all investments for this deal with user info
-      const investments = await ctx.db
-        .select({
-          id: investment.id,
-          userId: investment.userId,
-          committedAmount: investment.committedAmount,
-          fundedAmount: investment.fundedAmount,
-          currentValue: investment.currentValue,
-          distributions: investment.distributions,
-          status: investment.status,
-          ownershipPercentage: investment.ownershipPercentage,
-          committedDate: investment.committedDate,
-          createdAt: investment.createdAt,
-          updatedAt: investment.updatedAt,
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            image: user.image,
-          },
-        })
-        .from(investment)
-        .innerJoin(user, eq(investment.userId, user.id))
-        .where(eq(investment.dealId, input.dealId));
-
-      // Transform numeric fields to strings and dates to ISO strings
-      return {
-        success: true,
-        investments: investments.map((inv) => ({
-          ...inv,
-          committedAmount: inv.committedAmount.toString(),
-          fundedAmount: inv.fundedAmount?.toString() ?? null,
-          currentValue: inv.currentValue?.toString() ?? null,
-          distributions: inv.distributions?.toString() ?? null,
-          ownershipPercentage: inv.ownershipPercentage?.toString() ?? null,
-          committedDate: inv.committedDate.toISOString(),
-          createdAt: inv.createdAt.toISOString(),
-          updatedAt: inv.updatedAt?.toISOString() ?? null,
-        })),
-      };
-    }),
-
-  getFiles: baseProcedure
-    .input(z.object({ dealId: z.string() }))
-    .query(async ({ input, ctx }) => {
-      const session = await authSession();
-      if (!session?.user) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You must be logged in to view deal documents",
-        });
-      }
-
-      const isAdmin = session.user.role === "admin";
-
-      // Get deal to construct folder path (accept id or slug)
-      const [dealRecord] = await ctx.db
-        .select()
-        .from(deal)
-        .where(or(eq(deal.id, input.dealId), eq(deal.slug, input.dealId)))
-        .limit(1);
-
-      if (!dealRecord) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Deal not found",
-        });
-      }
-
-      if (!isAdmin) {
-        const [invitation] = await ctx.db
-          .select({ accessLevel: vehiclePermission.accessLevel })
-          .from(vehiclePermission)
-          .where(
-            and(
-              eq(vehiclePermission.userId, session.user.id),
-              eq(vehiclePermission.dealId, dealRecord.id),
-              isNull(vehiclePermission.revokedAt),
-            ),
-          )
-          .limit(1);
-
-        if (!invitation || invitation.accessLevel !== "data_room") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "You do not have data room access for this deal",
-          });
-        }
-      }
-
-      // Construct folder path based on deal slug
-      // The worker creates folders using: Deal_{sanitizedName} where sanitizedName = dealName.replace(/[^a-z0-9]/gi, "_").toLowerCase()
-      // So we need to match that pattern exactly
-      const dealSlug =
-        dealRecord.slug ||
-        slugify(dealRecord.name, { lower: true, strict: true });
-
-      // Convert slug to match worker's sanitization (replace non-alphanumeric with underscore, lowercase)
-      // slugify uses hyphens, but worker uses underscores
-      const sanitizedName = sanitizeDealFolderSegment(dealSlug);
-      const folderPath = `/Deals/Deal_${sanitizedName}`;
-
-      try {
-        const client = createNextcloudClientFromEnv();
-
-        const folderExists = await fileExists(client, folderPath);
-
-        if (!folderExists) {
-          return {
-            success: true,
-            files: [],
-          };
-        }
-
-        const files = await listFiles(client, folderPath);
-
-        return {
-          success: true,
-          files,
-        };
-      } catch (error) {
-        // If folder doesn't exist, return empty array instead of error
-        if (
-          error instanceof Error &&
-          error.message.includes("does not exist")
-        ) {
-          return {
-            success: true,
-            files: [],
-          };
-        }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to fetch deal files",
-        });
-      }
-    }),
-
-  uploadFile: baseProcedure
+  deleteFile: adminProcedure
     .input(
       z.object({
         dealId: z.string(),
-        fileName: z.string().min(1, "File name is required"),
-        fileData: z.string().min(1, "File data is required"), // base64 encoded
-        fileType: z.string().min(1, "File type is required"), // MIME type
-        fileSize: z
-          .number()
-          .max(10 * 1024 * 1024, "File size must be less than 10MB"), // 10MB max
+        path: z.string().min(1, "File path is required"),
       })
     )
-    .mutation(async ({ input, ctx }) => {
-      // Start session check early
-      const session = await authSession();
-
-      if (!session?.user || session.user.role !== "admin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only administrators can upload deal files",
-        });
-      }
-
-      // Early validation: file type
-      const allowedMimeTypes = [
-        // Images
-        "image/jpeg",
-        "image/jpg",
-        "image/png",
-        "image/gif",
-        "image/webp",
-        "image/svg+xml",
-        "image/bmp",
-        // Videos
-        "video/mp4",
-        "video/mpeg",
-        "video/quicktime",
-        "video/x-msvideo",
-        "video/webm",
-        // Audio
-        "audio/mpeg",
-        "audio/mp3",
-        "audio/wav",
-        "audio/ogg",
-        "audio/aac",
-        "audio/flac",
-        "audio/webm",
-        // Documents
-        "application/pdf",
-        "application/msword", // .doc
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-        "application/vnd.ms-excel", // .xls
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
-        "application/vnd.ms-powerpoint", // .ppt
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
-        "text/plain", // .txt
-        "text/csv",
-        "application/rtf",
-      ];
-
-      if (!allowedMimeTypes.includes(input.fileType)) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `File type ${input.fileType} is not allowed. Allowed types: images, videos (mp4), audio files, PDF, documents, and text files.`,
-        });
-      }
-
-      // Get deal to construct folder path
-      const [dealRecord] = await ctx.db
-        .select()
-        .from(deal)
-        .where(eq(deal.id, input.dealId))
-        .limit(1);
-
-      if (!dealRecord) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Deal not found",
-        });
-      }
-
-      // Construct folder path (same logic as getFiles)
-      const dealSlug =
-        dealRecord.slug ||
-        slugify(dealRecord.name, { lower: true, strict: true });
-      const sanitizedName = sanitizeDealFolderSegment(dealSlug);
-      const folderPath = `/Deals/Deal_${sanitizedName}`;
-
-      // Sanitize file name to prevent path traversal and invalid characters
-      const sanitizedFileName = sanitizeUploadFileName(input.fileName);
-      const remoteFilePath = `${folderPath}/${sanitizedFileName}`;
-
+    .mutation(async ({ input }) => {
       try {
-        const client = createNextcloudClientFromEnv();
-
-        await ensureDirectory(client, folderPath);
-
-        const fileBuffer = Buffer.from(input.fileData, "base64");
-
-        if (fileBuffer.length !== input.fileSize) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "File size mismatch. Please try uploading again.",
-          });
-        }
-
-        const success = await uploadBuffer(client, remoteFilePath, fileBuffer, {
-          overwrite: true,
-        });
-
-        if (!success) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to upload file to Nextcloud",
-          });
-        }
-
-        const fileStat = await client.stat(remoteFilePath);
-        const statData = "data" in fileStat ? fileStat.data : fileStat;
-
+        await dealFileStore.delete(input.dealId, input.path);
         return {
-          success: true,
-          message: "File uploaded successfully",
-          file: {
-            name: sanitizedFileName,
-            size: fileBuffer.length,
-            mimeType: input.fileType,
-            downloadUrl: client.getFileDownloadLink(remoteFilePath),
-            lastModified: statData.lastmod || new Date().toISOString(),
-          },
+          success: true as const,
+          message: "File deleted successfully",
         };
       } catch (error) {
-        // Handle specific Nextcloud errors
-        if (error instanceof Error) {
-          if (
-            error.message.includes("409") ||
-            error.message.includes("Conflict")
-          ) {
-            throw new TRPCError({
-              code: "CONFLICT",
-              message: "File already exists or folder conflict occurred",
-            });
-          }
-          if (
-            error.message.includes("413") ||
-            error.message.includes("too large")
-          ) {
-            throw new TRPCError({
-              code: "PAYLOAD_TOO_LARGE",
-              message: "File is too large for the server",
-            });
-          }
-          if (
-            error.message.includes("quota") ||
-            error.message.includes("space")
-          ) {
-            throw new TRPCError({
-              code: "INTERNAL_SERVER_ERROR",
-              message: "Insufficient storage space on Nextcloud",
-            });
-          }
+        if (error instanceof Error && error.message.includes("404")) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "File not found in Nextcloud",
+          });
         }
-
+        if (error instanceof Error && error.message === "Invalid file path") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid file path",
+          });
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message:
-            error instanceof Error ? error.message : "Failed to upload file",
+            error instanceof Error ? error.message : "Failed to delete file",
           cause: error,
         });
       }
     }),
 
-  getInvestors: baseProcedure.query(async ({ ctx }) => {
-    const investors = await ctx.db
-      .select({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        image: user.image,
-        kycStatus: user.kycStatus,
-        isOnboardingCompleted: user.isOnboardingCompleted,
-        createdAt: user.createdAt,
+  listFolder: adminProcedure
+    .input(
+      z.object({
+        dealId: z.string(),
+        relativePath: z.string().optional(),
       })
-      .from(user)
-      .where(or(ne(user.role, "admin"), isNull(user.role)))
-      .orderBy(user.name);
+    )
+    .query(async ({ input }) => {
+      try {
+        return await dealFileStore.listFolder(
+          input.dealId,
+          input.relativePath,
+        );
+      } catch (error) {
+        if (error instanceof Error && error.message === "Invalid folder path") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid folder path",
+          });
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error ? error.message : "Failed to list folder",
+          cause: error,
+        });
+      }
+    }),
 
-    return {
-      success: true,
-      investors: investors.map((investor) => ({
-        ...investor,
-        createdAt: investor.createdAt.toISOString(),
-      })),
-    };
-  }),
-
-  getPublicDeals: baseProcedure.query(async () => {
-    const session = await authSession();
-
-    if (!session?.user) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Authentication required",
-      });
-    }
-
-    // Public browse removed — marketplace is invite + live only.
-    return {
-      success: true as const,
-      deals: [] as Array<{
-        id: string;
-        name: string;
-        slug: string | null;
-        description: string | null;
-        teaserSummary: string | null;
-        sector: string | null;
-        geography: string | null;
-        dealType: string | null;
-        status: string;
-        createdAt: string;
-        updatedAt: string | null;
-        launchDate: string | null;
-        closeDate: string | null;
-        targetRaise: string | null;
-        minInvestment: string | null;
-        targetIrr: string | null;
-        targetMoic: string | null;
-      }>,
-    };
-  }),
-
-  getMarketplaceDeals: baseProcedure
+  getMarketplaceDeals: protectedProcedure
     .input(
       z.object({
         page: z.number().min(1).default(1),
@@ -936,17 +607,9 @@ export const dealsRouter = createTRPCRouter({
         dealType: z.string().optional(),
       })
     )
-    .query(async ({ input }) => {
-      const session = await authSession();
-      if (!session?.user) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You must be logged in to view deals",
-        });
-      }
-
+    .query(async ({ input, ctx }) => {
       return getMarketplaceDealsQuery({
-        userId: session.user.id,
+        userId: ctx.session.user.id,
         page: input.page,
         limit: input.limit,
         search: input.search,
@@ -957,69 +620,7 @@ export const dealsRouter = createTRPCRouter({
       });
     }),
 
-  getCuratedDeals: baseProcedure.query(async ({ ctx }) => {
-    const session = await authSession();
-    if (!session?.user) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "You must be logged in to view curated deals",
-      });
-    }
-
-    // Fetch invite-only deals that the user has been invited to
-    // Join dealInvite to get only deals where user has an invite
-    const deals = await ctx.db
-      .select({
-        id: deal.id,
-        name: deal.name,
-        slug: deal.slug,
-        description: deal.description,
-        teaserSummary: deal.teaserSummary,
-        sector: deal.sector,
-        geography: deal.geography,
-        dealType: deal.dealType,
-        targetRaise: deal.targetRaise,
-        minInvestment: deal.minInvestment,
-        targetIrr: deal.targetIrr,
-        targetMoic: deal.targetMoic,
-        status: deal.status,
-        launchDate: deal.launchDate,
-        closeDate: deal.closeDate,
-        createdAt: deal.createdAt,
-        updatedAt: deal.updatedAt,
-        curationNote: dealInvite.curationNote,
-      })
-      .from(dealInvite)
-      .innerJoin(deal, eq(dealInvite.dealId, deal.id))
-      .where(
-        and(
-          eq(dealInvite.userId, session.user.id),
-          ne(deal.status, "draft") // Exclude draft deals
-        )
-      )
-      .orderBy(desc(deal.createdAt));
-
-    return {
-      success: true,
-      deals: deals.map((dealRecord) => ({
-        ...dealRecord,
-        createdAt: dealRecord.createdAt.toISOString(),
-        updatedAt: dealRecord.updatedAt?.toISOString() ?? null,
-        launchDate: dealRecord.launchDate?.toISOString() ?? null,
-        closeDate: dealRecord.closeDate?.toISOString() ?? null,
-        targetRaise: dealRecord.targetRaise?.toString() ?? null,
-        minInvestment: dealRecord.minInvestment?.toString() ?? null,
-        targetIrr: dealRecord.targetIrr?.toString() ?? null,
-        targetMoic: dealRecord.targetMoic?.toString() ?? null,
-      })),
-    };
-  }),
-
-  /**
-   * Teaser-level investors request upgrade to data room access.
-   * Logs an audit event for admins; does not change access level.
-   */
-  requestDataRoomAccess: baseProcedure
+  requestDataRoomAccess: protectedProcedure
     .input(
       z.object({
         dealId: z.string(),
@@ -1027,21 +628,20 @@ export const dealsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const session = await authSession();
-      if (!session?.user) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You must be logged in",
-        });
-      }
+      const session = ctx.session;
 
       const [dealRecord] = await ctx.db
-        .select({ id: deal.id, name: deal.name, status: deal.status })
+        .select({
+          id: deal.id,
+          name: deal.name,
+          status: deal.status,
+          deletedAt: deal.deletedAt,
+        })
         .from(deal)
         .where(or(eq(deal.id, input.dealId), eq(deal.slug, input.dealId)))
         .limit(1);
 
-      if (!dealRecord || dealRecord.status === "draft") {
+      if (!dealRecord || dealRecord.status === "draft" || dealRecord.deletedAt) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Deal not found",
@@ -1111,7 +711,7 @@ export const dealsRouter = createTRPCRouter({
       };
     }),
 
-  expressInterest: baseProcedure
+  expressInterest: protectedProcedure
     .input(
       z.object({
         dealId: z.string(),
@@ -1127,16 +727,7 @@ export const dealsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      // Start session check early
-      const sessionPromise = authSession();
-      const session = await sessionPromise;
-
-      if (!session?.user) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You must be logged in to express interest",
-        });
-      }
+      const session = ctx.session;
 
       // Verify deal exists (by ID or slug)
       const [dealRecord] = await ctx.db
@@ -1147,7 +738,7 @@ export const dealsRouter = createTRPCRouter({
 
       const actualDealId = dealRecord?.id || input.dealId;
 
-      if (!dealRecord || dealRecord.status === "draft") {
+      if (!dealRecord || dealRecord.status === "draft" || dealRecord.deletedAt) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Deal not found",

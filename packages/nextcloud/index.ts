@@ -1,4 +1,4 @@
-export type { NextcloudConfig, DealFile } from "./types";
+export type { NextcloudConfig, DealFile, DealEntry } from "./types";
 export {
   createNextcloudClient,
   createNextcloudClientFromEnv,
@@ -7,7 +7,14 @@ export {
 export {
   sanitizeUploadFileName,
   sanitizeDealFolderSegment,
+  sanitizeRelativePath,
 } from "./sanitize";
+export {
+  INVESTOR_PORTAL_ROOT,
+  sanitizePathSegment,
+  dealFolderPath,
+  investorKycFolderPath,
+} from "./paths";
 export {
   createDealFolder,
   renameDealFolder,
@@ -15,8 +22,13 @@ export {
 } from "./deal-folders";
 export {
   listFiles,
+  listFolder,
   fileExists,
   getFileContents,
   ensureDirectory,
+  ensureDirectoryTree,
   uploadBuffer,
+  uploadFileStream,
+  resolveUniqueFilePath,
+  deleteFile,
 } from "./files";

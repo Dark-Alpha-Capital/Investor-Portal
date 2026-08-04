@@ -22,7 +22,10 @@ import {
   type OnboardingInvestorConfirmationJobData,
   type OnboardingAdminNotificationJobData,
 } from "@repo/mail/types";
-import { sanitizeUploadFileName } from "@repo/nextcloud";
+import {
+  investorKycFolderPath,
+  sanitizeUploadFileName,
+} from "@repo/nextcloud";
 
 // Admin email for onboarding notifications - can be configured via env var
 const ADMIN_NOTIFICATION_EMAIL =
@@ -233,7 +236,7 @@ export const onboardingRouter = createTRPCRouter({
 
       // Verify user exists and generate onboarding ID in parallel
       const [userRecord] = await ctx.db
-        .select({ id: user.id })
+        .select({ id: user.id, name: user.name })
         .from(user)
         .where(eq(user.id, userId))
         .limit(1);
@@ -244,6 +247,7 @@ export const onboardingRouter = createTRPCRouter({
           message: "User not found",
         });
       }
+      const investorName = userRecord.name ?? "";
 
       // Generate onboarding ID
       const onboardingId = randomUUID();
@@ -451,6 +455,7 @@ export const onboardingRouter = createTRPCRouter({
       const fileJobData = {
         onboardingId,
         investorId: userId,
+        investorName,
         files: files.map((file) => ({
           documentType: file.documentType,
           fileName: file.name,
@@ -464,7 +469,7 @@ export const onboardingRouter = createTRPCRouter({
       // These records will be updated by the worker with the final file paths
       const documentRecords = files.map((file) => {
         const sanitizedFileName = sanitizeUploadFileName(file.name);
-        const expectedFilePath = `/investors/${userId}/onboarding/kyc-files/${sanitizedFileName}`;
+        const expectedFilePath = `${investorKycFolderPath(investorName)}/${sanitizedFileName}`;
 
         return {
           id: randomUUID(),

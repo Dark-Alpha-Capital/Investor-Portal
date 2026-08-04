@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { authSession } from "@/lib/auth/session-from-request";
+import { requireAdminApiSession } from "@/lib/auth/require-admin-api";
 import {
   isDealLifecycleStatus,
   type DealLifecycleStatus,
@@ -27,14 +27,9 @@ export const Route = createFileRoute("/api/kanban/cards")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const session = await authSession();
-
-          if (!session?.user) {
-            return Response.json({ error: "Unauthorized" }, { status: 401 });
-          }
-
-          if (session.user.role !== "admin") {
-            return Response.json({ error: "Forbidden" }, { status: 403 });
+          const guarded = await requireAdminApiSession();
+          if (!guarded.ok) {
+            return guarded.response;
           }
 
           const url = new URL(request.url);

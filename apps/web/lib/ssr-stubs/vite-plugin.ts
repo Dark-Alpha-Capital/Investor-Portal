@@ -14,6 +14,10 @@ const exactStubs: Record<string, string> = {
   "@tiptap/react": path.join(stubsDir, "tiptap-react.tsx"),
   "@tiptap/starter-kit": path.join(stubsDir, "tiptap-extension.ts"),
   "@tiptap/extension-placeholder": path.join(stubsDir, "tiptap-extension.ts"),
+  "pdfjs-dist": path.join(stubsDir, "empty.ts"),
+  mammoth: path.join(stubsDir, "empty.ts"),
+  xlsx: path.join(stubsDir, "empty.ts"),
+  jszip: path.join(stubsDir, "empty.ts"),
 };
 
 function shouldStub(id: string): string | null {
@@ -29,7 +33,11 @@ function shouldStub(id: string): string | null {
     bare === "cytoscape" ||
     bare.startsWith("cytoscape/") ||
     bare.startsWith("shiki/") ||
-    bare.startsWith("@shikijs/")
+    bare.startsWith("@shikijs/") ||
+    bare.startsWith("pdfjs-dist/") ||
+    bare.startsWith("mammoth/") ||
+    bare.startsWith("xlsx/") ||
+    bare.startsWith("jszip/")
   ) {
     return path.join(stubsDir, "empty.ts");
   }

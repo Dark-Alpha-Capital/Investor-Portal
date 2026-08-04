@@ -24,7 +24,7 @@ function assertAdmin(isAdmin: boolean) {
 
 export function createAdminChatTools(options: {
   isAdmin: boolean;
-}): ToolSet {
+}) {
   const { isAdmin } = options;
 
   const listInvestors = tool({

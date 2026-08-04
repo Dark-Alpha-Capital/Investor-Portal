@@ -12,4 +12,3 @@ export {
 export { deepSeek, openai } from "./providers";
 export { chatbotSystemPrompt } from "./prompts/chatbot";
 export { chatbotTools, weatherTool } from "./tools";
-export type { ChatbotUIDataTypes, ChatbotUIMessage, ChatbotUITools } from "./types";

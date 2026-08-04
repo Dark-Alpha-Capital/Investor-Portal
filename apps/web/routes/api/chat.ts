@@ -4,8 +4,8 @@ import {
   isChatModelId,
   modelSupportsReasoning,
   resolveModel,
-  type ChatbotUIMessage,
 } from "@repo/ai-core";
+import type { ChatbotUIMessage } from "@/lib/chat/message-types";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   convertToModelMessages,
@@ -78,6 +78,15 @@ export const Route = createFileRoute("/api/chat")({
           }
 
           const messages = [...existing.messages, message];
+          // Persist the user's message before streaming so the turn survives
+          // client disconnects / aborted streams (docs resume pattern).
+          await saveChat({
+            chatId,
+            userId: session.user.id,
+            messages,
+            model: modelId,
+          });
+
           const dealContext = {
             dealId: existing.dealId,
             dealName: existing.dealName,
@@ -95,8 +104,11 @@ export const Route = createFileRoute("/api/chat")({
               tools,
             })) as ChatbotUIMessage[];
           } catch (error) {
+            // AI SDK guidance: on validation failure, start from empty history
+            // rather than passing unvalidated messages (which could contain
+            // tool calls that no longer match current schemas) to the model.
             console.error("Chat message validation failed:", error);
-            validatedMessages = messages;
+            validatedMessages = [message];
           }
 
           const model = resolveModel(modelId);
@@ -155,6 +167,11 @@ export const Route = createFileRoute("/api/chat")({
                   userId: session.user.id,
                   messages: nextMessages,
                   model: modelId,
+                }).catch((err) => {
+                  console.error(
+                    `[chat] failed to persist chat=${chatId} userId=${session.user.id}:`,
+                    err,
+                  );
                 }),
               );
             },

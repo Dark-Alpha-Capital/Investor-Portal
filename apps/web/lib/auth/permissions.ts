@@ -5,16 +5,21 @@
  */
 
 import { db } from "@repo/db";
-import { investorClearance, vehiclePermission, user, onboarding } from "@repo/db/schema";
+import { investorClearance, vehiclePermission, user, onboarding, deal } from "@repo/db/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
+import {
+  getDealCapabilities,
+  type DealAccessLevel,
+  type DealLifecycleStatus,
+} from "@repo/db/deal-policy";
+
+export type { DealAccessLevel } from "@repo/db/deal-policy";
 
 export type ClearanceStatus =
   | "pending_review"
   | "approved"
   | "needs_information"
   | "rejected";
-
-export type DealAccessLevel = "teaser" | "data_room";
 
 export type UserClearance = {
   status: ClearanceStatus;
@@ -128,20 +133,13 @@ export async function hasDealInvitation(
   return invitation !== null;
 }
 
-/** @deprecated Use hasDealInvitation */
-export async function hasVehicleAccess(
-  userId: string,
-  dealId: string
-): Promise<boolean> {
-  return hasDealInvitation(userId, dealId);
-}
-
 /**
- * Derive capability flags from invitation access level
+ * Derive capability flags from invitation access level + deal lifecycle.
+ * Single source of truth: {@link getDealCapabilities} in @repo/db/deal-policy.
  */
 export function capabilitiesFromAccessLevel(
   accessLevel: DealAccessLevel | null,
-  opts?: { isAdmin?: boolean }
+  opts?: { isAdmin?: boolean; dealStatus?: DealLifecycleStatus }
 ): {
   canViewTeaser: boolean;
   canViewDocuments: boolean;
@@ -149,35 +147,13 @@ export function capabilitiesFromAccessLevel(
   canInvest: boolean;
   accessLevel: DealAccessLevel | null;
 } {
-  // Admins may preview teaser/docs; they do not participate as LPs.
-  if (opts?.isAdmin) {
-    return {
-      canViewTeaser: true,
-      canViewDocuments: true,
-      canExpressInterest: false,
-      canInvest: false,
-      accessLevel: "data_room",
-    };
-  }
-
-  if (!accessLevel) {
-    return {
-      canViewTeaser: false,
-      canViewDocuments: false,
-      canExpressInterest: false,
-      canInvest: false,
-      accessLevel: null,
-    };
-  }
-
-  const isDataRoom = accessLevel === "data_room";
-  return {
-    canViewTeaser: true,
-    canViewDocuments: isDataRoom,
-    canExpressInterest: isDataRoom,
-    canInvest: isDataRoom,
-    accessLevel,
-  };
+  const { canViewTeaser, canViewDocuments, canExpressInterest, canInvest, accessLevel: level } =
+    getDealCapabilities({
+      isAdmin: opts?.isAdmin ?? false,
+      accessLevel,
+      dealStatus: opts?.dealStatus ?? "live",
+    });
+  return { canViewTeaser, canViewDocuments, canExpressInterest, canInvest, accessLevel: level };
 }
 
 /**
@@ -234,6 +210,7 @@ export async function getUserAccessInfo(
         conditionsJson: null,
         clearedAt: null,
         clearedBy: null,
+        investorVisibleNotes: null,
       },
       hasFullAccess: true,
       canViewDealDocuments: true,
@@ -296,12 +273,6 @@ export async function getOnboardingStatus(userId: string): Promise<{
     submittedAt: onboardingRecord?.submittedAt ?? null,
   };
 }
-
-export type PermissionCheckResult = {
-  allowed: boolean;
-  reason?: string;
-  redirectTo?: string;
-};
 
 /**
  * Get all deal IDs that a user has been invited to
@@ -375,98 +346,18 @@ export async function getDealPermissions(
     };
   }
 
-  const caps = capabilitiesFromAccessLevel(invitation.accessLevel);
+  const [dealRow] = await db
+    .select({ status: deal.status })
+    .from(deal)
+    .where(eq(deal.id, dealId))
+    .limit(1);
+
+  const caps = capabilitiesFromAccessLevel(invitation.accessLevel, {
+    dealStatus: (dealRow?.status as DealLifecycleStatus) ?? "live",
+  });
   return {
     ...caps,
     clearanceStatus: clearance.status,
     hasPermission: true,
   };
-}
-
-export async function isUserAdmin(userId: string): Promise<boolean> {
-  const [userRecord] = await db
-    .select({ role: user.role })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1);
-
-  return userRecord?.role === "admin";
-}
-
-export async function canAccessRoute(
-  userId: string | null | undefined,
-  pathname: string
-): Promise<PermissionCheckResult> {
-  const accessInfo = await getUserAccessInfo(userId);
-
-  const publicRoutes = [
-    "/",
-    "/login",
-    "/register",
-    "/verify-email",
-    "/forgot-password",
-    "/reset-password",
-  ];
-  if (publicRoutes.some((route) => pathname.startsWith(route))) {
-    return { allowed: true };
-  }
-
-  if (!accessInfo.isAuthenticated) {
-    return {
-      allowed: false,
-      reason: "Authentication required",
-      redirectTo: "/login",
-    };
-  }
-
-  if (pathname.startsWith("/admin")) {
-    if (!accessInfo.isAdmin) {
-      return {
-        allowed: false,
-        reason: "Admin access required",
-        redirectTo: "/dashboard",
-      };
-    }
-    return { allowed: true };
-  }
-
-  if (pathname.startsWith("/onboarding")) {
-    return { allowed: true };
-  }
-
-  if (!accessInfo.isOnboardingCompleted) {
-    if (pathname === "/dashboard" || pathname === "/profile") {
-      return { allowed: true };
-    }
-
-    return {
-      allowed: false,
-      reason: "Please complete onboarding first",
-      redirectTo: "/onboarding",
-    };
-  }
-
-  if (pathname.startsWith("/deals/") && pathname.includes("/documents")) {
-    if (!accessInfo.canViewDealDocuments) {
-      return {
-        allowed: false,
-        reason: "Approval required to view deal documents",
-        redirectTo: "/dashboard?restricted=documents",
-      };
-    }
-    return { allowed: true };
-  }
-
-  if (pathname.startsWith("/deals")) {
-    if (!accessInfo.canAccessDealMarketplace) {
-      return {
-        allowed: false,
-        reason: "Complete onboarding to access deal marketplace",
-        redirectTo: "/onboarding",
-      };
-    }
-    return { allowed: true };
-  }
-
-  return { allowed: true };
 }

@@ -1,10 +1,11 @@
 import type { WebDAVClient } from "webdav";
-import { sanitizeDealFolderSegment } from "./sanitize";
+import { dealFolderPath } from "./paths";
+import { ensureDirectory } from "./files";
 
-function dealFolderPath(dealName: string): { folderName: string; path: string } {
-  const sanitizedName = sanitizeDealFolderSegment(dealName);
-  const folderName = `Deal_${sanitizedName}`;
-  return { folderName, path: `/Deals/${folderName}` };
+function folderMeta(dealSlug: string): { folderName: string; path: string } {
+  const path = dealFolderPath(dealSlug);
+  const folderName = path.split("/").pop() ?? dealSlug;
+  return { folderName, path };
 }
 
 function httpStatus(e: unknown): number | undefined {
@@ -16,42 +17,28 @@ function httpStatus(e: unknown): number | undefined {
 }
 
 /**
- * Creates `/Deals/Deal_<sanitized>` if needed. Returns relative path e.g. `/Deals/Deal_foo`.
+ * Creates `/investor-portal/deals/<slug>` (and parents) if needed. Returns the
+ * full remote path, e.g. `/investor-portal/deals/packaging-13`.
  */
 export async function createDealFolder(
   client: WebDAVClient,
-  dealName: string,
+  dealSlug: string,
 ): Promise<string> {
-  const { path } = dealFolderPath(dealName);
-  try {
-    await client.createDirectory(path, { recursive: true });
-    return path;
-  } catch (e: unknown) {
-    const st = httpStatus(e);
-    if (st === 405 || st === 409) {
-      return path;
-    }
-    throw new Error(
-      `Failed to create Nextcloud folder: ${e instanceof Error ? e.message : String(e)}`,
-    );
-  }
+  const { path } = folderMeta(dealSlug);
+  await ensureDirectory(client, path);
+  return path;
 }
 
 export async function renameDealFolder(
   client: WebDAVClient,
-  oldDealName: string,
-  newDealName: string,
+  oldDealSlug: string,
+  newDealSlug: string,
 ): Promise<string> {
-  const oldP = dealFolderPath(oldDealName);
-  const newP = dealFolderPath(newDealName);
+  const oldP = folderMeta(oldDealSlug);
+  const newP = folderMeta(newDealSlug);
 
   if (oldP.folderName === newP.folderName) {
     return newP.path;
-  }
-
-  const oldExists = await client.exists(oldP.path);
-  if (!oldExists) {
-    return createDealFolder(client, newDealName);
   }
 
   try {
@@ -65,7 +52,7 @@ export async function renameDealFolder(
       );
     }
     if (st === 404) {
-      return createDealFolder(client, newDealName);
+      return createDealFolder(client, newDealSlug);
     }
     throw new Error(
       `Failed to rename Nextcloud folder: ${e instanceof Error ? e.message : String(e)}`,
@@ -75,9 +62,9 @@ export async function renameDealFolder(
 
 export async function deleteDealFolder(
   client: WebDAVClient,
-  dealName: string,
+  dealSlug: string,
 ): Promise<string> {
-  const { path } = dealFolderPath(dealName);
+  const { path } = folderMeta(dealSlug);
   try {
     await client.deleteFile(path);
     return path;

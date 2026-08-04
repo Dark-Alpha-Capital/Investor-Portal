@@ -1,8 +1,11 @@
 import { DEFAULT_CHAT_MODEL_ID } from "@repo/ai-core";
-import type { ChatbotUIMessage } from "@repo/ai-core";
+import type { ChatbotUIMessage } from "@/lib/chat/message-types";
+import { asChatbotMessages, titleFromMessages } from "@/lib/chat/message-utils";
 import { and, desc, eq, db } from "@repo/db";
 import { chat, deal } from "@repo/db/schema";
 import { generateId } from "ai";
+
+export { asChatbotMessages, titleFromMessages } from "@/lib/chat/message-utils";
 
 export type ChatListItem = {
   id: string;
@@ -25,39 +28,6 @@ export type ChatRecord = {
   createdAt: Date;
   updatedAt: Date;
 };
-
-function asChatbotMessages(value: unknown): ChatbotUIMessage[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.map((message) => {
-    const item = message as ChatbotUIMessage;
-    return {
-      ...item,
-      metadata: undefined,
-    };
-  });
-}
-
-function titleFromMessages(messages: ChatbotUIMessage[]): string | null {
-  const firstUser = messages.find((message) => message.role === "user");
-  if (!firstUser) {
-    return null;
-  }
-
-  const text = firstUser.parts
-    .filter((part): part is { type: "text"; text: string } => part.type === "text")
-    .map((part) => part.text.trim())
-    .filter(Boolean)
-    .join(" ");
-
-  if (!text) {
-    return null;
-  }
-
-  return text.length > 60 ? `${text.slice(0, 57)}...` : text;
-}
 
 export async function createChat({
   userId,

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { authSession } from "@/lib/auth/session-from-request";
+import { requireAdminApiSession } from "@/lib/auth/require-admin-api";
 import { db } from "@repo/db";
 import { onboarding } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
@@ -17,24 +17,11 @@ export const Route = createFileRoute("/api/onboarding/$onboardingId/status")({
     handlers: {
       PATCH: async ({ request, params }) => {
         try {
-          const session = await authSession();
-
-          if (!session) {
-            return Response.json(
-              { success: false, message: "Unauthorized" },
-              { status: 401 },
-            );
+          const guarded = await requireAdminApiSession();
+          if (!guarded.ok) {
+            return guarded.response;
           }
-
-          if (session.user.role !== "admin") {
-            return Response.json(
-              {
-                success: false,
-                message: "Forbidden - Admin access required",
-              },
-              { status: 403 },
-            );
-          }
+          const session = guarded.session;
 
           const { onboardingId } = params;
           const body = await request.json();

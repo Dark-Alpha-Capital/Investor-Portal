@@ -22,6 +22,7 @@ import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as DashboardAdminRouteRouteImport } from './routes/_dashboard/_admin/route'
 import { Route as MainSiteUidIndexRouteImport } from './routes/_main-site/$uid/index'
 import { Route as DashboardOnboardingIndexRouteImport } from './routes/_dashboard/onboarding/index'
+import { Route as DashboardInvestmentsIndexRouteImport } from './routes/_dashboard/investments/index'
 import { Route as DashboardDealsIndexRouteImport } from './routes/_dashboard/deals/index'
 import { Route as DashboardDashboardIndexRouteImport } from './routes/_dashboard/dashboard/index'
 import { Route as ChatbotChatIndexRouteImport } from './routes/_chatbot/chat/index'
@@ -48,6 +49,8 @@ import { Route as DashboardDealsDealIdIndexRouteImport } from './routes/_dashboa
 import { Route as DashboardAdminAdminIndexRouteImport } from './routes/_dashboard/_admin/admin/index'
 import { Route as ApiOnboardingOnboardingIdStatusRouteImport } from './routes/api/onboarding/$onboardingId/status'
 import { Route as ApiDocumentsDocumentIdStatusRouteImport } from './routes/api/documents/$documentId/status'
+import { Route as ApiDealsDealIdFilesRouteImport } from './routes/api/deals/$dealId/files'
+import { Route as ApiDealsDealIdFileRouteImport } from './routes/api/deals/$dealId/file'
 import { Route as DashboardAdminAdminDealsIndexRouteImport } from './routes/_dashboard/_admin/admin/deals/index'
 import { Route as DashboardAdminAdminComplianceIndexRouteImport } from './routes/_dashboard/_admin/admin/compliance/index'
 import { Route as DashboardAdminAdminDealsNewIndexRouteImport } from './routes/_dashboard/_admin/admin/deals/new/index'
@@ -114,6 +117,12 @@ const DashboardOnboardingIndexRoute =
   DashboardOnboardingIndexRouteImport.update({
     id: '/onboarding/',
     path: '/onboarding/',
+    getParentRoute: () => DashboardRouteRoute,
+  } as any)
+const DashboardInvestmentsIndexRoute =
+  DashboardInvestmentsIndexRouteImport.update({
+    id: '/investments/',
+    path: '/investments/',
     getParentRoute: () => DashboardRouteRoute,
   } as any)
 const DashboardDealsIndexRoute = DashboardDealsIndexRouteImport.update({
@@ -256,6 +265,16 @@ const ApiDocumentsDocumentIdStatusRoute =
     path: '/api/documents/$documentId/status',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiDealsDealIdFilesRoute = ApiDealsDealIdFilesRouteImport.update({
+  id: '/api/deals/$dealId/files',
+  path: '/api/deals/$dealId/files',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDealsDealIdFileRoute = ApiDealsDealIdFileRouteImport.update({
+  id: '/api/deals/$dealId/file',
+  path: '/api/deals/$dealId/file',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardAdminAdminDealsIndexRoute =
   DashboardAdminAdminDealsIndexRouteImport.update({
     id: '/admin/deals/',
@@ -317,8 +336,11 @@ export interface FileRoutesByFullPath {
   '/chat/': typeof ChatbotChatIndexRoute
   '/dashboard/': typeof DashboardDashboardIndexRoute
   '/deals/': typeof DashboardDealsIndexRoute
+  '/investments/': typeof DashboardInvestmentsIndexRoute
   '/onboarding/': typeof DashboardOnboardingIndexRoute
   '/$uid/': typeof MainSiteUidIndexRoute
+  '/api/deals/$dealId/file': typeof ApiDealsDealIdFileRoute
+  '/api/deals/$dealId/files': typeof ApiDealsDealIdFilesRoute
   '/api/documents/$documentId/status': typeof ApiDocumentsDocumentIdStatusRoute
   '/api/onboarding/$onboardingId/status': typeof ApiOnboardingOnboardingIdStatusRoute
   '/admin/': typeof DashboardAdminAdminIndexRoute
@@ -359,8 +381,11 @@ export interface FileRoutesByTo {
   '/chat': typeof ChatbotChatIndexRoute
   '/dashboard': typeof DashboardDashboardIndexRoute
   '/deals': typeof DashboardDealsIndexRoute
+  '/investments': typeof DashboardInvestmentsIndexRoute
   '/onboarding': typeof DashboardOnboardingIndexRoute
   '/$uid': typeof MainSiteUidIndexRoute
+  '/api/deals/$dealId/file': typeof ApiDealsDealIdFileRoute
+  '/api/deals/$dealId/files': typeof ApiDealsDealIdFilesRoute
   '/api/documents/$documentId/status': typeof ApiDocumentsDocumentIdStatusRoute
   '/api/onboarding/$onboardingId/status': typeof ApiOnboardingOnboardingIdStatusRoute
   '/admin': typeof DashboardAdminAdminIndexRoute
@@ -407,8 +432,11 @@ export interface FileRoutesById {
   '/_chatbot/chat/': typeof ChatbotChatIndexRoute
   '/_dashboard/dashboard/': typeof DashboardDashboardIndexRoute
   '/_dashboard/deals/': typeof DashboardDealsIndexRoute
+  '/_dashboard/investments/': typeof DashboardInvestmentsIndexRoute
   '/_dashboard/onboarding/': typeof DashboardOnboardingIndexRoute
   '/_main-site/$uid/': typeof MainSiteUidIndexRoute
+  '/api/deals/$dealId/file': typeof ApiDealsDealIdFileRoute
+  '/api/deals/$dealId/files': typeof ApiDealsDealIdFilesRoute
   '/api/documents/$documentId/status': typeof ApiDocumentsDocumentIdStatusRoute
   '/api/onboarding/$onboardingId/status': typeof ApiOnboardingOnboardingIdStatusRoute
   '/_dashboard/_admin/admin/': typeof DashboardAdminAdminIndexRoute
@@ -451,8 +479,11 @@ export interface FileRouteTypes {
     | '/chat/'
     | '/dashboard/'
     | '/deals/'
+    | '/investments/'
     | '/onboarding/'
     | '/$uid/'
+    | '/api/deals/$dealId/file'
+    | '/api/deals/$dealId/files'
     | '/api/documents/$documentId/status'
     | '/api/onboarding/$onboardingId/status'
     | '/admin/'
@@ -493,8 +524,11 @@ export interface FileRouteTypes {
     | '/chat'
     | '/dashboard'
     | '/deals'
+    | '/investments'
     | '/onboarding'
     | '/$uid'
+    | '/api/deals/$dealId/file'
+    | '/api/deals/$dealId/files'
     | '/api/documents/$documentId/status'
     | '/api/onboarding/$onboardingId/status'
     | '/admin'
@@ -540,8 +574,11 @@ export interface FileRouteTypes {
     | '/_chatbot/chat/'
     | '/_dashboard/dashboard/'
     | '/_dashboard/deals/'
+    | '/_dashboard/investments/'
     | '/_dashboard/onboarding/'
     | '/_main-site/$uid/'
+    | '/api/deals/$dealId/file'
+    | '/api/deals/$dealId/files'
     | '/api/documents/$documentId/status'
     | '/api/onboarding/$onboardingId/status'
     | '/_dashboard/_admin/admin/'
@@ -577,6 +614,8 @@ export interface RootRouteChildren {
   ApiSubscriptionDocumentsDownloadRoute: typeof ApiSubscriptionDocumentsDownloadRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
   ApiWebhooksOpensignRoute: typeof ApiWebhooksOpensignRoute
+  ApiDealsDealIdFileRoute: typeof ApiDealsDealIdFileRoute
+  ApiDealsDealIdFilesRoute: typeof ApiDealsDealIdFilesRoute
   ApiDocumentsDocumentIdStatusRoute: typeof ApiDocumentsDocumentIdStatusRoute
   ApiOnboardingOnboardingIdStatusRoute: typeof ApiOnboardingOnboardingIdStatusRoute
 }
@@ -672,6 +711,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding/'
       preLoaderRoute: typeof DashboardOnboardingIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/_dashboard/investments/': {
+      id: '/_dashboard/investments/'
+      path: '/investments'
+      fullPath: '/investments/'
+      preLoaderRoute: typeof DashboardInvestmentsIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/deals/': {
@@ -856,6 +902,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDocumentsDocumentIdStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/deals/$dealId/files': {
+      id: '/api/deals/$dealId/files'
+      path: '/api/deals/$dealId/files'
+      fullPath: '/api/deals/$dealId/files'
+      preLoaderRoute: typeof ApiDealsDealIdFilesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/deals/$dealId/file': {
+      id: '/api/deals/$dealId/file'
+      path: '/api/deals/$dealId/file'
+      fullPath: '/api/deals/$dealId/file'
+      preLoaderRoute: typeof ApiDealsDealIdFileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_dashboard/_admin/admin/deals/': {
       id: '/_dashboard/_admin/admin/deals/'
       path: '/admin/deals'
@@ -966,6 +1026,7 @@ interface DashboardRouteRouteChildren {
   DashboardAdminRouteRoute: typeof DashboardAdminRouteRouteWithChildren
   DashboardDashboardIndexRoute: typeof DashboardDashboardIndexRoute
   DashboardDealsIndexRoute: typeof DashboardDealsIndexRoute
+  DashboardInvestmentsIndexRoute: typeof DashboardInvestmentsIndexRoute
   DashboardOnboardingIndexRoute: typeof DashboardOnboardingIndexRoute
   DashboardDealsDealIdIndexRoute: typeof DashboardDealsDealIdIndexRoute
   DashboardOnboardingEditIndexRoute: typeof DashboardOnboardingEditIndexRoute
@@ -977,6 +1038,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardAdminRouteRoute: DashboardAdminRouteRouteWithChildren,
   DashboardDashboardIndexRoute: DashboardDashboardIndexRoute,
   DashboardDealsIndexRoute: DashboardDealsIndexRoute,
+  DashboardInvestmentsIndexRoute: DashboardInvestmentsIndexRoute,
   DashboardOnboardingIndexRoute: DashboardOnboardingIndexRoute,
   DashboardDealsDealIdIndexRoute: DashboardDealsDealIdIndexRoute,
   DashboardOnboardingEditIndexRoute: DashboardOnboardingEditIndexRoute,
@@ -1025,6 +1087,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSubscriptionDocumentsDownloadRoute: ApiSubscriptionDocumentsDownloadRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
   ApiWebhooksOpensignRoute: ApiWebhooksOpensignRoute,
+  ApiDealsDealIdFileRoute: ApiDealsDealIdFileRoute,
+  ApiDealsDealIdFilesRoute: ApiDealsDealIdFilesRoute,
   ApiDocumentsDocumentIdStatusRoute: ApiDocumentsDocumentIdStatusRoute,
   ApiOnboardingOnboardingIdStatusRoute: ApiOnboardingOnboardingIdStatusRoute,
 }

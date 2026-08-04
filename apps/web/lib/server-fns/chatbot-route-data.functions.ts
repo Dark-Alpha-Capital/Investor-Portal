@@ -30,8 +30,8 @@ async function loadChatHandler({
 
 export const fetchChatById = createServerFn({ method: "GET" })
   .validator((input) => chatIdInputSchema.parse(input))
-  // ChatbotUIMessage parts include `unknown` (e.g. dynamic-tool input) which
-  // fails TanStack Start's serializable return check even though JSON is fine.
+  // TanStack Start's serializable-return check is stricter than JSON allows
+  // for the full UI message shape; the payload is plain JSON in practice.
   .handler(loadChatHandler as never);
 
 export const setChatDealFn = createServerFn({ method: "POST" })

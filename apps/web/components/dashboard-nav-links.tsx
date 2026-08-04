@@ -5,6 +5,7 @@ import {
   ChevronRight,
   FileText,
   MessageSquare,
+  PieChart,
   Shield,
   User,
   UserCheck,
@@ -58,6 +59,7 @@ function buildInvestorNavItems(isOnboardingCompleted: boolean): NavItem[] {
       icon: isOnboardingCompleted ? FileText : User,
     },
     { title: "Deals", url: "/deals", icon: Briefcase },
+    { title: "My Investments", url: "/investments", icon: PieChart },
     { title: "Chat", url: "/chat", icon: MessageSquare },
   ];
 

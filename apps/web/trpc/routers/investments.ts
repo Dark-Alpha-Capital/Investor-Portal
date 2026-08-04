@@ -110,13 +110,14 @@ export const investmentsRouter = createTRPCRouter({
         .select({
           id: deal.id,
           status: deal.status,
+          deletedAt: deal.deletedAt,
           minInvestment: deal.minInvestment,
         })
         .from(deal)
         .where(eq(deal.id, input.dealId))
         .limit(1);
 
-      if (!dealRow) {
+      if (!dealRow || dealRow.deletedAt) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Deal not found",

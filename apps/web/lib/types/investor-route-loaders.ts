@@ -39,7 +39,8 @@ export type DealDetailLoaderData =
       dealId: string;
       kind: "forbidden";
       clearanceStatus: ForbiddenDeal["clearanceStatus"];
-    };
+    }
+  | { dealId: string; kind: "deleted" };
 
 export const investorDealDetailQueryKey = (dealId: string) =>
   ["investor", "deal", dealId] as const;
@@ -47,3 +48,6 @@ export const investorDealDetailQueryKey = (dealId: string) =>
 export const marketplaceDealsQueryKey = (
   deps: Record<string, unknown>,
 ) => ["investor", "marketplace-deals", deps] as const;
+
+export const myInvestmentsQueryKey = (deps: Record<string, unknown>) =>
+  ["investor", "my-investments", deps] as const;

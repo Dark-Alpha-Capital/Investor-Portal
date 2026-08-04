@@ -70,12 +70,11 @@ log("documentId", docId);
 const link = buildOpenSignSigningLink(docId, email, contactB);
 log("signing link", link);
 
-// 5. Status
+// 5. Status (completion check — signedUrl appears once fully signed)
 const state = await fetchOpenSignDocumentState(docId);
 log("document state", {
   signedUrl: state.signedUrl,
-  completedAt: state.completedAt,
-  signers: state.signers,
+  fullySigned: Boolean(state.signedUrl),
 });
 
 console.log("\nRound-trip complete. Open the signing link to sign manually.");

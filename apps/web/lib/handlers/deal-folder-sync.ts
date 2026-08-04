@@ -6,6 +6,9 @@ import {
   deleteDealFolder,
 } from "@repo/nextcloud";
 
+const toSlug = (name: string): string =>
+  slugify(name, { lower: true, strict: true });
+
 export async function runDealFolderSync(
   jobName: string,
   data: Record<string, unknown>,
@@ -14,7 +17,7 @@ export async function runDealFolderSync(
 
   if (jobName === "create-deal") {
     const deal = data.deal as { name: string; slug?: string };
-    const slug = slugify(deal.name, { lower: true, strict: true });
+    const slug = deal.slug || toSlug(deal.name);
     const folderPath = await createDealFolder(client, slug);
     return { folderPath };
   }
@@ -26,15 +29,15 @@ export async function runDealFolderSync(
     };
     const folderPath = await renameDealFolder(
       client,
-      oldDealName,
-      newDealName,
+      toSlug(oldDealName),
+      toSlug(newDealName),
     );
     return { folderPath };
   }
 
   if (jobName === "delete-deal") {
     const { dealName } = data as { dealName: string };
-    const folderPath = await deleteDealFolder(client, dealName);
+    const folderPath = await deleteDealFolder(client, toSlug(dealName));
     return { folderPath };
   }
 

@@ -7,6 +7,7 @@ import {
   Eye,
   Trash2,
   Plus,
+  RotateCcw,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -36,6 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useClientSession } from "@/lib/auth/get-client-session";
 import { badgeVariants } from "@/components/ui/badge";
@@ -199,6 +201,7 @@ export function DealsTable({
     id: string;
     name: string;
   } | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const isAdmin = session?.user?.role === "admin";
   const startIndex = (currentPage - 1) * limit;
@@ -207,16 +210,21 @@ export function DealsTable({
     setSelectedIds(new Set());
   }, [currentPage, deals]);
 
-  const { mutate: deleteDeal, isPending: isDeleting } = useMutation(
-    trpc.deals.delete.mutationOptions({
+  const invalidateDealLists = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["deals", "index"] }),
+      queryClient.invalidateQueries({ queryKey: ["kanban"] }),
+    ]);
+  };
+
+  const { mutate: removeDeal, isPending: isDeleting } = useMutation(
+    trpc.deals.remove.mutationOptions({
       onSuccess: async () => {
         toast.success("Deal deleted successfully");
         setDeleteDialogOpen(false);
         setDealToDelete(null);
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["deals", "index"] }),
-          queryClient.invalidateQueries({ queryKey: ["kanban"] }),
-        ]);
+        setDeleteReason("");
+        await invalidateDealLists();
       },
       onError: (error: { message?: string }) => {
         toast.error(error.message || "Failed to delete deal");
@@ -224,9 +232,26 @@ export function DealsTable({
     }),
   );
 
+  const { mutate: restoreDeal, isPending: isRestoring } = useMutation(
+    trpc.deals.restore.mutationOptions({
+      onSuccess: async () => {
+        toast.success("Deal restored successfully");
+        await invalidateDealLists();
+      },
+      onError: (error: { message?: string }) => {
+        toast.error(error.message || "Failed to restore deal");
+      },
+    }),
+  );
+
   const handleDeleteClick = (dealId: string, dealName: string) => {
     setDealToDelete({ id: dealId, name: dealName });
+    setDeleteReason("");
     setDeleteDialogOpen(true);
+  };
+
+  const handleRestoreClick = (dealId: string) => {
+    restoreDeal({ dealId });
   };
 
   const handleToggleSelect = (id: string) => {
@@ -331,9 +356,13 @@ export function DealsTable({
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={statusColors[deal.status]}>
-                      {deal.status.replace(/_/g, " ")}
-                    </Badge>
+                    {deal.deletedAt ? (
+                      <Badge variant="destructive">Deleted</Badge>
+                    ) : (
+                      <Badge variant={statusColors[deal.status]}>
+                        {deal.status.replace(/_/g, " ")}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {deal.sector || "-"}
@@ -373,20 +402,36 @@ export function DealsTable({
                         <TooltipContent>Edit Deal</TooltipContent>
                       </Tooltip>
                       {isAdmin ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                handleDeleteClick(deal.id, deal.name)
-                              }
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Delete Deal</TooltipContent>
-                        </Tooltip>
+                        deal.deletedAt ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRestoreClick(deal.id)}
+                                disabled={isRestoring}
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Restore Deal</TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleDeleteClick(deal.id, deal.name)
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete Deal</TooltipContent>
+                          </Tooltip>
+                        )
                       ) : null}
                     </div>
                   </TableCell>
@@ -410,21 +455,49 @@ export function DealsTable({
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete deal?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              deal &quot;{dealToDelete?.name}&quot; and all associated data.
+              This will hide &quot;{dealToDelete?.name}&quot; from investors and
+              admin views. All records (invitations, interests, commitments,
+              documents) are preserved so the deal can be restored at any time.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2">
+            <label
+              htmlFor="delete-reason"
+              className="text-sm font-medium text-foreground"
+            >
+              Reason for deletion
+            </label>
+            <Textarea
+              id="delete-reason"
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder="Required — e.g. deal cancelled by sponsors, withdrawn from market"
+              rows={3}
+            />
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel
+              onClick={() => {
+                setDeleteReason("");
+                setDealToDelete(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (dealToDelete) {
-                  deleteDeal({ dealId: dealToDelete.id });
+                if (dealToDelete && deleteReason.trim().length >= 5) {
+                  removeDeal({
+                    dealId: dealToDelete.id,
+                    reason: deleteReason.trim(),
+                  });
                 }
               }}
-              disabled={isDeleting}
+              disabled={
+                isDeleting || deleteReason.trim().length < 5
+              }
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeleting ? "Deleting..." : "Delete Deal"}

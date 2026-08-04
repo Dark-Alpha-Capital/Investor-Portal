@@ -79,7 +79,7 @@ const signature = Array.from(new Uint8Array(sig))
   .join("");
 
 console.log(`POST ${target}`);
-console.log(`  event=${event} doc=${documentId} signer=${signerEmail ?? "-"}`);
+console.log(`  event=${eventType} doc=${documentId} signer=${signerEmail ?? "-"}`);
 
 const resp = await fetch(target, {
   method: "POST",

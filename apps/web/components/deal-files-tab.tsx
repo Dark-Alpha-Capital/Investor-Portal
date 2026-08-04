@@ -1,18 +1,23 @@
+"use client";
 
-import { useState, useCallback, useMemo } from "react";
-import { useRouter } from "@/hooks/use-app-navigation";
+import { useCallback, useMemo, useState } from "react";
+import type { DealEntry } from "@repo/nextcloud";
 import { useTRPC } from "@/trpc/client";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -21,431 +26,885 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Upload, Loader2, AlertCircle, Download, File } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-
-const ALLOWED_FILE_TYPES = [
-  // Images
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "image/svg+xml",
-  "image/bmp",
-  // Videos
-  "video/mp4",
-  "video/mpeg",
-  "video/quicktime",
-  "video/x-msvideo",
-  "video/webm",
-  // Audio
-  "audio/mpeg",
-  "audio/mp3",
-  "audio/wav",
-  "audio/ogg",
-  "audio/aac",
-  "audio/flac",
-  "audio/webm",
-  // Documents
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.ms-powerpoint",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  "text/plain",
-  "text/csv",
-  "application/rtf",
-];
+import { cn } from "@/lib/utils";
+import {
+  Upload,
+  Loader2,
+  Download,
+  FolderOpen,
+  Folder as FolderIcon,
+  LayoutGrid,
+  List,
+  Eye,
+  Check,
+  X,
+  Trash2,
+  ChevronRight,
+  FileText,
+  FileSpreadsheet,
+  FileArchive,
+  Presentation,
+  Film,
+  FileAudio,
+  File as FileIcon,
+  Image as ImageIcon,
+} from "lucide-react";
+import { FilePreview } from "./deal-file-preview";
+import { FilePreviewDialog } from "./deal-file-preview-dialog";
+import { DealUploadDialog } from "./deal-upload-dialog";
+import {
+  fileProxyUrl,
+  formatFileDate,
+  formatFileSize,
+} from "./deal-file-utils";
 
 type DealFilesTabProps = {
   dealId: string;
-  files: Array<{
-    name: string;
-    size: number;
-    lastModified: string;
-    mimeType: string;
-    downloadUrl: string;
-  }>;
+  entries: DealEntry[];
 };
 
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-};
+let jszipPromise: Promise<{ default: typeof import("jszip") }> | null = null;
 
-const formatDate = (dateString: string): string => {
-  try {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return dateString;
-  }
-};
+function loadJszip() {
+  if (!jszipPromise) jszipPromise = import("jszip");
+  return jszipPromise;
+}
 
-const getFileIcon = (mimeType: string) => {
+function FileTypeTile({ mimeType }: { mimeType: string }) {
+  let icon = FileIcon;
+  let tint = "bg-muted text-muted-foreground";
   if (mimeType.startsWith("image/")) {
-    return "🖼️";
+    icon = ImageIcon;
+    tint = "bg-sky-500/10 text-sky-700 dark:text-sky-400";
   } else if (mimeType === "application/pdf") {
-    return "📄";
+    icon = FileText;
+    tint = "bg-rose-500/10 text-rose-700 dark:text-rose-400";
   } else if (mimeType.includes("word") || mimeType.includes("document")) {
-    return "📝";
+    icon = FileText;
+    tint = "bg-sky-500/10 text-sky-700 dark:text-sky-400";
   } else if (mimeType.includes("excel") || mimeType.includes("spreadsheet")) {
-    return "📊";
+    icon = FileSpreadsheet;
+    tint = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
+  } else if (
+    mimeType.includes("powerpoint") ||
+    mimeType.includes("presentation")
+  ) {
+    icon = Presentation;
+    tint = "bg-orange-500/10 text-orange-700 dark:text-orange-400";
+  } else if (mimeType.startsWith("video/")) {
+    icon = Film;
+    tint = "bg-violet-500/10 text-violet-700 dark:text-violet-400";
+  } else if (mimeType.startsWith("audio/")) {
+    icon = FileAudio;
+    tint = "bg-amber-500/10 text-amber-700 dark:text-amber-400";
   } else if (mimeType.includes("zip") || mimeType.includes("archive")) {
-    return "📦";
+    icon = FileArchive;
+    tint = "bg-slate-500/10 text-slate-700 dark:text-slate-400";
   }
-  return "📎";
-};
+  const Icon = icon;
+  return (
+    <span
+      className={cn(
+        "flex size-9 shrink-0 items-center justify-center rounded-md border border-border",
+        tint,
+      )}
+      role="img"
+      aria-label="file type"
+    >
+      <Icon className="size-4" />
+    </span>
+  );
+}
 
-export function DealFilesTab({ dealId, files }: DealFilesTabProps) {
-  const router = useRouter();
+export function DealFilesTab({ dealId, entries }: DealFilesTabProps) {
   const trpc = useTRPC();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const queryClient = useQueryClient();
+  const [view, setView] = useState<"grid" | "list">("list");
+  const [currentPath, setCurrentPath] = useState("");
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
+  const [previewFile, setPreviewFile] = useState<DealEntry | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
 
-  const { mutate: uploadFile, isPending } = useMutation(
-    trpc.deals.uploadFile.mutationOptions({
-      onSuccess: () => {
-        toast.success("File uploaded successfully");
-        setIsDialogOpen(false);
-        setSelectedFile(null);
-        setUploadError(null);
-        // Refresh the page to show new file
-        router.refresh();
-      },
-      onError: (error: unknown) => {
-        let errorMessage = "Failed to upload file";
-
-        if (error instanceof Error) {
-          errorMessage = error.message;
-        } else if (
-          typeof error === "object" &&
-          error !== null &&
-          "data" in error &&
-          typeof error.data === "object" &&
-          error.data !== null &&
-          "message" in error.data &&
-          typeof error.data.message === "string"
-        ) {
-          errorMessage = error.data.message;
-        }
-
-        setUploadError(errorMessage);
-        toast.error(errorMessage);
-      },
-    })
+  const isRoot = currentPath === "";
+  const rootFolders = useMemo(
+    () => entries.filter((e) => e.kind === "folder"),
+    [entries],
+  );
+  const rootFiles = useMemo(
+    () => entries.filter((e) => e.kind === "file"),
+    [entries],
   );
 
-  // Validate file before selection
-  const validateFile = useCallback((file: File): string | null => {
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE) {
-      return `File size exceeds 10MB limit. File size: ${(file.size / 1024 / 1024).toFixed(2)}MB`;
-    }
+  const folderQuery = useQuery({
+    ...trpc.deals.listFolder.queryOptions({
+      dealId,
+      relativePath: isRoot ? undefined : currentPath,
+    }),
+    initialData: isRoot
+      ? { folders: rootFolders, files: rootFiles }
+      : undefined,
+  });
 
-    // Validate file type
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-      return `File type "${file.type}" is not allowed. Please upload images, videos (mp4), audio files, PDF, documents, or text files.`;
-    }
+  const folders = useMemo(
+    () => folderQuery.data?.folders ?? [],
+    [folderQuery.data],
+  );
+  const files = useMemo(
+    () => folderQuery.data?.files ?? [],
+    [folderQuery.data],
+  );
+  const isLoading = !isRoot && folderQuery.isFetching;
 
-    return null;
+  const currentEntries = useMemo(
+    () => [...folders, ...files],
+    [folders, files],
+  );
+  const selectedEntries = currentEntries.filter((e) =>
+    selectedPaths.has(e.path),
+  );
+  const allSelected =
+    currentEntries.length > 0 &&
+    currentEntries.every((e) => selectedPaths.has(e.path));
+
+  const navigateTo = useCallback((rel: string) => {
+    setCurrentPath(rel);
+    setSelectedPaths(new Set());
+    setPreviewFile(null);
   }, []);
 
-  const handleFileSelect = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      setUploadError(null);
-
-      if (!file) {
-        setSelectedFile(null);
-        return;
-      }
-
-      const validationError = validateFile(file);
-      if (validationError) {
-        setUploadError(validationError);
-        setSelectedFile(null);
-        return;
-      }
-
-      setSelectedFile(file);
-    },
-    [validateFile]
+  const openFolder = useCallback(
+    (entry: DealEntry) => navigateTo(entry.relativePath),
+    [navigateTo],
   );
 
-  // Convert file to base64 (browser-compatible)
-  const fileToBase64 = useCallback(async (file: File): Promise<string> => {
-    const arrayBuffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-  }, []);
-
-  const handleUpload = useCallback(async () => {
-    if (!selectedFile) {
-      setUploadError("Please select a file to upload");
-      return;
-    }
-
-    try {
-      const base64Data = await fileToBase64(selectedFile);
-
-      uploadFile({
-        dealId,
-        fileName: selectedFile.name,
-        fileData: base64Data,
-        fileType: selectedFile.type,
-        fileSize: selectedFile.size,
-      });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to process file";
-      setUploadError(errorMessage);
-      toast.error(errorMessage);
-    }
-  }, [selectedFile, fileToBase64, uploadFile, dealId]);
-
-  const handleSelectFile = useCallback((fileName: string) => {
-    setSelectedFiles((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(fileName)) {
-        newSet.delete(fileName);
+  const toggleSelect = useCallback((entry: DealEntry) => {
+    setSelectedPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(entry.path)) {
+        next.delete(entry.path);
       } else {
-        newSet.add(fileName);
+        next.add(entry.path);
       }
-      return newSet;
+      return next;
     });
   }, []);
 
-  const handleSelectAll = useCallback(
-    (checked: boolean) => {
-      setSelectedFiles(() => {
-        if (checked) {
-          return new Set(files.map((file) => file.name));
-        }
+  const toggleSelectAll = useCallback(() => {
+    setSelectedPaths((prev) => {
+      if (prev.size > 0 && currentEntries.every((e) => prev.has(e.path))) {
         return new Set();
-      });
-    },
-    [files]
-  );
+      }
+      return new Set(currentEntries.map((e) => e.path));
+    });
+  }, [currentEntries]);
 
-  const allSelected = useMemo(
-    () =>
-      files.length > 0 && files.every((file) => selectedFiles.has(file.name)),
-    [files, selectedFiles]
-  );
-
-  const handleDialogClose = useCallback(() => {
-    setIsDialogOpen(false);
-    setSelectedFile(null);
-    setUploadError(null);
+  const clearSelection = useCallback(() => {
+    setSelectedPaths(new Set());
   }, []);
+
+  const triggerSingleDownload = useCallback(
+    (entry: DealEntry) => {
+      if (entry.kind !== "file" || !entry.downloadUrl) return;
+      const a = document.createElement("a");
+      a.href = fileProxyUrl(dealId, entry, "download");
+      a.download = entry.name;
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    },
+    [dealId],
+  );
+
+  const collectFilesForDownload = useCallback(
+    async (entriesToCollect: DealEntry[]) => {
+      const out: { entry: DealEntry; zipPath: string }[] = [];
+      for (const e of entriesToCollect) {
+        if (e.kind === "file") {
+          out.push({ entry: e, zipPath: e.relativePath || e.name });
+        } else {
+          const sub = await queryClient.fetchQuery(
+            trpc.deals.listFolder.queryOptions({
+              dealId,
+              relativePath: e.relativePath,
+            }),
+          );
+          const deeper = await collectFilesForDownload([
+            ...sub.folders,
+            ...sub.files,
+          ]);
+          out.push(...deeper);
+        }
+      }
+      return out;
+    },
+    [dealId, trpc, queryClient],
+  );
+
+  const handleDownloadSelected = useCallback(async () => {
+    const selected = selectedEntries;
+    if (selected.length === 0) return;
+    setIsDownloading(true);
+    try {
+      const flat = await collectFilesForDownload(selected);
+      if (flat.length === 0) {
+        toast.error("Nothing to download");
+        return;
+      }
+      if (flat.length === 1) {
+        triggerSingleDownload(flat[0].entry);
+        return;
+      }
+      const mod = await loadJszip();
+      const JSZip = mod.default;
+      const zip = new JSZip();
+      let failed = 0;
+      await Promise.all(
+        flat.map(async ({ entry, zipPath }) => {
+          try {
+            const res = await fetch(fileProxyUrl(dealId, entry, "download"));
+            if (!res.ok) throw new Error("fetch failed");
+            const buf = await res.arrayBuffer();
+            zip.file(zipPath, buf);
+          } catch {
+            failed += 1;
+          }
+        }),
+      );
+      if (failed === flat.length) {
+        toast.error("Couldn't download any of the selected files");
+        return;
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "deal-files.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      if (failed > 0) {
+        toast.warning(`Downloaded ${flat.length - failed} of ${flat.length} files`);
+      } else {
+        toast.success(`Downloaded ${flat.length} files`);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to download");
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [selectedEntries, dealId, triggerSingleDownload, collectFilesForDownload]);
+
+  const deleteFileMutation = useMutation(
+    trpc.deals.deleteFile.mutationOptions(),
+  );
+
+  const handleDeleteSelected = useCallback(async () => {
+    const selected = selectedEntries;
+    if (selected.length === 0) return;
+    setIsDeleting(true);
+    let failed = 0;
+    for (const e of selected) {
+      try {
+        await deleteFileMutation.mutateAsync({ dealId, path: e.path });
+      } catch {
+        failed += 1;
+      }
+    }
+    setIsDeleting(false);
+    setDeleteOpen(false);
+    clearSelection();
+    await folderQuery.refetch();
+    void queryClient.invalidateQueries({
+      queryKey: trpc.deals.listFolder.queryKey({ dealId }),
+    });
+    if (failed > 0) {
+      toast.warning(`Deleted ${selected.length - failed} of ${selected.length} items`);
+    } else {
+      toast.success(
+        `Deleted ${selected.length} ${selected.length === 1 ? "item" : "items"}`,
+      );
+    }
+  }, [
+    selectedEntries,
+    dealId,
+    deleteFileMutation,
+    clearSelection,
+    folderQuery,
+    queryClient,
+    trpc,
+  ]);
+
+  const handleRefresh = useCallback(() => {
+    void folderQuery.refetch();
+  }, [folderQuery]);
+
+  const breadcrumb = currentPath ? currentPath.split("/") : [];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Deal Files</h3>
-          <p className="text-sm text-muted-foreground">
-            {files.length} {files.length === 1 ? "file" : "files"} stored in
-            Nextcloud
-          </p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Upload className="mr-2 h-4 w-4" />
-              Upload File
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Upload File</DialogTitle>
-              <DialogDescription>
-                Upload a file to this deal's folder. Maximum file size is 10MB.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="file-upload">Select File</Label>
-                <Input
-                  id="file-upload"
-                  type="file"
-                  onChange={handleFileSelect}
-                  accept={ALLOWED_FILE_TYPES.join(",")}
-                  disabled={isPending}
-                  className="cursor-pointer"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Allowed types: Images, MP4 videos, audio files, PDF, documents
-                  (.doc, .docx, .xls, .xlsx, .ppt, .pptx), and text files (.txt,
-                  .csv, .rtf)
-                </p>
-              </div>
-
-              {selectedFile && (
-                <div className="rounded-lg border p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{selectedFile.name}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {formatFileSize(selectedFile.size)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Type: {selectedFile.type}
-                  </p>
-                </div>
-              )}
-
-              {uploadError && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{uploadError}</AlertDescription>
-                </Alert>
-              )}
+    <div className="space-y-5">
+      {/* Toolbar */}
+      <div className="flex min-h-12 flex-wrap items-center justify-between gap-3">
+        <div className="flex min-h-12 items-center">
+          {selectedEntries.length > 0 ? (
+            <div className="flex items-center gap-3">
+              <p className="text-base font-semibold tracking-tight">
+                {selectedEntries.length} selected
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearSelection}
+                className="h-7 gap-1 px-2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3.5" />
+                Clear
+              </Button>
             </div>
+          ) : (
+            <div>
+              <h3 className="text-base font-semibold tracking-tight">
+                Deal files
+              </h3>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {isLoading
+                  ? "Loading…"
+                  : `${folders.length + files.length} ${
+                      folders.length + files.length === 1 ? "item" : "items"
+                    } in this folder`}
+              </p>
+            </div>
+          )}
+        </div>
 
-            <DialogFooter>
+        <div className="flex items-center gap-2">
+          {selectedEntries.length > 0 ? (
+            <>
               <Button
                 variant="outline"
-                onClick={handleDialogClose}
-                disabled={isPending}
+                size="sm"
+                onClick={() => void handleDownloadSelected()}
+                disabled={isDownloading}
               >
-                Cancel
+                {isDownloading ? (
+                  <Loader2 className="mr-1.5 size-4 animate-spin" />
+                ) : (
+                  <Download className="mr-1.5 size-4" />
+                )}
+                Download
               </Button>
               <Button
-                onClick={handleUpload}
-                disabled={!selectedFile || isPending}
+                variant="outline"
+                size="sm"
+                onClick={() => setDeleteOpen(true)}
+                disabled={isDeleting}
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
-                {isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Upload
-                  </>
-                )}
+                <Trash2 className="mr-1.5 size-4" />
+                Delete
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </>
+          ) : null}
+
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={view}
+            onValueChange={(value) => {
+              if (value === "grid" || value === "list") setView(value);
+            }}
+          >
+            <ToggleGroupItem
+              value="grid"
+              aria-label="Grid view"
+              className="px-2.5"
+            >
+              <LayoutGrid className="size-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="list"
+              aria-label="List view"
+              className="px-2.5"
+            >
+              <List className="size-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+
+          <Button size="sm" onClick={() => setUploadOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            Upload
+          </Button>
+        </div>
       </div>
 
-      {files.length === 0 ? (
-        <div className="text-center py-12 border rounded-md">
-          <File className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-50" />
-          <p className="text-muted-foreground">
-            No files have been uploaded for this deal yet.
-          </p>
+      {/* Breadcrumb */}
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm">
+        <button
+          type="button"
+          onClick={() => navigateTo("")}
+          className={cn(
+            "rounded px-1.5 py-0.5 font-medium transition-colors hover:bg-accent hover:text-foreground",
+            isRoot ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
+          Deal files
+        </button>
+        {breadcrumb.map((segment, i) => {
+          const path = breadcrumb.slice(0, i + 1).join("/");
+          const isLast = i === breadcrumb.length - 1;
+          return (
+            <span key={path} className="flex items-center gap-1">
+              <ChevronRight className="size-3.5 text-muted-foreground" />
+              <button
+                type="button"
+                onClick={() => navigateTo(path)}
+                className={cn(
+                  "max-w-[16rem] truncate rounded px-1.5 py-0.5 font-medium transition-colors hover:bg-accent hover:text-foreground",
+                  isLast ? "text-foreground" : "text-muted-foreground",
+                )}
+              >
+                {segment}
+              </button>
+            </span>
+          );
+        })}
+      </nav>
+
+      {currentEntries.length === 0 && !isLoading ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-card/40 py-20 text-center">
+          <span className="flex size-12 items-center justify-center rounded-full border border-border bg-muted/60 text-muted-foreground">
+            <FolderOpen className="h-5 w-5" />
+          </span>
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">
+              This folder is empty
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Upload files or a whole folder to get started.
+            </p>
+          </div>
+        </div>
+      ) : isLoading && currentEntries.length === 0 ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="size-5 animate-spin" />
+        </div>
+      ) : view === "grid" ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+          {folders.map((folder) => (
+            <FolderGridCard
+              key={folder.path}
+              entry={folder}
+              isSelected={selectedPaths.has(folder.path)}
+              onToggle={() => toggleSelect(folder)}
+              onOpen={() => openFolder(folder)}
+            />
+          ))}
+          {files.map((file) => (
+            <FileGridCard
+              key={file.path}
+              entry={file}
+              dealId={dealId}
+              isSelected={selectedPaths.has(file.path)}
+              onToggle={() => toggleSelect(file)}
+              onView={() => setPreviewFile(file)}
+            />
+          ))}
         </div>
       ) : (
-        <div className="rounded-md border">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead className="w-[50px]">
+              <TableRow className="bg-muted/40">
+                <TableHead className="w-10">
                   <Checkbox
                     checked={allSelected}
-                    onCheckedChange={(checked) =>
-                      handleSelectAll(checked === true)
-                    }
-                    aria-label="Select all files"
+                    onCheckedChange={() => toggleSelectAll()}
+                    aria-label="Select all"
                   />
                 </TableHead>
-                <TableHead className="w-[60px]">#</TableHead>
-                <TableHead className="w-[50px]">Type</TableHead>
-                <TableHead>File Name</TableHead>
-                <TableHead className="text-right">Size</TableHead>
-                <TableHead>Last Modified</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Name
+                </TableHead>
+                <TableHead className="text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Size
+                </TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Last modified
+                </TableHead>
+                <TableHead className="text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {files.map((file, index) => (
-                <TableRow
-                  key={`${file.name}-${index}`}
-                  className={selectedFiles.has(file.name) ? "bg-muted/50" : ""}
-                >
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedFiles.has(file.name)}
-                      onCheckedChange={() => handleSelectFile(file.name)}
-                      aria-label={`Select ${file.name}`}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-muted-foreground font-medium">
-                      {index + 1}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-xl" role="img" aria-label="file type">
-                      {getFileIcon(file.mimeType)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{file.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {file.mimeType}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span className="font-mono text-sm">
-                      {formatFileSize(file.size)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-muted-foreground">
-                      {formatDate(file.lastModified)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="outline" size="sm" asChild>
-                      <a
-                        href={file.downloadUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2"
-                      >
-                        <Download className="h-4 w-4" />
-                        Download
-                      </a>
-                    </Button>
-                  </TableCell>
-                </TableRow>
+              {folders.map((folder) => (
+                <FolderRow
+                  key={folder.path}
+                  entry={folder}
+                  isSelected={selectedPaths.has(folder.path)}
+                  onToggle={() => toggleSelect(folder)}
+                  onOpen={() => openFolder(folder)}
+                />
+              ))}
+              {files.map((file) => (
+                <FileRow
+                  key={file.path}
+                  entry={file}
+                  dealId={dealId}
+                  isSelected={selectedPaths.has(file.path)}
+                  onToggle={() => toggleSelect(file)}
+                  onView={() => setPreviewFile(file)}
+                  onDownload={() => triggerSingleDownload(file)}
+                />
               ))}
             </TableBody>
           </Table>
         </div>
       )}
+
+      <DealUploadDialog
+        dealId={dealId}
+        currentFolder={currentPath}
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        onComplete={handleRefresh}
+      />
+
+      <FilePreviewDialog
+        dealId={dealId}
+        file={previewFile}
+        open={previewFile !== null}
+        onOpenChange={(open) => {
+          if (!open) setPreviewFile(null);
+        }}
+      />
+
+      <AlertDialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          if (!open) setDeleteOpen(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedEntries.length}{" "}
+              {selectedEntries.length === 1 ? "item" : "items"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Deleting a folder also deletes everything inside it. This can't
+              be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleDeleteSelected();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+  );
+}
+
+function FolderGridCard({
+  entry,
+  isSelected,
+  onToggle,
+  onOpen,
+}: {
+  entry: DealEntry;
+  isSelected: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onToggle}
+      onDoubleClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onOpen();
+        }
+        if (e.key === " ") {
+          e.preventDefault();
+          onToggle();
+        }
+      }}
+      className={cn(
+        "group relative flex cursor-pointer flex-col overflow-hidden rounded-lg border bg-card text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        isSelected
+          ? "border-primary ring-1 ring-primary"
+          : "border-border hover:border-primary/40 hover:bg-accent/40",
+      )}
+    >
+      <div className="relative flex h-40 items-center justify-center overflow-hidden rounded-t-lg bg-muted/40">
+        <span className="flex size-14 items-center justify-center rounded-xl border border-border bg-background text-amber-500 shadow-sm dark:text-amber-400">
+          <FolderIcon className="size-8" />
+        </span>
+
+        <span
+          className={cn(
+            "absolute right-2 top-2 flex size-5 items-center justify-center rounded-full border transition-colors",
+            isSelected
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-background/80",
+          )}
+        >
+          {isSelected ? <Check className="size-3" /> : null}
+        </span>
+
+        <div className="absolute inset-x-2 bottom-2 flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpen();
+            }}
+            className="flex size-8 items-center justify-center rounded-md border border-border bg-background/90 text-muted-foreground shadow-sm backdrop-blur transition-colors hover:text-foreground"
+            aria-label={`Open ${entry.name}`}
+          >
+            <FolderOpen className="size-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="min-w-0 border-t border-border px-3 py-2.5">
+        <p className="truncate text-sm font-medium text-foreground">
+          {entry.name}
+        </p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">Folder</p>
+      </div>
+    </div>
+  );
+}
+
+function FileGridCard({
+  entry,
+  dealId,
+  isSelected,
+  onToggle,
+  onView,
+}: {
+  entry: DealEntry;
+  dealId: string;
+  isSelected: boolean;
+  onToggle: () => void;
+  onView: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onToggle}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onToggle();
+        }
+      }}
+      className={cn(
+        "group relative flex cursor-pointer flex-col overflow-hidden rounded-lg border bg-card text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        isSelected
+          ? "border-primary ring-1 ring-primary"
+          : "border-border hover:border-primary/40 hover:bg-accent/40",
+      )}
+    >
+      <div className="relative flex h-40 items-center justify-center overflow-hidden rounded-t-lg bg-muted/40 p-2">
+        <FilePreview dealId={dealId} file={entry} variant="thumb" />
+
+        <span
+          className={cn(
+            "absolute right-2 top-2 flex size-5 items-center justify-center rounded-full border transition-colors",
+            isSelected
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-background/80",
+          )}
+        >
+          {isSelected ? <Check className="size-3" /> : null}
+        </span>
+
+        <div className="absolute inset-x-2 bottom-2 flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onView();
+            }}
+            className="flex size-8 items-center justify-center rounded-md border border-border bg-background/90 text-muted-foreground shadow-sm backdrop-blur transition-colors hover:text-foreground"
+            aria-label={`View ${entry.name}`}
+          >
+            <Eye className="size-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="min-w-0 border-t border-border px-3 py-2.5">
+        <p className="truncate text-sm font-medium text-foreground">
+          {entry.name}
+        </p>
+        <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+          {formatFileSize(entry.size)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function FolderRow({
+  entry,
+  isSelected,
+  onToggle,
+  onOpen,
+}: {
+  entry: DealEntry;
+  isSelected: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+}) {
+  return (
+    <TableRow
+      onClick={onToggle}
+      onDoubleClick={onOpen}
+      className={cn(
+        "cursor-pointer transition-colors hover:bg-muted/40",
+        isSelected && "bg-primary/5",
+      )}
+    >
+      <TableCell>
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={onToggle}
+          aria-label={`Select ${entry.name}`}
+        />
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <FolderIcon className="size-4" />
+          </span>
+          <span className="truncate text-sm font-medium text-foreground">
+            {entry.name}
+          </span>
+        </div>
+      </TableCell>
+      <TableCell className="text-right text-sm text-muted-foreground">
+        —
+      </TableCell>
+      <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+        {formatFileDate(entry.lastModified)}
+      </TableCell>
+      <TableCell className="text-right">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen();
+          }}
+          aria-label={`Open ${entry.name}`}
+        >
+          <FolderOpen className="size-4" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function FileRow({
+  entry,
+  dealId,
+  isSelected,
+  onToggle,
+  onView,
+  onDownload,
+}: {
+  entry: DealEntry;
+  dealId: string;
+  isSelected: boolean;
+  onToggle: () => void;
+  onView: () => void;
+  onDownload: () => void;
+}) {
+  return (
+    <TableRow
+      onClick={onToggle}
+      className={cn(
+        "cursor-pointer transition-colors hover:bg-muted/40",
+        isSelected && "bg-primary/5",
+      )}
+    >
+      <TableCell>
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={onToggle}
+          aria-label={`Select ${entry.name}`}
+        />
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-3">
+          <FileTypeTile mimeType={entry.mimeType} />
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate text-sm font-medium text-foreground">
+              {entry.name}
+            </span>
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {entry.mimeType}
+            </span>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="text-right font-mono text-sm tabular-nums">
+        {formatFileSize(entry.size)}
+      </TableCell>
+      <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+        {formatFileDate(entry.lastModified)}
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={(e) => {
+              e.stopPropagation();
+              onView();
+            }}
+            aria-label={`View ${entry.name}`}
+          >
+            <Eye className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDownload();
+            }}
+            aria-label={`Download ${entry.name}`}
+          >
+            <Download className="size-4" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }

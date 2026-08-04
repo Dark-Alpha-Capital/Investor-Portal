@@ -1,4 +1,4 @@
-import type { ChatbotUIMessage } from "@repo/ai-core";
+import type { ChatbotUIMessage } from "@/lib/chat/message-types";
 
 /**
  * OpenAI Responses item IDs in persisted parts force item_reference replay on

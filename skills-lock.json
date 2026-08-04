@@ -31,6 +31,24 @@
       "skillPath": "skills/devtools/SKILL.md",
       "computedHash": "6fcfb1f4db31e1299ca64f2fbddc54d02c14968c6a9fa5b15b864dd0da09f7d0"
     },
+    "grill-me": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/grill-me/SKILL.md",
+      "computedHash": "f361db4e15e6bfd562a9282b1dccda513910a50061f9e838ce017be9c69dde3f"
+    },
+    "grill-with-docs": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/grill-with-docs/SKILL.md",
+      "computedHash": "9c460cbd94fd3c63cdef967dbdb6e66ca687103cdc380cd37834e4d10b738f78"
+    },
+    "improve-codebase-architecture": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
+      "computedHash": "66e8a50c83c3c724fcfe0769701b665c56cec220cc4f49cc1aee8bdfc07de94a"
+    },
     "mcp": {
       "source": "vercel-labs/json-render",
       "sourceType": "github",

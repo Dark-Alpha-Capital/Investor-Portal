@@ -34,7 +34,10 @@ export type AuditAction =
   | "session_expired"
   | "knowledge_request_created"
   | "knowledge_request_answered"
-  | "knowledge_request_closed";
+  | "knowledge_request_closed"
+  | "deal_deleted"
+  | "deal_restored"
+  | "deal_purged";
 
 // Target types for audit logs
 export type AuditTargetType =

@@ -4,6 +4,7 @@ import {
   ensureDirectory,
   uploadBuffer,
   sanitizeUploadFileName,
+  investorKycFolderPath,
 } from "@repo/nextcloud";
 
 export type OnboardingKycFileInput = {
@@ -17,6 +18,7 @@ export type OnboardingKycFileInput = {
 export type OnboardingKycUploadData = {
   onboardingId: string;
   investorId: string;
+  investorName?: string;
   files: OnboardingKycFileInput[];
 };
 
@@ -32,7 +34,7 @@ export async function runOnboardingKycUpload(
     filePath: string;
   }>;
 }> {
-  const { onboardingId, investorId, files } = data;
+  const { onboardingId, investorId, investorName, files } = data;
 
   if (!onboardingId || !investorId || !files?.length) {
     throw new Error(
@@ -41,7 +43,7 @@ export async function runOnboardingKycUpload(
   }
 
   const client = createNextcloudClientFromEnv();
-  const folderPath = `/investors/${investorId}/onboarding/kyc-files`;
+  const folderPath = investorKycFolderPath(investorName || investorId);
   await ensureDirectory(client, folderPath);
 
   const uploadedFiles: Array<{

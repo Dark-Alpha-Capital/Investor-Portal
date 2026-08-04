@@ -3,35 +3,16 @@ import { db } from "@repo/db";
 import { onboardingDocument, onboarding } from "@repo/db/schema";
 import { createNextcloudClientFromEnv, fileExists } from "@repo/nextcloud";
 import { eq } from "drizzle-orm";
-import { authSession } from "@/lib/auth/session-from-request";
+import { requireAdminApiSession } from "@/lib/auth/require-admin-api";
 
 export const Route = createFileRoute("/api/documents/access")({
   server: {
     handlers: {
       GET: async ({ request }) => {
         try {
-          const session = await authSession();
-
-          if (!session?.user) {
-            return Response.json(
-              {
-                success: false,
-                error: "Unauthorized",
-                message: "You must be logged in to access documents",
-              },
-              { status: 401 },
-            );
-          }
-
-          if (session.user.role !== "admin") {
-            return Response.json(
-              {
-                success: false,
-                error: "Forbidden",
-                message: "Only administrators can access KYC documents",
-              },
-              { status: 403 },
-            );
+          const guarded = await requireAdminApiSession();
+          if (!guarded.ok) {
+            return guarded.response;
           }
 
           const searchParams = new URL(request.url).searchParams;

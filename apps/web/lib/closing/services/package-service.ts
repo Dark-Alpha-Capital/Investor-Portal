@@ -13,9 +13,9 @@ import {
 } from "@repo/db/schema";
 import {
   createNextcloudClientFromEnv,
+  dealFolderPath,
   ensureDirectory,
   uploadBuffer,
-  sanitizeDealFolderSegment,
 } from "@repo/nextcloud";
 import { renderTemplate } from "../templates/engine";
 import { renderPdfFromHtml } from "../templates/pdf";
@@ -31,8 +31,8 @@ import {
 type Db = DrizzleD1Database<Record<string, unknown>>;
 
 function subscriptionFolderPath(dealSlug: string | null, dealId: string, investmentId: string) {
-  const segment = sanitizeDealFolderSegment(dealSlug || dealId);
-  return `/Deals/Deal_${segment}/subscriptions/${investmentId}`;
+  const segment = dealFolderPath(dealSlug || dealId);
+  return `${segment}/subscriptions/${investmentId}`;
 }
 
 async function loadGenerationContext(db: Db, investmentId: string) {

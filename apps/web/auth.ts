@@ -7,8 +7,7 @@ import { eq } from "drizzle-orm";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { createAuthMiddleware } from "better-auth/api";
 import { admin, customSession } from "better-auth/plugins";
-import { waitUntil } from "cloudflare:workers";
-import { sendEmailDirect } from "@repo/mail";
+import { enqueueEmail } from "@/lib/queues/enqueue";
 import {
   user as usersTable,
   account as accountsTable,
@@ -23,9 +22,21 @@ async function sendAuthEmail(
   html: string,
 ): Promise<void> {
   try {
-    await sendEmailDirect(to, subject, html);
+    await enqueueEmail(db, [
+      {
+        jobName: "auth-email",
+        jobId: `auth-${kind}-${Date.now()}-${to.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
+        dedupeKey: `auth:${kind}:${to}`,
+        data: {
+          type: "auth-email" as const,
+          to,
+          subject,
+          html,
+        },
+      },
+    ]);
   } catch (error) {
-    console.error(`[auth] Failed to send ${kind} email to ${to}:`, error);
+    console.error(`[auth] Failed to enqueue ${kind} email to ${to}:`, error);
     throw error;
   }
 }
@@ -63,13 +74,9 @@ export const auth = betterAuth({
     "http://localhost:3000",
   ],
   // Keep email sends alive on Cloudflare Workers after the auth response.
-  // advanced: {
-  //   backgroundTasks: {
-  //     handler: (promise) => {
-  //       waitUntil(promise);
-  //     },
-  //   },
-  // },
+  // NOTE: this better-auth version has no `advanced.backgroundTasks` option;
+  // auth emails are enqueued through the outbox, whose dispatch is awaited
+  // inline so the queue publish survives the auth response.
   database: drizzleAdapter(db, {
     provider: "sqlite",
     schema: {

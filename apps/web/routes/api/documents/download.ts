@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { db } from "@repo/db";
 import { onboardingDocument, onboarding } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
-import { authSession } from "@/lib/auth/session-from-request";
+import { requireAdminApiSession } from "@/lib/auth/require-admin-api";
 import {
   createNextcloudClientFromEnv,
   fileExists,
@@ -14,28 +14,9 @@ export const Route = createFileRoute("/api/documents/download")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const session = await authSession();
-
-          if (!session?.user) {
-            return Response.json(
-              {
-                success: false,
-                error: "Unauthorized",
-                message: "You must be logged in to download documents",
-              },
-              { status: 401 },
-            );
-          }
-
-          if (session.user.role !== "admin") {
-            return Response.json(
-              {
-                success: false,
-                error: "Forbidden",
-                message: "Only administrators can download KYC documents",
-              },
-              { status: 403 },
-            );
+          const guarded = await requireAdminApiSession();
+          if (!guarded.ok) {
+            return guarded.response;
           }
 
           const searchParams = new URL(request.url).searchParams;

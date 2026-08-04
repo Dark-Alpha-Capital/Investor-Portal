@@ -15,7 +15,7 @@ export function createDealKnowledgeTools(options: {
   userId: string;
   dealId: string | null;
   isAdmin: boolean;
-}): ToolSet {
+}) {
   const { userId, dealId, isAdmin } = options;
 
   async function ensureDealAccess(targetDealId: string) {

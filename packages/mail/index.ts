@@ -80,6 +80,10 @@ export const renderEmailTemplate = async (
   jobData: EmailJobData
 ): Promise<{ subject: string; html: string }> => {
   switch (jobData.type) {
+    case "auth-email": {
+      return { subject: jobData.subject, html: jobData.html };
+    }
+
     case "onboarding-investor-confirmation": {
       const subject = "Onboarding Submission Received - Dark Alpha Capital";
       const html = await render(

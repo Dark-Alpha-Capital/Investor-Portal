@@ -27,13 +27,19 @@ import {
   sql,
   ilike,
   inArray,
+  notInArray,
+  isNotNull,
   count,
 } from "drizzle-orm";
 import {
   MARKETPLACE_VISIBLE_STATUSES,
   isAccessibleDealDetail,
-  isOpenForCommitments,
 } from "./deal-marketplace";
+import {
+  getDealCapabilities,
+  type DealAccessLevel,
+  type DealLifecycleStatus,
+} from "./deal-policy";
 import { isActiveCommitmentStatus } from "./investment-closing";
 
 /**
@@ -49,17 +55,26 @@ export const getAdminDeals = async ({
   limit,
   search,
   status,
+  deleted,
 }: {
   page: number;
   limit: number;
   search?: string;
   status?: string;
+  /** undefined → active deals only; "only" → soft-deleted only; "all" → both. */
+  deleted?: "only" | "all";
 }) => {
   try {
     const offset = (page - 1) * limit;
 
     // Build conditions
     const conditions: ReturnType<typeof eq>[] = [];
+
+    if (deleted === "only") {
+      conditions.push(isNotNull(deal.deletedAt));
+    } else if (deleted !== "all") {
+      conditions.push(isNull(deal.deletedAt));
+    }
 
     // Add search filter (SQLite/D1: no ILIKE — use lower() + LIKE)
     if (search && search.trim()) {
@@ -394,7 +409,7 @@ export const getDealByIdForEdit = async (dealId: string) => {
   try {
     const dealRecord = await getDealById(dealId);
 
-    if (!dealRecord) {
+    if (!dealRecord || dealRecord.deletedAt) {
       return {
         success: false as const,
         deal: null,
@@ -910,6 +925,158 @@ export const getPortfolioData = async (userId: string) => {
 };
 
 /**
+ * Get a user's investments joined with deal context ("My Investments").
+ *
+ * Paginated and filterable (deal-name search + investment status). The default
+ * view is the investor's current (non-archived) commitments; passing an
+ * explicit status (including archived ones like `cancelled`) overrides that.
+ * Summary metrics are computed over current investments only.
+ */
+export const getMyInvestments = async ({
+  userId,
+  page,
+  limit,
+  search,
+  status,
+}: {
+  userId: string;
+  page: number;
+  limit: number;
+  search?: string;
+  status?: string;
+}) => {
+  const archivedStatuses = ["cancelled", "expired", "rejected"];
+
+  try {
+    const conditions = [eq(investment.userId, userId)];
+
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      conditions.push(ilike(deal.name, searchTerm));
+    }
+
+    if (status && status !== "all") {
+      conditions.push(eq(investment.status, status));
+    } else {
+      conditions.push(notInArray(investment.status, archivedStatuses));
+    }
+
+    const whereCondition = and(...conditions);
+    const offset = (page - 1) * limit;
+
+    const [countResult, rows, summaryRows] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(investment)
+        .innerJoin(deal, eq(investment.dealId, deal.id))
+        .where(whereCondition)
+        .then(([row]) => row),
+      db
+        .select({
+          id: investment.id,
+          dealId: investment.dealId,
+          dealName: deal.name,
+          dealStatus: deal.status,
+          sector: deal.sector,
+          geography: deal.geography,
+          dealType: deal.dealType,
+          targetIrr: deal.targetIrr,
+          targetMoic: deal.targetMoic,
+          committedAmount: investment.committedAmount,
+          fundedAmount: investment.fundedAmount,
+          currentValue: investment.currentValue,
+          distributions: investment.distributions,
+          status: investment.status,
+          ownershipPercentage: investment.ownershipPercentage,
+          committedDate: investment.committedDate,
+        })
+        .from(investment)
+        .innerJoin(deal, eq(investment.dealId, deal.id))
+        .where(whereCondition)
+        .orderBy(desc(investment.committedDate))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({
+          capitalCommitted: sql<number>`coalesce(sum(${investment.committedAmount}), 0)`,
+          capitalDeployed: sql<number>`coalesce(sum(${investment.fundedAmount}), 0)`,
+          currentValue: sql<number>`coalesce(sum(${investment.currentValue}), 0)`,
+          distributions: sql<number>`coalesce(sum(${investment.distributions}), 0)`,
+          totalInvestments: sql<number>`count(*)`,
+        })
+        .from(investment)
+        .where(
+          and(
+            eq(investment.userId, userId),
+            notInArray(investment.status, archivedStatuses)
+          )
+        ),
+    ]);
+
+    const totalCount = countResult?.count ?? 0;
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return {
+      success: true as const,
+      investments: rows.map((inv) => ({
+        id: inv.id,
+        dealId: inv.dealId,
+        dealName: inv.dealName,
+        dealStatus: inv.dealStatus,
+        sector: inv.sector,
+        geography: inv.geography,
+        dealType: inv.dealType,
+        targetIrr: inv.targetIrr?.toString() ?? null,
+        targetMoic: inv.targetMoic?.toString() ?? null,
+        committedAmount: inv.committedAmount.toString(),
+        fundedAmount: inv.fundedAmount?.toString() ?? "0",
+        currentValue: inv.currentValue?.toString() ?? null,
+        distributions: inv.distributions?.toString() ?? "0",
+        status: inv.status,
+        ownershipPercentage: inv.ownershipPercentage?.toString() ?? null,
+        committedDate: inv.committedDate.toISOString(),
+      })),
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+      summary: summaryRows[0] ?? {
+        capitalCommitted: 0,
+        capitalDeployed: 0,
+        currentValue: 0,
+        distributions: 0,
+        totalInvestments: 0,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching my investments:", error);
+    return {
+      success: false as const,
+      investments: [],
+      pagination: {
+        page,
+        limit,
+        totalCount: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPrevPage: false,
+      },
+      summary: {
+        capitalCommitted: 0,
+        capitalDeployed: 0,
+        currentValue: 0,
+        distributions: 0,
+        totalInvestments: 0,
+      },
+    };
+  }
+};
+
+/**
  * Get clearance data for a user
  * @param userId The user ID
  * @returns Clearance data or null if not found
@@ -1015,8 +1182,11 @@ export const getMarketplaceDeals = async ({
 
     // Investors: marketed deals only. Admins: any non-draft.
     const baseConditions = isAdmin
-      ? [ne(deal.status, "draft")]
-      : [inArray(deal.status, [...MARKETPLACE_VISIBLE_STATUSES])];
+      ? [ne(deal.status, "draft"), isNull(deal.deletedAt)]
+      : [
+          inArray(deal.status, [...MARKETPLACE_VISIBLE_STATUSES]),
+          isNull(deal.deletedAt),
+        ];
 
     if (search && search.trim()) {
       const searchTerm = `%${search.trim()}%`;
@@ -1110,10 +1280,11 @@ export const getMarketplaceDeals = async ({
     }
 
     const filterScopeWhere = isAdmin
-      ? ne(deal.status, "draft")
+      ? and(ne(deal.status, "draft"), isNull(deal.deletedAt))
       : and(
           inArray(deal.status, [...MARKETPLACE_VISIBLE_STATUSES]),
           inArray(deal.id, invitedDealIds),
+          isNull(deal.deletedAt),
         );
 
     const [countResult, deals, filterRows] = await Promise.all([
@@ -1219,7 +1390,7 @@ export const getAllActiveDealsBasic = async () => {
         createdAt: deal.createdAt,
       })
       .from(deal)
-      .where(ne(deal.status, "draft"))
+      .where(and(ne(deal.status, "draft"), isNull(deal.deletedAt)))
       .orderBy(desc(deal.createdAt));
 
     return records;
@@ -1267,6 +1438,72 @@ export const getDealForView = async ({
       };
     }
 
+    // Soft-deleted deals are hidden from new interactions. Investors who were
+    // already engaged (invited / interested / committed) get a "deleted" state
+    // instead of a 404; everyone else must not learn the deal existed.
+    if (dealRecord.deletedAt && !isAdmin) {
+      const [hasInvitation, hasInterest, hasInvestment] = await Promise.all([
+        db
+          .select({ id: vehiclePermission.id })
+          .from(vehiclePermission)
+          .where(
+            and(
+              eq(vehiclePermission.userId, userId),
+              eq(vehiclePermission.dealId, dealRecord.id),
+              isNull(vehiclePermission.revokedAt),
+            )
+          )
+          .limit(1)
+          .then((rows) => rows.length > 0),
+        db
+          .select({ id: dealInterest.id })
+          .from(dealInterest)
+          .where(
+            and(
+              eq(dealInterest.dealId, dealRecord.id),
+              eq(dealInterest.userId, userId),
+            )
+          )
+          .limit(1)
+          .then((rows) => rows.length > 0),
+        db
+          .select({ id: investment.id })
+          .from(investment)
+          .where(
+            and(
+              eq(investment.dealId, dealRecord.id),
+              eq(investment.userId, userId),
+            )
+          )
+          .limit(1)
+          .then((rows) => rows.length > 0),
+      ]);
+
+      if (hasInvitation || hasInterest || hasInvestment) {
+        return {
+          success: false as const,
+          error: "DELETED" as const,
+          deal: null,
+          permissions: null,
+          clearanceStatus: null,
+          userInterest: null,
+          userInvestment: null,
+          curationNote: null,
+        };
+      }
+
+      return {
+        success: false as const,
+        error: "NOT_FOUND" as const,
+        deal: null,
+        permissions: null,
+        clearanceStatus: null,
+        userInterest: null,
+        userInvestment: null,
+        curationNote: null,
+      };
+    }
+
     // Deal lifecycle gate (orthogonal to invitation). Admins bypass.
     if (!isAdmin && !isAccessibleDealDetail(dealRecord)) {
       return {
@@ -1283,20 +1520,14 @@ export const getDealForView = async ({
 
     const actualDealId = dealRecord.id;
 
-    // Check access based on deal invitation (admins bypass)
-    // canInvest also requires deal lifecycle open for commitments (live).
-    const dealOpenForCommitments = isOpenForCommitments(dealRecord);
-    // Admins may preview the investor deal page; they cannot act as LPs.
+    // Deal access is invitation-based (admins bypass); capability derivation
+    // (teaser/docs/interest/invest + lifecycle gate) lives in deal-policy.
     let permissions = {
-      canViewTeaser: isAdmin,
-      canViewDocuments: isAdmin,
-      canExpressInterest: false,
-      canInvest: false,
-      isAdminPreview: isAdmin,
-      accessLevel: (isAdmin ? "data_room" : null) as
-        | "teaser"
-        | "data_room"
-        | null,
+      ...getDealCapabilities({
+        isAdmin,
+        accessLevel: isAdmin ? "data_room" : null,
+        dealStatus: dealRecord.status as DealLifecycleStatus,
+      }),
       dataRoomRequestedAt: null as string | null,
     };
     let clearanceStatus: string | null = null;
@@ -1358,14 +1589,12 @@ export const getDealForView = async ({
         };
       }
 
-      const isDataRoom = invitationResult.accessLevel === "data_room";
       permissions = {
-        canViewTeaser: true,
-        canViewDocuments: isDataRoom,
-        canExpressInterest: isDataRoom,
-        canInvest: isDataRoom && dealOpenForCommitments,
-        isAdminPreview: false,
-        accessLevel: invitationResult.accessLevel as "teaser" | "data_room",
+        ...getDealCapabilities({
+          isAdmin: false,
+          accessLevel: invitationResult.accessLevel as DealAccessLevel,
+          dealStatus: dealRecord.status as DealLifecycleStatus,
+        }),
         dataRoomRequestedAt:
           invitationResult.dataRoomRequestedAt?.toISOString() ?? null,
       };

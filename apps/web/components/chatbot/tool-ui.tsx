@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChatbotUIMessage } from "@repo/ai-core";
+import type { ChatbotUIMessage } from "@/lib/chat/message-types";
 import type { DynamicToolUIPart, ToolUIPart } from "ai";
 import { useEffect, type ReactNode } from "react";
 import {

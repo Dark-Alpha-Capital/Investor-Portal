@@ -685,6 +685,9 @@ export const audit_action_enum = pgEnum("audit_action", [
   "knowledge_request_created",
   "knowledge_request_answered",
   "knowledge_request_closed",
+  "deal_deleted",
+  "deal_restored",
+  "deal_purged",
 ]);
 
 export const knowledge_request_status_enum = pgEnum("knowledge_request_status", [
@@ -728,13 +731,20 @@ export const deal = pgTable("deal", {
   // State — marketplace access is invite + status (see deal-marketplace.ts)
   status: deal_status_enum("status").default("draft").notNull(),
 
+  // Soft delete — records are preserved for audit/restore; only purge removes data.
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: text("deleted_by").references(() => user.id, { onDelete: "set null" }),
+  deletedReason: text("deleted_reason"),
+
   launchDate: timestamp("launch_date"),
   closeDate: timestamp("close_date"),
   createdAt: timestamp("created_at").default(sql`(unixepoch() * 1000)`).notNull(),
   updatedAt: timestamp("updated_at")
     .default(sql`(unixepoch() * 1000)`)
     .$onUpdate(() => new Date()),
-});
+}, (table) => [
+  index("deal_deleted_at_idx").on(table.deletedAt),
+]);
 
 export const dealInvite = pgTable(
   "deal_invite",

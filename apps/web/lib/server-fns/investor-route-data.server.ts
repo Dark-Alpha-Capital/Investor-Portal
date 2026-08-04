@@ -160,6 +160,12 @@ export async function runFetchDealDetailRouteData(
     if (result.error === "NOT_FOUND") {
       return { tag: "not_found" };
     }
+    if (result.error === "DELETED") {
+      return {
+        tag: "ok",
+        data: { dealId, kind: "deleted" },
+      };
+    }
     if (result.error === "FORBIDDEN") {
       return {
         tag: "ok",

@@ -147,7 +147,8 @@ Verifies `X-OpenSign-Signature` = `HMAC-SHA256(body, OPEN_SIGN_WEBHOOK_SECRET)`,
 
 Completion auto-advance to `awaiting_funds` + email #2 happens from the webhook path
 (`applyOpenSignEvent` → `checkCompletionAndAdvanceToAwaitingFunds`). A best-effort
-fallback reconcile (`syncSignatureStatuses`) polls `getdocument`/`getsigners` on package load.
+fallback reconcile (`syncSignatureStatuses`) polls `getsignedurl` (returns the executed
+PDF URL once fully signed) on package load — this OpenSign build has no `getdocument`.
 
 ### Env
 

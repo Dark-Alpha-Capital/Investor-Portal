@@ -25,9 +25,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { InitialsTile } from "@/components/initials-tile";
 import { toast } from "sonner";
-import { DollarSign, TrendingUp } from "lucide-react";
+import { DollarSign, TrendingUp, PiggyBank } from "lucide-react";
 import { AppLink as Link } from "@/components/app-link";
 import { useTRPC } from "@/trpc/client";
 import { useMutation } from "@tanstack/react-query";
@@ -191,40 +191,40 @@ export function InvestmentManagement({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-6 border-y border-border py-5 md:grid-cols-3">
-        <div className="space-y-2">
-          <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <DollarSign className="h-4 w-4" />
-            Active Committed
+      <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
+        <div className="bg-card px-5 py-4">
+          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <DollarSign className="size-3.5" />
+            Active committed
           </p>
-          <p className="text-2xl font-bold">
+          <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-foreground">
             {formatCurrency(totalCommitted.toString())}
           </p>
         </div>
-        <div className="space-y-2">
-          <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <DollarSign className="h-4 w-4" />
-            Total Funded
+        <div className="bg-card px-5 py-4">
+          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <DollarSign className="size-3.5" />
+            Total funded
           </p>
-          <p className="text-2xl font-bold">
+          <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-foreground">
             {formatCurrency(totalFunded.toString())}
           </p>
         </div>
-        <div className="space-y-2">
-          <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <TrendingUp className="h-4 w-4" />
-            Current Value (NAV)
+        <div className="bg-card px-5 py-4">
+          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <TrendingUp className="size-3.5" />
+            Current value (NAV)
           </p>
-          <p className="text-2xl font-bold">
+          <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-primary">
             {formatCurrency(totalCurrentValue.toString())}
           </p>
         </div>
       </div>
 
-      <section className="flex flex-col gap-5 border-y border-border py-5">
+      <section className="space-y-4">
         <header className="space-y-1.5">
-          <h2 className="text-base font-semibold leading-none">
-            Capital Commitments
+          <h2 className="text-base font-semibold tracking-tight">
+            Capital commitments
           </h2>
           <p className="text-sm text-muted-foreground">
             Investors commit from the deal page. Use Closing for documents and
@@ -232,24 +232,47 @@ export function InvestmentManagement({
           </p>
         </header>
 
-        <div className="overflow-hidden rounded-lg border">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
           {investments.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground">
-              No commitments yet. Investors commit from the deal Actions tab.
+            <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+              <span className="flex size-12 items-center justify-center rounded-full border border-border bg-muted/60 text-muted-foreground">
+                <PiggyBank className="h-5 w-5" />
+              </span>
+              <p className="text-sm text-muted-foreground">
+                No commitments yet. Investors commit from the deal page.
+              </p>
             </div>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Investor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Committed</TableHead>
-                  <TableHead>Funded</TableHead>
-                  <TableHead>Current Value</TableHead>
-                  <TableHead>Distributions</TableHead>
-                  <TableHead>Ownership</TableHead>
-                  <TableHead>Committed Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                <TableRow className="bg-muted/40">
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Investor
+                  </TableHead>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Status
+                  </TableHead>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Committed
+                  </TableHead>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Funded
+                  </TableHead>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Current value
+                  </TableHead>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Distributions
+                  </TableHead>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Ownership
+                  </TableHead>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Committed date
+                  </TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -260,18 +283,13 @@ export function InvestmentManagement({
                     isArchivedCommitmentStatus(inv.status);
 
                   return (
-                    <TableRow key={inv.id}>
+                    <TableRow key={inv.id} className="transition-colors hover:bg-muted/40">
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarImage src={inv.user.image || undefined} />
-                            <AvatarFallback>
-                              {inv.user.name.charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
+                          <InitialsTile name={inv.user.name} />
                           <Link
                             href={`/admin/compliance/investors/${inv.user.id}`}
-                            className="font-medium hover:underline"
+                            className="font-medium hover:text-primary hover:underline"
                           >
                             {inv.user.name}
                           </Link>
@@ -280,20 +298,24 @@ export function InvestmentManagement({
                       <TableCell>
                         <InvestmentStatusChip status={inv.status} />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="font-mono text-sm tabular-nums">
                         {formatCurrency(inv.committedAmount)}
                       </TableCell>
-                      <TableCell>{formatCurrency(inv.fundedAmount)}</TableCell>
-                      <TableCell>
+                      <TableCell className="font-mono text-sm tabular-nums">
+                        {formatCurrency(inv.fundedAmount)}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm tabular-nums">
                         {formatCurrency(inv.currentValue)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="font-mono text-sm tabular-nums">
                         {formatCurrency(inv.distributions)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="font-mono text-sm tabular-nums">
                         {formatPercentage(inv.ownershipPercentage)}
                       </TableCell>
-                      <TableCell>{formatDate(inv.committedDate)}</TableCell>
+                      <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                        {formatDate(inv.committedDate)}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Button

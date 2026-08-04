@@ -5,7 +5,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Loader2, Plus, Search, X } from "lucide-react";
+import { Archive, Loader2, Plus, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { Button } from "@/components/ui/button";
@@ -122,7 +122,8 @@ function AdminDealsRoutePage() {
   const { data, isLoading, isFetching }: UseQueryResult<DealsIndexData> =
     useQuery(dealsIndexQueryOptions(search));
 
-  const viewMode = search.view ?? "kanban";
+  const viewMode =
+    search.deleted === "only" ? "table" : (search.view ?? "kanban");
   const status = search.status ?? "all";
 
   const kanbanFilters = {
@@ -201,6 +202,34 @@ function AdminDealsRoutePage() {
                 ))}
               </SelectContent>
             </Select>
+
+            <Button
+              variant={search.deleted === "only" ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => {
+                if (search.deleted === "only") {
+                  void navigate({
+                    search: (current) => ({
+                      ...current,
+                      deleted: undefined,
+                      page: 1,
+                    }),
+                  });
+                } else {
+                  void navigate({
+                    search: (current) => ({
+                      ...current,
+                      deleted: "only",
+                      view: "table",
+                      page: 1,
+                    }),
+                  });
+                }
+              }}
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              {search.deleted === "only" ? "Show Active" : "Show Deleted"}
+            </Button>
 
             {isFetching ? (
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

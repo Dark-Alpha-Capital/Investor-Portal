@@ -5,9 +5,9 @@ import {
   CHAT_MODELS,
   DEFAULT_CHAT_MODEL_ID,
   isChatModelId,
-  type ChatbotUIMessage,
   type ChatModelId,
 } from "@repo/ai-core";
+import type { ChatbotUIMessage } from "@/lib/chat/message-types";
 import { DefaultChatTransport } from "ai";
 import { BriefcaseBusiness, MessageSquare } from "lucide-react";
 import { useEffect, useRef, useState } from "react";

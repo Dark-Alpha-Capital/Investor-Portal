@@ -10,6 +10,7 @@ export const dealsIndexSearchSchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   search: z.string().optional(),
   status: z.string().optional(),
+  deleted: z.enum(["only", "all"]).optional(),
 });
 
 export type DealsIndexSearch = z.infer<typeof dealsIndexSearchSchema>;
@@ -51,8 +52,11 @@ export const loadDealsIndex = createServerFn({ method: "GET" })
     const currentPage = deps.page ?? 1;
     const isKanbanView = (deps.view ?? "kanban") !== "table";
     const statusFilter = normalizeStatusFilter(deps.status);
+    const deletedFilter = deps.deleted;
 
-    const hasFilters = Boolean(deps.search?.trim() || statusFilter?.length);
+    const hasFilters = Boolean(
+      deps.search?.trim() || statusFilter?.length || deletedFilter,
+    );
 
     if (isKanbanView) {
       const totalCount = await getDealKanbanFilteredTotalCount({
@@ -77,6 +81,7 @@ export const loadDealsIndex = createServerFn({ method: "GET" })
       limit,
       search: deps.search,
       status: statusFilter?.[0],
+      deleted: deletedFilter,
     });
 
     const totalCount = result.pagination.totalCount;

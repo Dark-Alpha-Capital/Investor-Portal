@@ -6,7 +6,6 @@ import {
   deal,
   investment,
   investmentClosingEvent,
-  sideEffectOutbox,
   signatureRequest,
   subscriptionDocument,
   subscriptionPackage,
@@ -17,7 +16,7 @@ import {
   type ClosingEventType,
 } from "@repo/db/investment-closing";
 import type { EmailJobData, EmailJobType } from "@repo/mail";
-import { dispatchPendingOutbox } from "@/lib/queues/outbox";
+import { enqueueEmail } from "@/lib/queues/enqueue";
 
 type Db = DrizzleD1Database<Record<string, unknown>>;
 
@@ -172,18 +171,14 @@ async function enqueueClosingEmail(
   } as EmailJobData;
 
   const jobId = `${jobType}-${payload.investmentId}`;
-  await db.insert(sideEffectOutbox).values({
-    id: randomUUID(),
-    topic: "queue",
-    dedupeKey: `${jobType}:${payload.investmentId}`,
-    payload: {
-      queue: "email" as const,
+  await enqueueEmail(db as unknown as RepoDb, [
+    {
+      dedupeKey: `${jobType}:${payload.investmentId}`,
       jobName: jobType,
       jobId,
       data,
     },
-  });
-  await dispatchPendingOutbox(db as unknown as RepoDb);
+  ]);
 }
 
 export function createClosingNotificationPort(db: Db): ClosingNotificationPort {

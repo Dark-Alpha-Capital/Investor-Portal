@@ -31,6 +31,7 @@ import { DealHeader } from "./components/deal-header";
 import { UserStatusCard } from "./components/user-status-card";
 import { DealActions } from "./components/deal-actions";
 import { DealAccessDenied } from "./components/deal-access-denied";
+import { DealNoLongerAvailable } from "./components/deal-no-longer-available";
 import { DealExecutiveSummary } from "./components/deal-executive-summary";
 import { DealThesisRisks } from "./components/deal-thesis-risks";
 import { DealCapitalStructure } from "./components/deal-capital-structure";
@@ -200,7 +201,9 @@ function DealDetailContent({ data }: { data: DealDetailLoaderData }) {
           ) : null}
         </div>
 
-        {data.kind === "forbidden" ? (
+        {data.kind === "deleted" ? (
+          <DealNoLongerAvailable />
+        ) : data.kind === "forbidden" ? (
           <DealAccessDenied
             clearanceStatus={data.clearanceStatus}
             reason={forbiddenReason(data.clearanceStatus)}

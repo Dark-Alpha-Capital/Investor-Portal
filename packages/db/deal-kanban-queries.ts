@@ -5,6 +5,7 @@ import {
   desc,
   eq,
   inArray,
+  isNull,
   or,
   sql,
   type SQL,
@@ -98,6 +99,7 @@ export async function getDealKanbanColumnPage(
   try {
     const baseConditions: SQL[] = [
       eq(deal.status, columnStatus),
+      isNull(deal.deletedAt),
       ...buildSharedConditions(filters),
     ];
 
@@ -166,6 +168,8 @@ export async function getDealKanbanFilteredTotalCount(
 ): Promise<number> {
   try {
     const conditions = buildSharedConditions(filters);
+
+    conditions.push(isNull(deal.deletedAt));
 
     if (filters.statusFilter?.length) {
       const valid = filters.statusFilter.filter(isDealLifecycleStatus);
