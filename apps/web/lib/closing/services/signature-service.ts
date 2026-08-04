@@ -621,15 +621,17 @@ export async function applyOpenSignEvent(
         },
       });
 
-      // All required signers signed → executed, else signed.
+      // All required signers signed → executed (or signed for non-GP docs).
+      // If only the investor has signed a countersign-required doc → `signed`,
+      // so the admin sees it as ready for the GP countersignature.
       const allSigned = requests.every(
         (r) =>
           r.status === "signed" ||
           matched.some((m) => m.id === r.id),
       );
-      if (allSigned && doc.requiresCountersign) {
+      if (allSigned) {
         await markDocumentExecuted(db, docId, event);
-      } else if (!doc.requiresCountersign) {
+      } else if (doc.requiresCountersign) {
         await db
           .update(subscriptionDocument)
           .set({
@@ -730,6 +732,22 @@ export async function syncSignatureStatuses(
           documentId: externalId,
           signedUrl: state.signedUrl,
         });
+      } else if (state.signedUrl && !state.isCompleted) {
+        // Partially signed — for SendinOrder docs the first signer is the
+        // investor, so apply the investor's `document.signed` (self-heals a
+        // missed webhook so the doc reads `signed`, not stuck at `sent`).
+        const investorReq = docRequests.find(
+          (r) => r.signerRole === "investor",
+        );
+        if (investorReq && investorReq.status !== "signed") {
+          await applyOpenSignEvent(db, {
+            event: "document.signed",
+            documentId: externalId,
+            signerEmail:
+              requestSignerEmail(investorReq) || undefined,
+            signedUrl: state.signedUrl,
+          });
+        }
       }
     } catch (error) {
       console.error(
