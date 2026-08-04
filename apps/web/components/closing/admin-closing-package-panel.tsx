@@ -19,6 +19,7 @@ import {
   InvestmentStatusChip,
 } from "@/components/closing/status-chips";
 import { Textarea } from "@/components/ui/textarea";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 
 type AdminClosingPackagePanelProps = {
@@ -166,9 +167,16 @@ export function AdminClosingPackagePanel({
               })
             }
           >
-            {status === "pending_documents"
-              ? "Generate Documents"
-              : "Regenerate Documents"}
+            {generateMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Generating…
+              </>
+            ) : status === "pending_documents" ? (
+              "Generate Documents"
+            ) : (
+              "Regenerate Documents"
+            )}
           </Button>
         )}
         {status === "documents_generated" && (
@@ -178,7 +186,14 @@ export function AdminClosingPackagePanel({
             disabled={sendMutation.isPending}
             onClick={() => sendMutation.mutate({ investmentId })}
           >
-            Send Subscription Package
+            {sendMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Sending…
+              </>
+            ) : (
+              "Send Subscription Package"
+            )}
           </Button>
         )}
         {status === "awaiting_funds" && (
@@ -192,7 +207,14 @@ export function AdminClosingPackagePanel({
               })
             }
           >
-            Mark Funds Received
+            {fundMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Recording…
+              </>
+            ) : (
+              "Mark Funds Received"
+            )}
           </Button>
         )}
         {status !== "cancelled" &&
