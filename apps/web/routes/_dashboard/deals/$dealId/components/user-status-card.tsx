@@ -1,5 +1,6 @@
 import { CheckCircle2, FileText, DollarSign, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { INVESTMENT_STATUS_LABELS } from "@repo/db/investment-closing";
 
 type UserInterest = {
@@ -73,6 +74,15 @@ const formatPercentage = (value: string | null | undefined): string => {
   return `${num.toFixed(2)}%`;
 };
 
+const stat = (label: string, value: string) => (
+  <div>
+    <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      {label}
+    </dt>
+    <dd className="mt-1 font-semibold tabular-nums">{value}</dd>
+  </div>
+);
+
 export function UserStatusCard({
   userInterest,
   userInvestment,
@@ -81,26 +91,27 @@ export function UserStatusCard({
   const isFunded = userInvestment?.status === "funded";
 
   return (
-    <section>
+    <section className="space-y-4">
       <div>
-        <h3>Your Status</h3>
+        <h2 className="text-lg font-semibold tracking-tight">Your Status</h2>
       </div>
-      <div className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          {permissions.isAdminPreview ? (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200">
-              <Eye className="h-3 w-3" />
-              Admin preview
-            </div>
-          ) : (
+
+      <div className="flex flex-wrap gap-2">
+        {permissions.isAdminPreview ? (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200">
+            <Eye className="h-3 w-3" />
+            Admin preview
+          </div>
+        ) : (
           <div
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+            className={cn(
+              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
               permissions.accessLevel === "data_room"
                 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
                 : permissions.accessLevel === "teaser"
                   ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                  : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-            }`}
+                  : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
+            )}
           >
             <Eye className="h-3 w-3" />
             {permissions.accessLevel === "data_room"
@@ -109,84 +120,70 @@ export function UserStatusCard({
                 ? "Teaser Access"
                 : "No Access"}
           </div>
-          )}
-          {permissions.canViewDocuments && (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-              <FileText className="h-3 w-3" />
-              Documents
-            </div>
-          )}
-          {permissions.canInvest && (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-              <DollarSign className="h-3 w-3" />
-              Can Commit
-            </div>
-          )}
-        </div>
-
-        {userInvestment ? (
-          <div className="p-4 bg-primary/10 rounded-lg">
-            <div className="flex items-center gap-2 mb-3">
-              <CheckCircle2 className="h-5 w-5 text-primary" />
-              <span className="font-semibold">Capital Commitment</span>
-              <Badge variant={isFunded ? "default" : "secondary"}>
-                {investorCommitmentLabel(userInvestment.status)}
-              </Badge>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Committed</p>
-                <p className="font-semibold">
-                  {formatCurrency(userInvestment.committedAmount)}
-                </p>
-              </div>
-              {isFunded ? (
-                <div>
-                  <p className="text-muted-foreground">Funded</p>
-                  <p className="font-semibold">
-                    {formatCurrency(userInvestment.fundedAmount)}
-                  </p>
-                </div>
-              ) : null}
-              <div>
-                <p className="text-muted-foreground">Current Value</p>
-                <p className="font-semibold">
-                  {formatCurrency(userInvestment.currentValue)}
-                </p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Ownership</p>
-                <p className="font-semibold">
-                  {formatPercentage(userInvestment.ownershipPercentage)}
-                </p>
-              </div>
-            </div>
+        )}
+        {permissions.canViewDocuments && (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+            <FileText className="h-3 w-3" />
+            Documents
           </div>
-        ) : null}
-        {userInterest && !userInvestment ? (
-          <div className="p-4 bg-primary/10 rounded-lg border-l-4 border-primary">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
-              <div className="flex-1">
-                <p className="font-semibold text-primary">
-                  {userInterest.status === "pass"
-                    ? "You passed on this deal"
-                    : "Interest sent — our team will follow up."}
-                </p>
-                {userInterest.status !== "pass" ? (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Status:{" "}
-                    {interestStatusLabels[userInterest.status] || "Interested"}
-                    {userInterest.proposedAmount
-                      ? ` · Estimated: ${formatCurrency(userInterest.proposedAmount)}`
-                      : null}
-                  </p>
-                ) : null}
-              </div>
-            </div>
+        )}
+        {permissions.canInvest && (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+            <DollarSign className="h-3 w-3" />
+            Can Commit
           </div>
-        ) : null}
+        )}
       </div>
+
+      {userInvestment ? (
+        <div className="rounded-lg border border-primary/15 bg-primary/[0.04] p-5">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-primary" />
+            <span className="font-semibold">Capital Commitment</span>
+            <Badge variant={isFunded ? "default" : "secondary"}>
+              {investorCommitmentLabel(userInvestment.status)}
+            </Badge>
+          </div>
+          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-5 text-sm md:grid-cols-4">
+            {stat("Committed", formatCurrency(userInvestment.committedAmount))}
+            {isFunded
+              ? stat("Funded", formatCurrency(userInvestment.fundedAmount))
+              : null}
+            {stat(
+              "Current Value",
+              formatCurrency(userInvestment.currentValue),
+            )}
+            {stat(
+              "Ownership",
+              formatPercentage(userInvestment.ownershipPercentage),
+            )}
+          </dl>
+        </div>
+      ) : null}
+
+      {userInterest && !userInvestment ? (
+        <div className="rounded-lg border border-primary/15 bg-primary/[0.04] p-5">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold text-primary">
+                {userInterest.status === "pass"
+                  ? "You passed on this deal"
+                  : "Interest sent — our team will follow up."}
+              </p>
+              {userInterest.status !== "pass" ? (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Status:{" "}
+                  {interestStatusLabels[userInterest.status] || "Interested"}
+                  {userInterest.proposedAmount
+                    ? ` · Estimated: ${formatCurrency(userInterest.proposedAmount)}`
+                    : null}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

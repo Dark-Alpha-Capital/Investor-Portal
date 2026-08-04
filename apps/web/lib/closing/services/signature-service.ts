@@ -492,6 +492,9 @@ async function markDocumentExecuted(
   if (!doc) return;
 
   const now = parseOpenSignTime(event.completedAt ?? event.signedAt);
+  // A document is `executed` only when the GP countersigns (requiresCountersign).
+  // Non-countersign docs reach their terminal state at `signed`.
+  const status = doc.requiresCountersign ? "executed" : "signed";
   const signedPdfPath = doc.signedPdfPath;
   if (!signedPdfPath && event.signedUrl) {
     const path = await rehostSignedPdfToNextcloud(db, {
@@ -504,10 +507,14 @@ async function markDocumentExecuted(
     await db
       .update(subscriptionDocument)
       .set({
-        status: "executed",
+        status,
         signedAt: doc.signedAt ?? now,
-        executedAt: doc.executedAt ?? now,
-        countersignedAt: doc.countersignedAt ?? now,
+        executedAt: doc.requiresCountersign
+          ? doc.executedAt ?? now
+          : doc.executedAt,
+        countersignedAt: doc.requiresCountersign
+          ? doc.countersignedAt ?? now
+          : doc.countersignedAt,
         signedPdfPath: path ?? doc.signedPdfPath,
       })
       .where(eq(subscriptionDocument.id, docId));
@@ -515,10 +522,14 @@ async function markDocumentExecuted(
     await db
       .update(subscriptionDocument)
       .set({
-        status: "executed",
+        status,
         signedAt: doc.signedAt ?? now,
-        executedAt: doc.executedAt ?? now,
-        countersignedAt: doc.countersignedAt ?? now,
+        executedAt: doc.requiresCountersign
+          ? doc.executedAt ?? now
+          : doc.executedAt,
+        countersignedAt: doc.requiresCountersign
+          ? doc.countersignedAt ?? now
+          : doc.countersignedAt,
       })
       .where(eq(subscriptionDocument.id, docId));
   }
@@ -709,10 +720,11 @@ export async function syncSignatureStatuses(
     if (!externalId) continue;
 
     try {
-      // This build has no getdocument; getsignedurl returns the executed PDF
-      // URL once the document is fully signed (webhooks give per-signer events).
+      // getDocument is the status source: SignedUrl appears once the first
+      // signer signs, but a document is only complete when IsCompleted is true
+      // (all required signers have signed).
       const state = await fetchOpenSignDocumentState(externalId);
-      if (state.signedUrl) {
+      if (state.isCompleted && state.signedUrl) {
         await applyOpenSignEvent(db, {
           event: "document.completed",
           documentId: externalId,

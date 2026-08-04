@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
+import { PDFDocument } from "pdf-lib";
 import {
   signatureRequest,
   subscriptionDocument,
@@ -187,24 +188,39 @@ export async function ensureOpenSignContact(
       ...(input.jobTitle ? { jobTitle: input.jobTitle } : {}),
     }),
   });
-  const json = await jsonOrThrow(resp, "savecontact");
-  const code = (json as Record<string, unknown>).code;
+
+  const text = await resp.text();
+  let json: unknown = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  const code = json && typeof json === "object"
+    ? (json as Record<string, unknown>).code
+    : undefined;
 
   if (code === 137) {
-    // Already exists — look it up.
-    const where = encodeURIComponent(JSON.stringify({ Email: input.email }));
-    const listResp = await api(
-      `/classes/contracts_Contactbook?where=${where}&limit=1`,
-    );
-    const list = (await jsonOrThrow(listResp, "contact lookup")) as {
-      results?: Array<{ objectId: string }>;
-    };
-    const objectId = list.results?.[0]?.objectId ?? null;
-    if (!objectId) {
-      throw new Error(`OpenSign contact exists but could not be resolved for ${input.email}`);
+    // Contact already exists — reuse it (getsigners is the search endpoint).
+    const existing = await findOpenSignContactByEmail(input.email);
+    if (!existing) {
+      throw new Error(
+        `OpenSign contact exists but could not be resolved for ${input.email}`,
+      );
     }
-    contactCache.set(key, objectId);
-    return objectId;
+    contactCache.set(key, existing);
+    return existing;
+  }
+
+  if (!resp.ok) {
+    throw new Error(
+      `OpenSign savecontact failed (${resp.status}) code=${code ?? "n/a"} message=${
+        json && typeof json === "object"
+          ? (json as Record<string, unknown>).error
+          : text
+      }`,
+    );
   }
 
   const objectId = pickObjectId(json);
@@ -213,6 +229,27 @@ export async function ensureOpenSignContact(
   }
   contactCache.set(key, objectId);
   return objectId;
+}
+
+/**
+ * Resolve an existing OpenSign signer contact by email.
+ * The direct Parse class query is ACL-restricted; `getsigners` is the
+ * public search function the UI uses for the signer picker.
+ */
+export async function findOpenSignContactByEmail(
+  email: string,
+): Promise<string | null> {
+  const resp = await api("/api/app/functions/getsigners", {
+    method: "POST",
+    body: JSON.stringify({ search: email }),
+  });
+  const json = (await jsonOrThrow(resp, "getsigners")) as {
+    result?: Array<{ Email?: string; objectId?: string }>;
+  };
+  const match = (json.result ?? []).find(
+    (c) => (c.Email ?? "").toLowerCase() === email.toLowerCase(),
+  );
+  return match?.objectId ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -241,6 +278,7 @@ export async function createOpenSignDocument(input: {
   signerContactIds: string[];
   senderUsersPtr: string;
   createdByPtr: string;
+  placeholders?: Array<Record<string, unknown>>;
 }): Promise<string> {
   const env = opensignEnv();
   if (!env.senderUsersPtr || !env.loginUserPtr) {
@@ -272,6 +310,9 @@ export async function createOpenSignDocument(input: {
       TimeToCompleteDays: 15,
       NotifyOnSignatures: true,
       SendinOrder: input.signerContactIds.length > 1,
+      ...(input.placeholders?.length
+        ? { Placeholders: input.placeholders }
+        : {}),
     },
   };
   const resp = await api("/api/app/functions/createdocumentfromapp", {
@@ -303,40 +344,143 @@ export function buildOpenSignSigningLink(
 }
 
 // ---------------------------------------------------------------------------
+// Signature field placeholders
+// ---------------------------------------------------------------------------
+
+const PLACEHOLDER_BLOCK_COLORS = ["#000000", "#3333ff", "#008000"];
+
+/**
+ * Build OpenSign `Placeholders` (signature field positions) for each signer.
+ * Without them the recipient sign page cannot render signable fields.
+ *
+ * Coordinates are in PDF points; `yPosition` is measured from the TOP of the
+ * page (OpenSign's renderer flips it to pdf-lib's bottom-origin internally).
+ * Positions are derived from the actual PDF (page count + size), and we place a
+ * signature + name + date block near the bottom of the last page per signer.
+ */
+export async function buildSignerPlaceholders(input: {
+  pdfBytes: Uint8Array;
+  signers: Array<{ contactId: string; name: string }>;
+}): Promise<Array<Record<string, unknown>>> {
+  if (input.signers.length === 0) return [];
+
+  const pdfDoc = await PDFDocument.load(input.pdfBytes);
+  const pageCount = pdfDoc.getPageCount();
+  const lastPage = pdfDoc.getPage(pageCount - 1);
+  const { height: pageHeight } = lastPage.getSize();
+
+  const widgetBase = {
+    scale: 1,
+    isMobile: false,
+    zIndex: 1,
+  };
+
+  return input.signers.map((signer, index) => {
+    const colX = 60 + index * 275;
+    const now = Date.now();
+    const widgetId = (type: string) =>
+      `${type}-${now}-${index}-${signer.contactId.slice(0, 6)}`;
+
+    // bottom-anchored: signature box bottom ~100pt up, name above it, date below signature
+    const signatureTopY = pageHeight - 110 - 60; // box spans pdfY 110..170
+    const nameTopY = pageHeight - 80 - 19; // box spans pdfY 80..99
+    const dateTopY = pageHeight - 110 - 20; // box spans pdfY 110..130
+
+    const pos = [
+      {
+        type: "signature",
+        xPosition: colX,
+        yPosition: signatureTopY,
+        Width: 150,
+        Height: 60,
+        isStamp: false,
+        key: widgetId("signature"),
+        options: { name: widgetId("signature"), status: "required" },
+        ...widgetBase,
+      },
+      {
+        type: "name",
+        xPosition: colX,
+        yPosition: nameTopY,
+        Width: 150,
+        Height: 19,
+        key: widgetId("name"),
+        options: { name: widgetId("name"), status: "required", defaultValue: "" },
+        ...widgetBase,
+      },
+      {
+        type: "date",
+        xPosition: colX + 170,
+        yPosition: dateTopY,
+        Width: 100,
+        Height: 20,
+        key: widgetId("date"),
+        options: {
+          name: widgetId("date"),
+          status: "required",
+          response: "",
+          isReadOnly: false,
+          validation: { format: "MM/dd/yyyy", type: "date-format" },
+        },
+        ...widgetBase,
+      },
+    ];
+
+    return {
+      Id: widgetId("ph"),
+      Name: `${signer.name} Signature`,
+      Role: `Signer${index + 1}`,
+      signerObjId: signer.contactId,
+      signerPtr: {
+        __type: "Pointer",
+        className: "contracts_Contactbook",
+        objectId: signer.contactId,
+      },
+      blockColor: PLACEHOLDER_BLOCK_COLORS[index % PLACEHOLDER_BLOCK_COLORS.length],
+      placeHolder: [{ pageNumber: pageCount, pos }],
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Status / state fetch (used by fallback reconcile)
 // ---------------------------------------------------------------------------
 
 export type OpenSignDocumentState = {
   docId: string;
   signedUrl: string | null;
+  isCompleted: boolean;
 };
 
 /**
- * Completion check for the fallback reconcile. This OpenSign build has no
- * `getdocument`; `getsignedurl` returns the executed PDF URL once fully signed
- * and `{}` while unsigned. Per-signer status comes from webhooks instead.
+ * Completion check for the fallback reconcile. `getsignedurl` is a URL
+ * presigner, NOT a status check — `getDocument` returns the stored document
+ * including `SignedUrl`/`IsCompleted` once signing completes.
  */
 export async function fetchOpenSignDocumentState(
   docId: string,
 ): Promise<OpenSignDocumentState> {
-  const resp = await api("/api/app/functions/getsignedurl", {
+  const resp = await api("/api/app/functions/getDocument", {
     method: "POST",
     body: JSON.stringify({ docId }),
   });
-  const json = await jsonOrThrow(resp, "getsignedurl");
+  const json = (await jsonOrThrow(resp, "getDocument")) as {
+    result?: Record<string, unknown>;
+  };
+  const doc = json.result ?? {};
 
-  let signedUrl: string | null = null;
-  if (json && typeof json === "object") {
-    const b = json as Record<string, unknown>;
-    signedUrl =
-      [b.url, b.signedUrl, b.SignedUrl, b.presignedUrl].find(
-        (v): v is string => typeof v === "string",
-      ) ?? null;
-  } else if (typeof json === "string") {
-    signedUrl = json;
-  }
+  const signedUrl =
+    (doc.SignedUrl as string | undefined) ??
+    (doc.signedUrl as string | undefined) ??
+    null;
 
-  return { docId, signedUrl };
+  return {
+    docId,
+    signedUrl,
+    // SignedUrl is set as soon as the first signer signs — completion is only
+    // IsCompleted === true (all required signers have signed).
+    isCompleted: doc.IsCompleted === true,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -460,16 +604,27 @@ export function createOpenSignProvider(db: Db): SignatureProvider {
       const fileName = `${doc.documentType}_v${doc.version}.pdf`;
       const uploaded = await uploadOpenSignPdf(pdfBytes, fileName);
 
+      const signers = gpContactId && gpUser
+        ? [
+            { contactId: investorContactId, name: signerUser.name },
+            { contactId: gpContactId, name: gpUser.name },
+          ]
+        : [{ contactId: investorContactId, name: signerUser.name }];
+
+      const placeholders = await buildSignerPlaceholders({
+        pdfBytes,
+        signers,
+      });
+
       const label = SUBSCRIPTION_DOCUMENT_TYPE_LABELS[doc.documentType] ?? doc.documentType;
-      const signerContactIds = gpContactId
-        ? [investorContactId, gpContactId]
-        : [investorContactId];
+      const signerContactIds = signers.map((s) => s.contactId);
       const docId = await createOpenSignDocument({
         name: `${label} - ${signerUser.name}`,
         url: uploaded.url,
         signerContactIds,
         senderUsersPtr: process.env.OPEN_SIGN_SENDER_USERS_PTR ?? "",
         createdByPtr: process.env.OPEN_SIGN_LOGIN_USER_PTR ?? "",
+        placeholders,
       });
 
       const now = new Date();

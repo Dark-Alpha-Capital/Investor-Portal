@@ -16,6 +16,7 @@ import { adminProcedure, createTRPCRouter, protectedProcedure } from "../init";
 import slugify from "slugify";
 import { createDealSchema } from "@/lib/schemas/create-deal-schema";
 import { dispatchPendingOutbox } from "@/lib/queues/outbox";
+import type { BatchItem } from "drizzle-orm/batch";
 import {
   eq,
   or,
@@ -86,14 +87,10 @@ export const dealsRouter = createTRPCRouter({
       };
 
       try {
-        const [newDeal] = await ctx.db.transaction(async (tx) => {
-          const insertedDeals = await tx
-            .insert(deal)
-            .values(dealData)
-            .returning();
-          const insertedDeal = insertedDeals[0];
-
-          await tx.insert(sideEffectOutbox).values({
+        // D1 has no BEGIN/COMMIT SQL — use an atomic batch instead of transaction().
+        const [insertedDeals] = await ctx.db.batch([
+          ctx.db.insert(deal).values(dealData).returning(),
+          ctx.db.insert(sideEffectOutbox).values({
             id: randomUUID(),
             topic: "queue",
             dedupeKey: `deal:create:${dealId}`,
@@ -103,10 +100,9 @@ export const dealsRouter = createTRPCRouter({
                 slug: slug,
               },
             }),
-          });
-
-          return [insertedDeal];
-        });
+          }),
+        ] as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
+        const newDeal = insertedDeals[0];
 
         await dispatchPendingOutbox(ctx.db);
 
@@ -226,17 +222,19 @@ export const dealsRouter = createTRPCRouter({
       };
 
       try {
-        const [updatedDeal] = await ctx.db.transaction(async (tx) => {
-          const updatedDeals = await tx
+        const rename = existingDeal.name !== updateData.name;
+        const statements: BatchItem<"sqlite">[] = [
+          ctx.db
             .update(deal)
             .set(dealUpdateData)
             .where(eq(deal.id, dealId))
-            .returning();
-          const nextDeal = updatedDeals[0];
+            .returning(),
+        ];
 
-          // Check if deal name changed and enqueue folder rename job
-          if (existingDeal.name !== updateData.name) {
-            await tx.insert(sideEffectOutbox).values({
+        // Check if deal name changed and enqueue folder rename job
+        if (rename) {
+          statements.push(
+            ctx.db.insert(sideEffectOutbox).values({
               id: randomUUID(),
               topic: "queue",
               dedupeKey: `deal:rename:${dealId}:${slugify(updateData.name, {
@@ -254,11 +252,14 @@ export const dealsRouter = createTRPCRouter({
                   newDealName: updateData.name,
                 }
               ),
-            });
-          }
+            })
+          );
+        }
 
-          return [nextDeal];
-        });
+        const [updatedDeals] = await ctx.db.batch(
+          statements as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]
+        );
+        const updatedDeal = updatedDeals[0];
 
         await dispatchPendingOutbox(ctx.db);
 
@@ -338,8 +339,8 @@ export const dealsRouter = createTRPCRouter({
       }
 
       try {
-        await ctx.db.transaction(async (tx) => {
-          await tx
+        await ctx.db.batch([
+          ctx.db
             .update(deal)
             .set({
               deletedAt: new Date(),
@@ -347,17 +348,16 @@ export const dealsRouter = createTRPCRouter({
               deletedReason: input.reason,
               updatedAt: new Date(),
             })
-            .where(eq(deal.id, input.dealId));
-
-          await tx.insert(auditLog).values({
+            .where(eq(deal.id, input.dealId)),
+          ctx.db.insert(auditLog).values({
             id: randomUUID(),
             userId: ctx.session.user.id,
             action: "deal_deleted",
             targetType: "deal",
             targetId: input.dealId,
             newValue: { reason: input.reason, dealName: existingDeal.name },
-          });
-        });
+          }),
+        ] as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
       } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -397,8 +397,8 @@ export const dealsRouter = createTRPCRouter({
       }
 
       try {
-        await ctx.db.transaction(async (tx) => {
-          await tx
+        await ctx.db.batch([
+          ctx.db
             .update(deal)
             .set({
               deletedAt: null,
@@ -406,17 +406,16 @@ export const dealsRouter = createTRPCRouter({
               deletedReason: null,
               updatedAt: new Date(),
             })
-            .where(eq(deal.id, input.dealId));
-
-          await tx.insert(auditLog).values({
+            .where(eq(deal.id, input.dealId)),
+          ctx.db.insert(auditLog).values({
             id: randomUUID(),
             userId: ctx.session.user.id,
             action: "deal_restored",
             targetType: "deal",
             targetId: input.dealId,
             newValue: { dealName: existingDeal.name },
-          });
-        });
+          }),
+        ] as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
       } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -487,11 +486,9 @@ export const dealsRouter = createTRPCRouter({
       }
 
       try {
-        await ctx.db.transaction(async (tx) => {
-          // Delete first to ensure state is committed before cleanup is scheduled.
-          await tx.delete(deal).where(eq(deal.id, input.dealId));
-
-          await tx.insert(sideEffectOutbox).values({
+        await ctx.db.batch([
+          ctx.db.delete(deal).where(eq(deal.id, input.dealId)),
+          ctx.db.insert(sideEffectOutbox).values({
             id: randomUUID(),
             topic: "queue",
             dedupeKey: `deal:delete:${input.dealId}`,
@@ -502,17 +499,16 @@ export const dealsRouter = createTRPCRouter({
                 dealName: existingDeal.name,
               }
             ),
-          });
-
-          await tx.insert(auditLog).values({
+          }),
+          ctx.db.insert(auditLog).values({
             id: randomUUID(),
             userId: ctx.session.user.id,
             action: "deal_purged",
             targetType: "deal",
             targetId: input.dealId,
             newValue: { dealName: existingDeal.name },
-          });
-        });
+          }),
+        ] as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
 
         await dispatchPendingOutbox(ctx.db);
       } catch (error) {

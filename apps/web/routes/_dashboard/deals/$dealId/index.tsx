@@ -10,11 +10,13 @@ import {
   redirect,
 } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
+import { z } from "zod";
 import {
   investorDealDetailQueryKey,
   type DealDetailLoaderData,
 } from "@/lib/types/investor-route-loaders";
 import { fetchDealDetailRouteData } from "@/lib/server-fns/investor-route-data";
+import { sanitizeHtml } from "@/lib/helpers/sanitize-html";
 import { AppLink as Link } from "@/components/app-link";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,6 +49,14 @@ type ForbiddenDeal = Extract<
   GetDealResult,
   { success: false; error: "FORBIDDEN" }
 >;
+
+const searchSchema = z.object({
+  tab: z
+    .enum(["overview", "thesis", "capital", "documents", "actions"])
+    .optional(),
+});
+
+type DealTab = NonNullable<z.infer<typeof searchSchema>["tab"]>;
 
 export function investorDealDetailQueryOptions(dealId: string) {
   return queryOptions({
@@ -84,51 +94,62 @@ function forbiddenReason(
   return "You don't have access to this deal. Please contact support if you believe this is an error.";
 }
 
+const dealTabs: Array<{ value: DealTab; label: string; icon: typeof Info }> = [
+  { value: "overview", label: "Overview", icon: Info },
+  { value: "thesis", label: "Thesis & Risks", icon: Lightbulb },
+  { value: "capital", label: "Capital", icon: PieChart },
+  { value: "documents", label: "Documents", icon: FolderOpen },
+  { value: "actions", label: "Actions", icon: User },
+];
+
 function DealTabs({
   dealId,
   result,
   files,
+  activeTab,
+  onTabChange,
 }: {
   dealId: string;
   result: OkDeal;
   files: DealFile[];
+  activeTab: DealTab;
+  onTabChange: (value: string) => void;
 }) {
   const deal = result.deal;
+  const description = hasBody(deal.description) ? deal.description : null;
 
   return (
-    <Tabs defaultValue="overview" className="w-full">
-      <TabsList className="mb-6 grid w-full grid-cols-2 sm:grid-cols-5 h-auto gap-1">
-        <TabsTrigger value="overview" className="flex items-center gap-2">
-          <Info className="h-4 w-4" />
-          Overview
-        </TabsTrigger>
-        <TabsTrigger value="thesis" className="flex items-center gap-2">
-          <Lightbulb className="h-4 w-4" />
-          Thesis & Risks
-        </TabsTrigger>
-        <TabsTrigger value="capital" className="flex items-center gap-2">
-          <PieChart className="h-4 w-4" />
-          Capital
-        </TabsTrigger>
-        <TabsTrigger value="documents" className="flex items-center gap-2">
-          <FolderOpen className="h-4 w-4" />
-          Documents
-        </TabsTrigger>
-        <TabsTrigger value="actions" className="flex items-center gap-2">
-          <User className="h-4 w-4" />
-          Actions
-        </TabsTrigger>
+    <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
+      <TabsList className="mb-8 grid w-full grid-cols-2 gap-1 h-auto sm:grid-cols-5">
+        {dealTabs.map(({ value, label, icon: Icon }) => (
+          <TabsTrigger key={value} value={value} className="flex items-center gap-2">
+            <Icon className="h-4 w-4" />
+            <span>{label}</span>
+          </TabsTrigger>
+        ))}
       </TabsList>
 
       <TabsContent value="overview" className="mt-0">
-        <div className="space-y-6">
-          <DealHeader deal={deal} curationNote={result.curationNote} />
+        <div className="space-y-10">
           <UserStatusCard
             userInterest={result.userInterest}
             userInvestment={result.userInvestment}
             permissions={result.permissions}
           />
           <DealExecutiveSummary deal={deal} />
+          {description ? (
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold tracking-tight">
+                About the Deal
+              </h2>
+              <div
+                className="prose prose-sm max-w-none dark:prose-invert"
+                dangerouslySetInnerHTML={{
+                  __html: sanitizeHtml(description),
+                }}
+              />
+            </section>
+          ) : null}
         </div>
       </TabsContent>
 
@@ -174,25 +195,46 @@ function DealTabs({
   );
 }
 
+function hasBody(html: string | null | undefined): boolean {
+  if (!html) return false;
+  return (
+    html
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .trim().length > 0
+  );
+}
+
 function DealDetailContent({ data }: { data: DealDetailLoaderData }) {
+  const { tab } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const askAiDealId = data.kind === "ok" ? data.result.deal.id : null;
+  const activeTab = (tab ?? "overview") as DealTab;
+  const handleTabChange = (value: string) => {
+    void navigate({
+      search: (current) => ({
+        ...current,
+        tab: value === "overview" ? undefined : (value as DealTab),
+      }),
+    });
+  };
 
   return (
     <div className="min-h-screen">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mb-6 flex items-center justify-between gap-4 border-b border-border pb-5">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-8 flex items-center justify-between gap-4">
           <Link href="/deals">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="mr-2 h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-2 text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="mr-1.5 h-4 w-4" />
               Back to Deals
             </Button>
           </Link>
           {askAiDealId ? (
-            <Button
-              asChild
-              size="sm"
-              className="border-0 bg-gradient-to-r from-sky-600 via-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 hover:from-sky-500 hover:via-indigo-500 hover:to-violet-500 hover:text-white"
-            >
+            <Button asChild size="sm" variant="outline">
               <RouterLink search={{ dealId: askAiDealId }} to="/chat">
                 <Sparkles className="mr-2 h-4 w-4" />
                 Ask AI
@@ -209,11 +251,21 @@ function DealDetailContent({ data }: { data: DealDetailLoaderData }) {
             reason={forbiddenReason(data.clearanceStatus)}
           />
         ) : (
-          <DealTabs
-            dealId={data.dealId}
-            result={data.result}
-            files={data.files}
-          />
+          <>
+            <DealHeader
+              deal={data.result.deal}
+              curationNote={data.result.curationNote}
+            />
+            <div className="mt-8">
+              <DealTabs
+                dealId={data.dealId}
+                result={data.result}
+                files={data.files}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+              />
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -221,6 +273,10 @@ function DealDetailContent({ data }: { data: DealDetailLoaderData }) {
 }
 
 export const Route = createFileRoute("/_dashboard/deals/$dealId/")({
+  validateSearch: (search) => {
+    const parsed = searchSchema.safeParse(search);
+    return parsed.success ? parsed.data : {};
+  },
   loader: async ({ context: { queryClient }, params }) => {
     await queryClient.ensureQueryData(
       investorDealDetailQueryOptions(params.dealId),

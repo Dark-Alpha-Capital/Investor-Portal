@@ -1,9 +1,4 @@
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 type DealCapitalStructureProps = {
   purchasePrice: string | null;
@@ -36,9 +31,14 @@ export function DealCapitalStructure({
   sponsorEquity,
   lpEquity,
 }: DealCapitalStructureProps) {
-  const hasAny = [purchasePrice, debt, sponsorEquity, lpEquity].some(
-    (v) => v != null && v !== "",
-  );
+  const rows = [
+    { label: "Purchase Price", value: purchasePrice },
+    { label: "Debt", value: debt },
+    { label: "Sponsor Equity", value: sponsorEquity },
+    { label: "LP Equity", value: lpEquity },
+  ];
+
+  const hasAny = rows.some((row) => row.value != null && row.value !== "");
 
   if (!hasAny) {
     return (
@@ -48,30 +48,31 @@ export function DealCapitalStructure({
     );
   }
 
-  const rows = [
-    { label: "Purchase Price", value: purchasePrice },
-    { label: "Debt", value: debt },
-    { label: "Sponsor Equity", value: sponsorEquity },
-    { label: "LP Equity", value: lpEquity },
-  ];
-
   return (
-    <div className="space-y-3">
-      <h2 className="text-lg font-semibold">Capital Structure</h2>
-      <div className="border rounded-lg">
-        <Table>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.label}>
-                <TableCell className="font-medium w-1/3 text-muted-foreground">
-                  {row.label}
-                </TableCell>
-                <TableCell>{formatCurrency(row.value)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
+    <section className="space-y-4">
+      <h2 className="text-lg font-semibold tracking-tight">
+        Capital Structure
+      </h2>
+      <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+        {rows.map(({ label, value }) => {
+          const v = formatCurrency(value);
+          return (
+            <div key={label} className="bg-card px-5 py-5">
+              <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {label}
+              </dt>
+              <dd
+                className={cn(
+                  "mt-1.5 text-2xl font-semibold tracking-tight tabular-nums",
+                  v === "—" && "text-muted-foreground",
+                )}
+              >
+                {v}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </section>
   );
 }

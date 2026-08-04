@@ -12,6 +12,7 @@
  */
 import {
   buildOpenSignSigningLink,
+  buildSignerPlaceholders,
   createOpenSignDocument,
   ensureOpenSignContact,
   fetchOpenSignDocumentState,
@@ -56,15 +57,21 @@ const uploaded = await uploadOpenSignPdf(
 );
 log("uploaded", uploaded);
 
-// 3. Create the signature request
+// 3. Create the signature request (with generated signature-field placeholders)
+const placeholders = await buildSignerPlaceholders({
+  pdfBytes: new Uint8Array(minimalPdf),
+  signers: [{ contactId: contactB, name }],
+});
 const docId = await createOpenSignDocument({
   name: `Round Trip - ${name}`,
   url: uploaded.url,
   signerContactIds: [contactB],
   senderUsersPtr: process.env.OPEN_SIGN_SENDER_USERS_PTR!,
   createdByPtr: process.env.OPEN_SIGN_LOGIN_USER_PTR!,
+  placeholders,
 });
 log("documentId", docId);
+log("placeholders", placeholders.length);
 
 // 4. Signing link
 const link = buildOpenSignSigningLink(docId, email, contactB);

@@ -132,6 +132,7 @@ creates contacts/documents, emails the signing links, and receives status via we
 
 - Provider: `apps/web/lib/closing/signatures/opensign-provider.ts` (selected when `OPEN_SIGN_BASE_URL` is set; otherwise the in-app mock provider is used).
 - Flow: login (1-yr token, cached) → `savecontact` (error 137 = reuse) → upload PDF from Nextcloud → `createdocumentfromapp` (`Signers: [investor]` or `[investor, GP]` when `requires_countersign`, `SendinOrder`) → signing link `base64("docId/email/contactId")` → persisted on `signature_request`.
+- **Signature fields**: `buildSignerPlaceholders` auto-generates a signature + name + date block per signer near the bottom of the last page (positions derived from the actual PDF via pdf-lib). OpenSign's recipient sign page requires `Placeholders` or it errors ("Something went wrong"). If field positions need tweaking, adjust the coordinates in `buildSignerPlaceholders`.
 - Investor link → emailed + shown in portal ("Review & Sign"). GP link → **admin panel only** ("GP Signing Link").
 
 ### Webhook status sync — `POST /api/webhooks/opensign`
@@ -147,8 +148,8 @@ Verifies `X-OpenSign-Signature` = `HMAC-SHA256(body, OPEN_SIGN_WEBHOOK_SECRET)`,
 
 Completion auto-advance to `awaiting_funds` + email #2 happens from the webhook path
 (`applyOpenSignEvent` → `checkCompletionAndAdvanceToAwaitingFunds`). A best-effort
-fallback reconcile (`syncSignatureStatuses`) polls `getsignedurl` (returns the executed
-PDF URL once fully signed) on package load — this OpenSign build has no `getdocument`.
+fallback reconcile (`syncSignatureStatuses`) polls `getDocument` (`SignedUrl`/`IsCompleted`)
+on package load so a missed webhook self-heals on next view.
 
 ### Env
 

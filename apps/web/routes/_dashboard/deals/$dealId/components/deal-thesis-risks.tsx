@@ -27,10 +27,12 @@ export function DealThesisRisks({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {hasThesis ? (
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Investment Thesis</h2>
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Investment Thesis
+          </h2>
           <div
             className="prose prose-sm max-w-none dark:prose-invert"
             dangerouslySetInnerHTML={{
@@ -41,8 +43,8 @@ export function DealThesisRisks({
       ) : null}
 
       {hasRisks ? (
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Risks</h2>
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Risks</h2>
           <div
             className="prose prose-sm max-w-none dark:prose-invert"
             dangerouslySetInnerHTML={{ __html: sanitizeHtml(risks!) }}
