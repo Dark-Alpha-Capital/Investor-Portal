@@ -875,6 +875,7 @@ export const getPortfolioData = async (userId: string) => {
         status: investment.status,
         ownershipPercentage: investment.ownershipPercentage,
         committedDate: investment.committedDate,
+        dealDeletedAt: deal.deletedAt,
       })
       .from(investment)
       .innerJoin(deal, eq(investment.dealId, deal.id))
@@ -910,6 +911,7 @@ export const getPortfolioData = async (userId: string) => {
         status: inv.status,
         ownershipPercentage: inv.ownershipPercentage?.toString() || null,
         committedDate: inv.committedDate?.toISOString() || "",
+        dealDeletedAt: inv.dealDeletedAt?.toISOString() ?? null,
       })),
     };
   } catch (error) {

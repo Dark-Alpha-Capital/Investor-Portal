@@ -185,27 +185,28 @@ function DashboardMain({
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {portfolioData.investments.map((investment) => (
-                <Link
-                  key={investment.id}
-                  href={`/deals/${investment.dealId}`}
-                  className="group block py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
+              {portfolioData.investments.map((investment) => {
+                const dealRemoved = Boolean(investment.dealDeletedAt);
+                const row = (
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-base font-semibold transition-colors group-hover:text-primary">
                           {investment.dealName}
                         </h3>
-                        <Badge
-                          variant={
-                            commitmentStatusVariant[investment.status] ??
-                            "secondary"
-                          }
-                        >
-                          {commitmentStatusLabels[investment.status] ??
-                            investment.status}
-                        </Badge>
+                        {dealRemoved ? (
+                          <Badge variant="destructive">Deal Removed</Badge>
+                        ) : (
+                          <Badge
+                            variant={
+                              commitmentStatusVariant[investment.status] ??
+                              "secondary"
+                            }
+                          >
+                            {commitmentStatusLabels[investment.status] ??
+                              investment.status}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
                         <p className="text-muted-foreground">
@@ -239,12 +240,32 @@ function DashboardMain({
                         ) : null}
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm" className="w-fit">
-                      View Deal
-                    </Button>
+                    {!dealRemoved ? (
+                      <Button variant="ghost" size="sm" className="w-fit">
+                        View Deal
+                      </Button>
+                    ) : null}
                   </div>
-                </Link>
-              ))}
+                );
+
+                return dealRemoved ? (
+                  <div
+                    key={investment.id}
+                    className="block py-5"
+                    title="This deal has been removed"
+                  >
+                    {row}
+                  </div>
+                ) : (
+                  <Link
+                    key={investment.id}
+                    href={`/deals/${investment.dealId}`}
+                    className="group block py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    {row}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </section>

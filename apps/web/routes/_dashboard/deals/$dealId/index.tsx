@@ -27,8 +27,14 @@ import {
   PieChart,
   FolderOpen,
   Sparkles,
+  ArchiveX,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 import { DealHeader } from "./components/deal-header";
 import { UserStatusCard } from "./components/user-status-card";
 import { DealActions } from "./components/deal-actions";
@@ -252,6 +258,16 @@ function DealDetailContent({ data }: { data: DealDetailLoaderData }) {
           />
         ) : (
           <>
+            {data.result.deal.deletedAt ? (
+              <Alert className="mb-6 border-destructive/40 bg-destructive/10">
+                <ArchiveX className="h-4 w-4 text-destructive" />
+                <AlertTitle>Deal Removed</AlertTitle>
+                <AlertDescription>
+                  This deal has been removed and is hidden from investors. You
+                  are seeing it because you are viewing as an admin.
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <DealHeader
               deal={data.result.deal}
               curationNote={data.result.curationNote}

@@ -352,7 +352,7 @@ export function InvestmentManagement({
       </section>
 
       <Dialog open={isClosingDialogOpen} onOpenChange={setIsClosingDialogOpen}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Subscription Closing</DialogTitle>
             <DialogDescription>
