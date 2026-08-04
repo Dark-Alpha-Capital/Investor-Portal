@@ -25,7 +25,6 @@ import {
   ne,
   desc,
   sql,
-  ilike,
   inArray,
   notInArray,
   isNotNull,
@@ -41,6 +40,7 @@ import {
   type DealLifecycleStatus,
 } from "./deal-policy";
 import { isActiveCommitmentStatus } from "./investment-closing";
+import { tokenizedSearchCondition } from "./deal-search";
 
 /**
  * Get paginated deals for admin with filtering
@@ -76,16 +76,15 @@ export const getAdminDeals = async ({
       conditions.push(isNull(deal.deletedAt));
     }
 
-    // Add search filter (SQLite/D1: no ILIKE — use lower() + LIKE)
+    // Add search filter (tokenized, word-based: "packaging 9" matches
+    // "packaging equipment 9 colorado")
     if (search && search.trim()) {
-      const pattern = `%${search.trim().toLowerCase()}%`;
-      conditions.push(
-        or(
-          sql`lower(${deal.name}) like ${pattern}`,
-          sql`lower(coalesce(${deal.description}, '')) like ${pattern}`,
-          sql`lower(coalesce(${deal.sector}, '')) like ${pattern}`,
-        )!,
-      );
+      const searchCondition = tokenizedSearchCondition(search, [
+        deal.name,
+        deal.description,
+        deal.sector,
+      ]);
+      if (searchCondition) conditions.push(searchCondition);
     }
 
     // Add status filter
@@ -583,9 +582,12 @@ export const getPendingInvestors = async ({
     ];
 
     if (search && search.trim()) {
-      const searchTerm = `%${search.trim()}%`;
+      const searchTerm = `%${search.trim().toLowerCase()}%`;
       conditions.push(
-        or(ilike(user.name, searchTerm), ilike(user.email, searchTerm))!
+        or(
+          sql`lower(${user.name}) like ${searchTerm}`,
+          sql`lower(${user.email}) like ${searchTerm}`
+        )!
       );
     }
 
@@ -951,8 +953,8 @@ export const getMyInvestments = async ({
     const conditions = [eq(investment.userId, userId)];
 
     if (search && search.trim()) {
-      const searchTerm = `%${search.trim()}%`;
-      conditions.push(ilike(deal.name, searchTerm));
+      const searchCondition = tokenizedSearchCondition(search, [deal.name]);
+      if (searchCondition) conditions.push(searchCondition);
     }
 
     if (status && status !== "all") {
@@ -1189,16 +1191,14 @@ export const getMarketplaceDeals = async ({
         ];
 
     if (search && search.trim()) {
-      const searchTerm = `%${search.trim()}%`;
-      baseConditions.push(
-        or(
-          ilike(deal.name, searchTerm),
-          ilike(deal.teaserSummary, searchTerm),
-          ilike(deal.description, searchTerm),
-          ilike(deal.sector, searchTerm),
-          ilike(deal.geography, searchTerm)
-        )!
-      );
+      const searchCondition = tokenizedSearchCondition(search, [
+        deal.name,
+        deal.teaserSummary,
+        deal.description,
+        deal.sector,
+        deal.geography,
+      ]);
+      if (searchCondition) baseConditions.push(searchCondition);
     }
 
     // Investor marketplace is live-only; ignore non-live status filters.
@@ -1219,15 +1219,15 @@ export const getMarketplaceDeals = async ({
     }
 
     if (sector && sector !== "all") {
-      baseConditions.push(ilike(deal.sector, sector));
+      baseConditions.push(sql`lower(${deal.sector}) like lower(${sector})`);
     }
 
     if (geography && geography !== "all") {
-      baseConditions.push(ilike(deal.geography, geography));
+      baseConditions.push(sql`lower(${deal.geography}) like lower(${geography})`);
     }
 
     if (dealType && dealType !== "all") {
-      baseConditions.push(ilike(deal.dealType, dealType));
+      baseConditions.push(sql`lower(${deal.dealType}) like lower(${dealType})`);
     }
 
     const emptyFilters = {

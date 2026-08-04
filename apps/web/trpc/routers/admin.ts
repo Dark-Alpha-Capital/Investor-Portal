@@ -4,7 +4,8 @@ import {
   user,
   deal,
 } from "@repo/db/schema";
-import { desc, eq, or, isNull, and, ilike, sql } from "drizzle-orm";
+import { desc, eq, or, isNull, and, sql } from "drizzle-orm";
+import { tokenizedSearchCondition } from "@repo/db/deal-search";
 
 export const adminRouter = createTRPCRouter({
   /**
@@ -30,16 +31,14 @@ export const adminRouter = createTRPCRouter({
       // Build conditions
       const conditions: ReturnType<typeof eq>[] = [];
 
-      // Add search filter
+      // Add search filter (word-based: each token matches at least one field)
       if (search && search.trim()) {
-        const searchTerm = `%${search.trim()}%`;
-        conditions.push(
-          or(
-            ilike(deal.name, searchTerm),
-            ilike(deal.description, searchTerm),
-            ilike(deal.sector, searchTerm)
-          )!
-        );
+        const searchCondition = tokenizedSearchCondition(search, [
+          deal.name,
+          deal.description,
+          deal.sector,
+        ]);
+        if (searchCondition) conditions.push(searchCondition);
       }
 
       // Add status filter
@@ -131,9 +130,12 @@ export const adminRouter = createTRPCRouter({
       const conditions = [eq(user.role, "admin")];
 
       if (adminsSearch && adminsSearch.trim()) {
-        const searchTerm = `%${adminsSearch.trim()}%`;
+        const searchTerm = `%${adminsSearch.trim().toLowerCase()}%`;
         conditions.push(
-          or(ilike(user.name, searchTerm), ilike(user.email, searchTerm))!
+          or(
+            sql`lower(${user.name}) like ${searchTerm}`,
+            sql`lower(${user.email}) like ${searchTerm}`
+          )!
         );
       }
 

@@ -15,6 +15,13 @@ export interface ClosingPackageSentProps {
   documents: Array<{ documentName: string; signingUrl: string }>;
 }
 
+export interface ClosingCommitmentCreatedProps {
+  investorName: string;
+  investorEmail: string;
+  dealName: string;
+  committedAmount: string;
+}
+
 export interface ClosingDocumentsExecutedProps {
   investorName: string;
   dealName: string;
@@ -54,6 +61,32 @@ function Layout({
     </Html>
   );
 }
+
+export const ClosingCommitmentCreated = ({
+  investorName,
+  investorEmail,
+  dealName,
+  committedAmount,
+}: ClosingCommitmentCreatedProps) => {
+  return (
+    <Layout preview={`New capital commitment for ${dealName}`}>
+      <Heading as="h2" style={contentTitle}>
+        New Capital Commitment
+      </Heading>
+      <Text style={paragraph}>
+        <strong>{investorName}</strong> ({investorEmail}) has committed{" "}
+        <strong>{committedAmount}</strong> to{" "}
+        <strong>{dealName}</strong>.
+      </Text>
+      <Text style={paragraph}>
+        Please log in to the Investor Portal to prepare and release the
+        subscription package for this commitment.
+      </Text>
+      <Text style={paragraph}>Best regards,</Text>
+      <Text style={paragraph}>The Dark Alpha Capital Team</Text>
+    </Layout>
+  );
+};
 
 export const ClosingPackageSent = ({
   investorName,

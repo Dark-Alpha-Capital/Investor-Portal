@@ -86,7 +86,7 @@ Five document types are seeded per package (`SUBSCRIPTION_DOCUMENT_TYPES`):
 
 | Step | Actor / Action | Service / Mutation | Investment → | Documents → | Email sent to investor |
 |---|---|---|---|---|---|
-| 1 | Investor commits capital | `investments.commit` → `createCommitment` | `pending_documents` | package created; 5 docs `not_generated` | **No** (investor sees "Preparing subscription package…") |
+| 1 | Investor commits capital | `investments.commit` → `createCommitment` | `pending_documents` | package created; 5 docs `not_generated` | **Admin gets "New capital commitment" email** (investor sees "Preparing subscription package…") |
 | 2 | Admin generates package | `subscriptionClosing.generateDocuments` → `generatePackage` | `documents_generated` | each `generated`; package `ready` | **No** (generation is internal — admin reviews first) |
 | 3 | Admin sends package | `subscriptionClosing.sendForSignature` → `sendForSignature` | `awaiting_signature` | signature docs `sent`; wire `available`; package `sent` | **YES — email #1 "Action Required: Subscription Documents…" (with per-doc Review & Sign links)** |
 | 4 | Investor signs | **OpenSign widget** (link from email or portal) | (unchanged) | doc → `signed` via `document.signed` webhook | **No** |
@@ -95,19 +95,21 @@ Five document types are seeded per package (`SUBSCRIPTION_DOCUMENT_TYPES`):
 | 7 | Admin marks funds received | `investments.recordFunding` → `recordFunding` | `funded` | — | **YES — email #3 "investment funded"** |
 | 8 | Admin closes | `investments.advanceStatus` (or closing flow) | `closed` | — | **No** |
 
-### Exactly 3 emails fire (out of all lifecycle events)
+### Exactly 4 emails fire (out of all lifecycle events)
 
 Everything else is audit-only (`notification_emitted` row). Mapping from `notifications/events.ts`:
 
-| Notification event | Triggered when investment → | EmailJobType | Subject |
-|---|---|---|---|
-| `package_sent` | `awaiting_signature` | `closing-package-sent` | `Action Required: Subscription Documents for {dealName}` |
-| `documents_executed` | `awaiting_funds` | `closing-documents-executed` | `Your {dealName} subscription documents are executed` |
-| `funds_received` | `funded` | `closing-funds-received` | `Your investment in {dealName} has been funded` |
+| Notification event | Triggered when | EmailJobType | Recipient | Subject |
+|---|---|---|---|---|
+| `commitment_created` | investor commits | `closing-commitment-created` | **admin(s)** | `New capital commitment for {dealName}` |
+| `package_sent` | investment → `awaiting_signature` | `closing-package-sent` | investor | `Action Required: Subscription Documents for {dealName}` |
+| `documents_executed` | investment → `awaiting_funds` | `closing-documents-executed` | investor | `Your {dealName} subscription documents are executed` |
+| `funds_received` | investment → `funded` | `closing-funds-received` | investor | `Your investment in {dealName} has been funded` |
 
 Notes:
-- Emails are **dedupe-keyed** per investment per event (`side_effect_outbox.dedupe_key`), so the `documents_executed` email fires exactly once even though many sign/countersign actions each run the completion check.
-- `commitment_created`, `documents_ready` (generation), and `investment_closed` are audit-only today — no email template wired.
+- The `commitment_created` email goes to every `user.role = 'admin'` (plus `ADMIN_NOTIFICATION_EMAIL` fallback) — one outbox job per admin, dedupe-keyed per admin.
+- Emails are **dedupe-keyed** per investment per event (and per admin for the commitment email), so re-emits are silent no-ops (`side_effect_outbox.dedupe_key` UNIQUE + `onConflictDoNothing`).
+- `documents_ready` (generation) and `investment_closed` are audit-only today — no email template wired.
 
 ### Email delivery path
 

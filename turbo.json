@@ -24,6 +24,7 @@
         "NEXTCLOUD_PASSWORD",
         "RESEND_API_KEY",
         "REVALIDATE_SECRET",
+        "ADMIN_NOTIFICATION_EMAIL",
         "OPEN_SIGN_*"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],

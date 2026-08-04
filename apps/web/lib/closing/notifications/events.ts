@@ -15,7 +15,13 @@ import {
   SUBSCRIPTION_DOCUMENT_TYPE_LABELS,
   type ClosingEventType,
 } from "@repo/db/investment-closing";
-import type { EmailJobData, EmailJobType } from "@repo/mail";
+import type {
+  ClosingCommitmentCreatedJobData,
+  EmailJobData,
+  EmailJobType,
+} from "@repo/mail";
+import { EMAIL_CONFIG } from "@repo/mail";
+import { listAdminUserEmails } from "@repo/db/queries";
 import { enqueueEmail } from "@/lib/queues/enqueue";
 
 type Db = DrizzleD1Database<Record<string, unknown>>;
@@ -67,7 +73,7 @@ const NOTIFICATION_TO_EMAIL_JOB: Record<
   ClosingNotificationEvent,
   EmailJobType | null
 > = {
-  commitment_created: null,
+  commitment_created: "closing-commitment-created", // admin notification
   documents_ready: null, // generation is internal — investor hears about it on send
   package_sent: "closing-package-sent",
   documents_executed: "closing-documents-executed",
@@ -154,6 +160,34 @@ async function enqueueClosingEmail(
       .where(eq(user.id, inv.userId))
       .limit(1),
   ]);
+
+  // New commitment → notify the firm's admins so they can prepare the package.
+  if (jobType === "closing-commitment-created") {
+    const adminRecipients = await listAdminUserEmails();
+    const tos = new Set<string>(
+      adminRecipients.map((a) => a.email).filter(Boolean),
+    );
+    tos.add(process.env.ADMIN_NOTIFICATION_EMAIL || EMAIL_CONFIG.defaultAdminEmail);
+
+    const jobs = [...tos].map((to) => {
+      const data: ClosingCommitmentCreatedJobData = {
+        type: "closing-commitment-created",
+        to,
+        investorName: userRow?.name ?? "Investor",
+        investorEmail: userRow?.email ?? "",
+        dealName: dealRow?.name ?? "the Fund",
+        committedAmount: formatMoney(inv.committedAmount),
+      };
+      return {
+        dedupeKey: `${jobType}:${payload.investmentId}:${to}`,
+        jobName: jobType,
+        jobId: `${jobType}-${payload.investmentId}-${to}`,
+        data,
+      };
+    });
+    if (jobs.length > 0) await enqueueEmail(db as unknown as RepoDb, jobs);
+    return;
+  }
 
   if (!userRow?.email) return;
 

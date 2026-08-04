@@ -6,7 +6,6 @@ import {
   eq,
   inArray,
   isNull,
-  or,
   sql,
   type SQL,
 } from "drizzle-orm";
@@ -19,6 +18,7 @@ import {
   kanbanColumnMatchesStatusFilter,
   type DealLifecycleStatus,
 } from "./deal-status";
+import { tokenizedSearchCondition } from "./deal-search";
 
 export type DealKanbanCard = {
   id: string;
@@ -46,14 +46,14 @@ export type DealKanbanColumnPage = {
 
 export const KANBAN_PAGE_SIZE_DEFAULT = 30;
 
-/** SQLite/D1 has no ILIKE — use lower() + LIKE. */
+/** Word-based deal search: each token must match at least one field. */
 function dealSearchCondition(raw: string): SQL {
-  const pattern = `%${raw.trim().toLowerCase()}%`;
-  return or(
-    sql`lower(${deal.name}) like ${pattern}`,
-    sql`lower(coalesce(${deal.description}, '')) like ${pattern}`,
-    sql`lower(coalesce(${deal.sector}, '')) like ${pattern}`,
-  )!;
+  const condition = tokenizedSearchCondition(raw, [
+    deal.name,
+    deal.description,
+    deal.sector,
+  ]);
+  return condition ?? sql`1=0`;
 }
 
 function buildSharedConditions(filters: DealKanbanFilters): SQL[] {

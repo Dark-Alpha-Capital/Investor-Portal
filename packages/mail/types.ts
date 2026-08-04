@@ -5,6 +5,7 @@ export type EmailJobType =
   | "onboarding-admin-notification"
   | "knowledge-request-admin"
   | "knowledge-request-answered"
+  | "closing-commitment-created"
   | "closing-package-sent"
   | "closing-documents-executed"
   | "closing-funds-received";
@@ -61,6 +62,14 @@ export interface KnowledgeRequestAnsweredJobData extends BaseEmailJobData {
   chatUrl: string;
 }
 
+export interface ClosingCommitmentCreatedJobData extends BaseEmailJobData {
+  type: "closing-commitment-created";
+  investorName: string;
+  investorEmail: string;
+  dealName: string;
+  committedAmount: string;
+}
+
 export interface ClosingPackageSentJobData extends BaseEmailJobData {
   type: "closing-package-sent";
   investorName: string;
@@ -87,6 +96,7 @@ export type EmailJobData =
   | OnboardingAdminNotificationJobData
   | KnowledgeRequestAdminJobData
   | KnowledgeRequestAnsweredJobData
+  | ClosingCommitmentCreatedJobData
   | ClosingPackageSentJobData
   | ClosingDocumentsExecutedJobData
   | ClosingFundsReceivedJobData;

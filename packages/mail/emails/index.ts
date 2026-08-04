@@ -19,6 +19,11 @@ export {
 } from "./knowledge-request-answered";
 
 export {
+  ClosingCommitmentCreated,
+  type ClosingCommitmentCreatedProps,
+} from "./closing-emails";
+
+export {
   ClosingPackageSent,
   type ClosingPackageSentProps,
 } from "./closing-emails";

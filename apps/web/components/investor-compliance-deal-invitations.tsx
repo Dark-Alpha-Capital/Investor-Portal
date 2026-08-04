@@ -225,10 +225,16 @@ export function DealInvitations({
   const isPending = inviteMutation.isPending || withdrawMutation.isPending;
 
   const rows = useMemo(() => {
-    const query = dealSearch.trim().toLowerCase();
-    const deals = query
+    const tokens = dealSearch
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+    const deals = tokens.length
       ? availableDeals.filter((deal) =>
-          deal.name.toLowerCase().includes(query),
+          tokens.every((token) =>
+            deal.name.toLowerCase().includes(token),
+          ),
         )
       : availableDeals;
 

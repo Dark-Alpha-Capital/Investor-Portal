@@ -5,6 +5,7 @@ import {
   OnboardingAdminNotification,
   KnowledgeRequestAdmin,
   KnowledgeRequestAnswered,
+  ClosingCommitmentCreated,
   ClosingPackageSent,
   ClosingDocumentsExecuted,
   ClosingFundsReceived,
@@ -93,6 +94,19 @@ export const renderEmailTemplate = async (
           title: jobData.title,
           answerPreview: jobData.answerPreview,
           chatUrl: jobData.chatUrl,
+        })
+      );
+      return { subject, html };
+    }
+
+    case "closing-commitment-created": {
+      const subject = `New capital commitment for ${jobData.dealName}`;
+      const html = await render(
+        ClosingCommitmentCreated({
+          investorName: jobData.investorName,
+          investorEmail: jobData.investorEmail,
+          dealName: jobData.dealName,
+          committedAmount: jobData.committedAmount,
         })
       );
       return { subject, html };
