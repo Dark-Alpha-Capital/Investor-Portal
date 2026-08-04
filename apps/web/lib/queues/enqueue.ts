@@ -23,14 +23,19 @@ export async function enqueueSideEffect(
 ): Promise<void> {
   if (rows.length === 0) return;
 
-  await db.insert(sideEffectOutbox).values(
-    rows.map((row) => ({
-      id: randomUUID(),
-      topic: row.topic ?? "queue",
-      dedupeKey: row.dedupeKey,
-      payload: row.payload,
-    })),
-  );
+  // dedupeKey is UNIQUE — a re-emit (e.g. a second reconcile pass) must not
+  // throw a constraint error; the existing row is the intended dedupe.
+  await db
+    .insert(sideEffectOutbox)
+    .values(
+      rows.map((row) => ({
+        id: randomUUID(),
+        topic: row.topic ?? "queue",
+        dedupeKey: row.dedupeKey,
+        payload: row.payload,
+      })),
+    )
+    .onConflictDoNothing();
 
   await dispatchPendingOutbox(db, 25, targets);
 }
