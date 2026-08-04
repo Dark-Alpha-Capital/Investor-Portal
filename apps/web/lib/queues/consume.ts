@@ -11,18 +11,27 @@ import {
 } from "../workflows/workflow-outbox";
 import { runOutboundEmailSend } from "../handlers/outbound-email-send";
 import { runDealFolderSync } from "../handlers/deal-folder-sync";
+import { markOutboxSettled } from "../workflows/workflow-outbox";
 import type { EmailJobData } from "@repo/mail";
 
 async function processEmailOutbox(outboxId: string): Promise<void> {
   const payload = await fetchOutboxQueuePayload(outboxId);
   assertOutboundEmailPayload(payload);
-  await runOutboundEmailSend(payload.data as unknown as EmailJobData);
+  await runOutboundEmailSend(payload.data as unknown as EmailJobData, {
+    idempotencyKey: outboxId,
+  });
 }
 
 async function processDealFolderOutbox(outboxId: string): Promise<void> {
   const payload = await fetchOutboxQueuePayload(outboxId);
   assertDealFolderPayload(payload);
   await runDealFolderSync(payload.jobName, payload.data);
+}
+
+/** Exponential backoff in seconds: 30s, 60s, 120s, … capped at 900s (15 min). */
+function retryDelayMs(attempt: number): number {
+  const delaySeconds = Math.min(30 * 2 ** (attempt - 1), 900);
+  return delaySeconds * 1000;
 }
 
 /**
@@ -54,6 +63,7 @@ export async function handleAsyncJobQueue(
 
     try {
       await run(outboxId);
+      await markOutboxSettled(outboxId, "sent");
       message.ack();
     } catch (err) {
       if (err instanceof NonRetryableError) {
@@ -61,14 +71,16 @@ export async function handleAsyncJobQueue(
           `[queues] Non-retryable failure queue=${batch.queue} outboxId=${outboxId}:`,
           err.message,
         );
+        await markOutboxSettled(outboxId, "failed", err.message);
         message.ack();
         continue;
       }
+      const attempt = message.attempts ?? 1;
       console.error(
-        `[queues] Retry queue=${batch.queue} outboxId=${outboxId}:`,
+        `[queues] Retry queue=${batch.queue} outboxId=${outboxId} attempt=${attempt}:`,
         err,
       );
-      message.retry({ delaySeconds: 10 });
+      message.retry({ delaySeconds: retryDelayMs(attempt) / 1000 });
     }
   }
 }

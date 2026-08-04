@@ -26,52 +26,6 @@ export const createResendClient = (apiKey: string) => {
   return new Resend(apiKey);
 };
 
-// Lazy-initialized Resend client for direct email sending
-let resendClient: Resend | null = null;
-
-const getResendClient = () => {
-  if (!resendClient) {
-    if (!process.env.RESEND_API_KEY) {
-      throw new Error("RESEND_API_KEY environment variable is not set");
-    }
-    resendClient = new Resend(process.env.RESEND_API_KEY);
-  }
-  return resendClient;
-};
-
-/**
- * Send an email directly using Resend (uses RESEND_API_KEY env var)
- * This is a simple utility for sending emails without a pre-configured client.
- * Useful for auth emails, password resets, verification emails, etc.
- *
- * Always await this — fire-and-forget (`void sendEmailDirect(...)`) is dropped
- * on Cloudflare Workers when the request ends.
- */
-export const sendEmailDirect = async (
-  to: string,
-  subject: string,
-  html: string
-) => {
-  console.log(`[mail] Sending "${subject}" to ${to}`);
-  const client = getResendClient();
-  const response = await client.emails.send({
-    from: EMAIL_CONFIG.from,
-    to,
-    subject,
-    html,
-  });
-
-  if (response.error) {
-    console.error(`[mail] Resend error for ${to}:`, response.error);
-    throw new Error(
-      `Failed to send email to ${to}: ${response.error.message}`,
-    );
-  }
-
-  console.log(`[mail] Sent "${subject}" to ${to} id=${response.data?.id ?? "unknown"}`);
-  return response.data;
-};
-
 /**
  * Render an email template based on job data
  * Returns the subject and HTML content
@@ -187,19 +141,25 @@ export const renderEmailTemplate = async (
 };
 
 /**
- * Send an email using Resend
+ * Send an email using Resend.
+ *
+ * `idempotencyKey` guards against duplicate sends when the queue redelivers a
+ * message (at-least-once semantics): the key is stable per outbox row, so a
+ * crash-after-send-but-before-ack cannot produce a second email.
  */
 export const sendEmail = async (
   resend: Resend,
   to: string,
   subject: string,
-  html: string
+  html: string,
+  opts?: { idempotencyKey?: string }
 ) => {
   const response = await resend.emails.send({
     from: EMAIL_CONFIG.from,
     to,
     subject,
     html,
+    ...(opts?.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
   });
 
   if (response.error) {
@@ -214,10 +174,11 @@ export const sendEmail = async (
  */
 export const processEmailJob = async (
   resend: Resend,
-  jobData: EmailJobData
+  jobData: EmailJobData,
+  opts?: { idempotencyKey?: string }
 ) => {
   const { subject, html } = await renderEmailTemplate(jobData);
-  const result = await sendEmail(resend, jobData.to, subject, html);
+  const result = await sendEmail(resend, jobData.to, subject, html, opts);
   return {
     success: true,
     emailId: result?.id,

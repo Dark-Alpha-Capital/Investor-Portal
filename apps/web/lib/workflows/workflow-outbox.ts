@@ -19,6 +19,26 @@ export async function fetchOutboxQueuePayload(
   return structuredClone(row.payload) as QueuePayload;
 }
 
+/**
+ * Record the terminal outcome of a queued side-effect back on the outbox row.
+ * Called by the queue consumer after a send succeeds (`sent`) or permanently
+ * fails (`failed`) so rows reflect reality instead of staying `dispatched`.
+ */
+export async function markOutboxSettled(
+  outboxId: string,
+  outcome: "sent" | "failed",
+  error?: string,
+): Promise<void> {
+  await db
+    .update(sideEffectOutbox)
+    .set({
+      status: outcome,
+      lastError: outcome === "failed" ? (error ?? "unknown failure") : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(sideEffectOutbox.id, outboxId));
+}
+
 export function assertOnboardingKycPayload(p: QueuePayload): void {
   if (
     p.queue !== "onboarding" ||

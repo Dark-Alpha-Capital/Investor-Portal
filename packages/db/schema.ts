@@ -39,6 +39,7 @@ export const outbox_status_enum = pgEnum("outbox_status", [
   "pending",
   "processing",
   "dispatched",
+  "sent",
   "failed",
 ]);
 
