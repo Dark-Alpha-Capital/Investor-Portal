@@ -18,9 +18,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DealsViewWrapper } from "@/components/deals-view-wrapper";
+import { DealsIndexFilters } from "@/components/deals-index-filters";
 import {
   dealsIndexSearchSchema,
   loadDealsIndex,
+  loadDealFilterOptions,
+  parseDateBoundary,
   type DealsIndexData,
   type DealsIndexSearch,
 } from "@/lib/loaders/deals";
@@ -40,6 +43,24 @@ function normalizeIndexDeps(search: DealsIndexSearch) {
     search: search.search || undefined,
     status:
       search.status && search.status !== "all" ? search.status : undefined,
+    deleted: search.deleted,
+    sector: search.sector,
+    geography: search.geography,
+    dealType: search.dealType,
+    createdAtFrom: search.createdAtFrom,
+    createdAtTo: search.createdAtTo,
+    launchDateFrom: search.launchDateFrom,
+    launchDateTo: search.launchDateTo,
+    closeDateFrom: search.closeDateFrom,
+    closeDateTo: search.closeDateTo,
+    targetRaiseMin: search.targetRaiseMin,
+    targetRaiseMax: search.targetRaiseMax,
+    minInvestmentMin: search.minInvestmentMin,
+    minInvestmentMax: search.minInvestmentMax,
+    targetIrrMin: search.targetIrrMin,
+    targetIrrMax: search.targetIrrMax,
+    targetMoicMin: search.targetMoicMin,
+    targetMoicMax: search.targetMoicMax,
   };
 }
 
@@ -122,6 +143,12 @@ function AdminDealsRoutePage() {
   const { data, isLoading, isFetching }: UseQueryResult<DealsIndexData> =
     useQuery(dealsIndexQueryOptions(search));
 
+  const filterOptionsQuery = useQuery({
+    queryKey: ["deals", "filter-options"],
+    queryFn: async () => loadDealFilterOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const viewMode =
     search.deleted === "only" ? "table" : (search.view ?? "kanban");
   const status = search.status ?? "all";
@@ -129,6 +156,59 @@ function AdminDealsRoutePage() {
   const kanbanFilters = {
     search: search.search,
     status: status !== "all" ? [status] : undefined,
+    sector: search.sector,
+    geography: search.geography,
+    dealType: search.dealType,
+    createdAtFrom: parseDateBoundary(search.createdAtFrom, false),
+    createdAtTo: parseDateBoundary(search.createdAtTo, true),
+    launchDateFrom: parseDateBoundary(search.launchDateFrom, false),
+    launchDateTo: parseDateBoundary(search.launchDateTo, true),
+    closeDateFrom: parseDateBoundary(search.closeDateFrom, false),
+    closeDateTo: parseDateBoundary(search.closeDateTo, true),
+    targetRaiseMin: search.targetRaiseMin,
+    targetRaiseMax: search.targetRaiseMax,
+    minInvestmentMin: search.minInvestmentMin,
+    minInvestmentMax: search.minInvestmentMax,
+    targetIrrMin: search.targetIrrMin,
+    targetIrrMax: search.targetIrrMax,
+    targetMoicMin: search.targetMoicMin,
+    targetMoicMax: search.targetMoicMax,
+  };
+
+  const handleFilterChange = (patch: Record<string, unknown>) => {
+    void navigate({
+      search: (current) => ({
+        ...current,
+        ...patch,
+        page: 1,
+      }),
+    });
+  };
+
+  const clearFilters = () => {
+    void navigate({
+      search: (current) => ({
+        ...current,
+        sector: undefined,
+        geography: undefined,
+        dealType: undefined,
+        createdAtFrom: undefined,
+        createdAtTo: undefined,
+        launchDateFrom: undefined,
+        launchDateTo: undefined,
+        closeDateFrom: undefined,
+        closeDateTo: undefined,
+        targetRaiseMin: undefined,
+        targetRaiseMax: undefined,
+        minInvestmentMin: undefined,
+        minInvestmentMax: undefined,
+        targetIrrMin: undefined,
+        targetIrrMax: undefined,
+        targetMoicMin: undefined,
+        targetMoicMax: undefined,
+        page: 1,
+      }),
+    });
   };
 
   if (isLoading && !data) {
@@ -236,6 +316,13 @@ function AdminDealsRoutePage() {
             ) : null}
           </div>
         </div>
+
+        <DealsIndexFilters
+          search={search}
+          filterOptions={filterOptionsQuery.data}
+          onChange={handleFilterChange}
+          onClear={clearFilters}
+        />
 
         <DealsViewWrapper
           viewMode={viewMode}

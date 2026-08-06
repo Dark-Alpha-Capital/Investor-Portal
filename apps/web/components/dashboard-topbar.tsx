@@ -25,8 +25,15 @@ function DashboardBreadcrumbs({ session }: { session: Session }) {
   const homePath = getDashboardHomePath(session);
   const homeLabel = homePath === "/admin" ? "Admin" : "Dashboard";
   const segments = pathname.split("/").filter(Boolean);
+  const homeSegments = homePath.split("/").filter(Boolean);
 
-  if (segments.length === 0 || pathname === homePath) {
+  // The pathname already includes the home path's segments (e.g. /admin/...);
+  // strip them so we don't render "Admin / Admin / Compliance".
+  const relativeSegments = pathname.startsWith(`${homePath}/`)
+    ? segments.slice(homeSegments.length)
+    : segments;
+
+  if (relativeSegments.length === 0 || pathname === homePath) {
     return (
       <Breadcrumb>
         <BreadcrumbList>
@@ -46,9 +53,11 @@ function DashboardBreadcrumbs({ session }: { session: Session }) {
             <Link to={homePath}>{homeLabel}</Link>
           </BreadcrumbLink>
         </BreadcrumbItem>
-        {segments.map((segment, index) => {
-          const href = `/${segments.slice(0, index + 1).join("/")}`;
-          const isLast = index === segments.length - 1;
+        {relativeSegments.map((segment, index) => {
+          const href = `${homePath}/${relativeSegments
+            .slice(0, index + 1)
+            .join("/")}`;
+          const isLast = index === relativeSegments.length - 1;
 
           return (
             <span key={href} className="contents">

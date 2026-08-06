@@ -9,7 +9,6 @@ import {
   getDealDetail,
   getDealByIdForEdit,
   getInvestorComplianceDetails,
-  getAllActiveDealsBasic,
   listKnowledgeRequestsByDeal,
 } from "@repo/db/queries";
 import { getDealFilesByDealId } from "@/lib/deals/list-deal-files";
@@ -193,7 +192,6 @@ export type ComplianceInvestorLoaderData = {
   onboarding: ComplianceDetailsOk["onboarding"];
   permissions: ComplianceDetailsOk["permissions"];
   auditLog: ComplianceDetailsOk["auditLog"];
-  availableDeals: { id: string; name: string; status: string }[];
 };
 
 export async function runFetchComplianceInvestorData(
@@ -201,22 +199,11 @@ export async function runFetchComplianceInvestorData(
 ): Promise<
   { tag: "not_found" } | { tag: "ok"; data: ComplianceInvestorLoaderData }
 > {
-  const [detail, deals] = await Promise.all([
-    getInvestorComplianceDetails(data.investorId),
-    getAllActiveDealsBasic(),
-  ]);
+  const detail = await getInvestorComplianceDetails(data.investorId);
 
   if (!detail.success || !detail.investor) {
     return { tag: "not_found" };
   }
-
-  const availableDeals = deals
-    .filter((d) => d.status === "live")
-    .map((d) => ({
-      id: d.id,
-      name: d.name,
-      status: d.status,
-    }));
 
   return {
     tag: "ok",
@@ -226,7 +213,6 @@ export async function runFetchComplianceInvestorData(
       onboarding: detail.onboarding,
       permissions: detail.permissions,
       auditLog: detail.auditLog,
-      availableDeals,
     },
   };
 }

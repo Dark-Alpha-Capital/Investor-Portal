@@ -48,6 +48,23 @@ function normalizeKanbanFilters(filters: KanbanFilters) {
   return {
     search: filters.search || undefined,
     status: filters.status?.length ? filters.status : undefined,
+    sector: filters.sector || undefined,
+    geography: filters.geography || undefined,
+    dealType: filters.dealType || undefined,
+    createdAtFrom: filters.createdAtFrom,
+    createdAtTo: filters.createdAtTo,
+    launchDateFrom: filters.launchDateFrom,
+    launchDateTo: filters.launchDateTo,
+    closeDateFrom: filters.closeDateFrom,
+    closeDateTo: filters.closeDateTo,
+    targetRaiseMin: filters.targetRaiseMin,
+    targetRaiseMax: filters.targetRaiseMax,
+    minInvestmentMin: filters.minInvestmentMin,
+    minInvestmentMax: filters.minInvestmentMax,
+    targetIrrMin: filters.targetIrrMin,
+    targetIrrMax: filters.targetIrrMax,
+    targetMoicMin: filters.targetMoicMin,
+    targetMoicMax: filters.targetMoicMax,
   };
 }
 

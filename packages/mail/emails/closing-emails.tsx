@@ -13,6 +13,8 @@ export interface ClosingPackageSentProps {
   investorName: string;
   dealName: string;
   documents: Array<{ documentName: string; signingUrl: string }>;
+  wireInstructionsUrl?: string | null;
+  dealUrl: string;
 }
 
 export interface ClosingCommitmentCreatedProps {
@@ -92,6 +94,8 @@ export const ClosingPackageSent = ({
   investorName,
   dealName,
   documents,
+  wireInstructionsUrl,
+  dealUrl,
 }: ClosingPackageSentProps) => {
   return (
     <Layout preview={`Action Required: Subscription Documents for ${dealName}`}>
@@ -115,6 +119,49 @@ export const ClosingPackageSent = ({
           ))}
         </Section>
       ) : null}
+
+      {wireInstructionsUrl ? (
+        <>
+          <Heading as="h3" style={sectionTitle}>
+            Wire Instructions
+          </Heading>
+          <Text style={paragraph}>
+            Your wire instructions are ready. Please use them to transfer your
+            funds once all documents have been signed.
+          </Text>
+          <Text style={docItem}>
+            &bull;{" "}
+            <a href={wireInstructionsUrl} target="_blank" rel="noreferrer">
+              Download Wire Instructions
+            </a>
+          </Text>
+        </>
+      ) : null}
+
+      <Heading as="h3" style={sectionTitle}>
+        What happens next
+      </Heading>
+      <Text style={paragraph}>
+        1. Sign the required documents using the links above.
+        <br />
+        2. The General Partner will countersign the documents once you have
+        completed your signatures.
+        <br />
+        3. After all documents are executed, use the wire instructions to
+        transfer your investment amount.
+        <br />
+        4. The admin will confirm receipt of your funds and mark your
+        investment as funded. You will receive a confirmation email at that
+        point.
+      </Text>
+      <Text style={paragraph}>
+        You can track the progress of your subscription and download your
+        documents anytime in the{" "}
+        <a href={dealUrl} target="_blank" rel="noreferrer">
+          Investor Portal
+        </a>
+        .
+      </Text>
       <Text style={paragraph}>Best regards,</Text>
       <Text style={paragraph}>The Dark Alpha Capital Team</Text>
     </Layout>
@@ -208,6 +255,14 @@ const contentTitle = {
   fontWeight: "600",
   color: "#1a1a2e",
   marginBottom: "24px",
+};
+
+const sectionTitle = {
+  fontSize: "16px",
+  fontWeight: "600",
+  color: "#1a1a2e",
+  marginTop: "24px",
+  marginBottom: "12px",
 };
 
 const paragraph = {

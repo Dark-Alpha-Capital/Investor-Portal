@@ -88,6 +88,42 @@ function formatMoney(value: number | string | null | undefined): string {
   return `$${num.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
+function appBaseUrl(): string {
+  return (
+    process.env.BETTER_AUTH_URL ??
+    process.env.VITE_PUBLIC_BETTER_AUTH_URL ??
+    "http://localhost:3000"
+  );
+}
+
+/** Portal-proxied download URL for the wire-instructions document. */
+async function buildWireInstructionsUrl(
+  db: Db,
+  investmentId: string
+): Promise<string | null> {
+  const [row] = await db
+    .select({ id: subscriptionDocument.id })
+    .from(subscriptionDocument)
+    .innerJoin(
+      subscriptionPackage,
+      eq(subscriptionPackage.id, subscriptionDocument.packageId)
+    )
+    .where(
+      and(
+        eq(subscriptionPackage.investmentId, investmentId),
+        eq(subscriptionDocument.documentType, "wire_instructions")
+      )
+    )
+    .limit(1);
+  if (!row) return null;
+  const qs = new URLSearchParams({
+    documentId: row.id,
+    investmentId,
+    kind: "pdf",
+  });
+  return `${appBaseUrl()}/api/subscription-documents/download?${qs.toString()}`;
+}
+
 /** Investor-facing per-document signing links for the package-sent email. */
 async function buildSigningLinkList(
   db: Db,
@@ -200,7 +236,16 @@ async function enqueueClosingEmail(
       ? { committedAmount: formatMoney(inv.committedAmount) }
       : {}),
     ...(jobType === "closing-package-sent"
-      ? { documents: await buildSigningLinkList(db, payload.investmentId) }
+      ? {
+          documents: await buildSigningLinkList(db, payload.investmentId),
+          wireInstructionsUrl: await buildWireInstructionsUrl(
+            db,
+            payload.investmentId
+          ),
+          dealUrl: payload.dealId
+            ? `${appBaseUrl()}/deals/${payload.dealId}?tab=actions`
+            : appBaseUrl(),
+        }
       : {}),
   } as EmailJobData;
 

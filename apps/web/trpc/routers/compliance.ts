@@ -32,6 +32,11 @@ import {
   logPermissionGrant,
   logPermissionRevoke,
 } from "@/lib/audit";
+import {
+  getComplianceInvitationDeals,
+  getLiveDealFilterOptions,
+  invitationParticipationStatuses,
+} from "@repo/db/queries";
 
 // Global investor approval status
 const clearanceStatusSchema = z.enum([
@@ -48,6 +53,45 @@ const isApprovedStatus = (status: string): status is "approved" => {
 };
 
 export const complianceRouter = createTRPCRouter({
+  /**
+   * Server-paginated live deals for the compliance investor invitations tab,
+   * enriched with access level and participation for the given investor.
+   */
+  listInvitationDeals: adminProcedure
+    .input(
+      z.object({
+        investorId: z.string(),
+        page: z.number().int().min(1).optional().default(1),
+        limit: z.number().int().min(1).max(100).optional().default(25),
+        search: z.string().optional(),
+        sector: z.string().optional(),
+        dealType: z.string().optional(),
+        accessLevel: z
+          .enum(["no_access", "teaser", "data_room"])
+          .optional(),
+        participation: z.enum(invitationParticipationStatuses).optional(),
+      })
+    )
+    .query(async ({ input }) =>
+      getComplianceInvitationDeals({
+        investorId: input.investorId,
+        page: input.page,
+        limit: input.limit,
+        search: input.search,
+        sector: input.sector,
+        dealType: input.dealType,
+        accessLevel: input.accessLevel,
+        participation: input.participation,
+      })
+    ),
+
+  /**
+   * Distinct sector / deal type options for the invitations tab filters.
+   */
+  listInvitationFilterOptions: adminProcedure
+    .input(z.object({ investorId: z.string() }))
+    .query(async () => getLiveDealFilterOptions()),
+
   /**
    * Set investor clearance status
    */

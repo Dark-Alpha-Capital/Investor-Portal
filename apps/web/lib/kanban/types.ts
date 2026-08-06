@@ -22,6 +22,23 @@ export type KanbanPage = {
 export type KanbanFilters = {
   search?: string;
   status?: string[];
+  sector?: string;
+  geography?: string;
+  dealType?: string;
+  createdAtFrom?: number;
+  createdAtTo?: number;
+  launchDateFrom?: number;
+  launchDateTo?: number;
+  closeDateFrom?: number;
+  closeDateTo?: number;
+  targetRaiseMin?: number;
+  targetRaiseMax?: number;
+  minInvestmentMin?: number;
+  minInvestmentMax?: number;
+  targetIrrMin?: number;
+  targetIrrMax?: number;
+  targetMoicMin?: number;
+  targetMoicMax?: number;
 };
 
 export const KANBAN_COLUMN_PAGE_SIZE = 30;
@@ -43,6 +60,33 @@ export function buildKanbanCardsUrl(
     params.set("search", filters.search);
   }
   filters.status?.forEach((value) => params.append("statusFilter", value));
+
+  const scalarParams: [keyof KanbanFilters, string][] = [
+    ["sector", "sector"],
+    ["geography", "geography"],
+    ["dealType", "dealType"],
+    ["createdAtFrom", "createdAtFrom"],
+    ["createdAtTo", "createdAtTo"],
+    ["launchDateFrom", "launchDateFrom"],
+    ["launchDateTo", "launchDateTo"],
+    ["closeDateFrom", "closeDateFrom"],
+    ["closeDateTo", "closeDateTo"],
+    ["targetRaiseMin", "targetRaiseMin"],
+    ["targetRaiseMax", "targetRaiseMax"],
+    ["minInvestmentMin", "minInvestmentMin"],
+    ["minInvestmentMax", "minInvestmentMax"],
+    ["targetIrrMin", "targetIrrMin"],
+    ["targetIrrMax", "targetIrrMax"],
+    ["targetMoicMin", "targetMoicMin"],
+    ["targetMoicMax", "targetMoicMax"],
+  ];
+
+  for (const [key, param] of scalarParams) {
+    const value = filters[key];
+    if (value !== undefined && value !== null) {
+      params.set(param, String(value));
+    }
+  }
 
   return `/api/kanban/cards?${params.toString()}`;
 }

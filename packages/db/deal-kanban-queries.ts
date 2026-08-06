@@ -4,8 +4,10 @@ import {
   and,
   desc,
   eq,
+  gte,
   inArray,
   isNull,
+  lte,
   sql,
   type SQL,
 } from "drizzle-orm";
@@ -35,6 +37,23 @@ export type DealKanbanCard = {
 export type DealKanbanFilters = {
   search?: string;
   statusFilter?: string[];
+  sector?: string;
+  geography?: string;
+  dealType?: string;
+  createdAtFrom?: number;
+  createdAtTo?: number;
+  launchDateFrom?: number;
+  launchDateTo?: number;
+  closeDateFrom?: number;
+  closeDateTo?: number;
+  targetRaiseMin?: number;
+  targetRaiseMax?: number;
+  minInvestmentMin?: number;
+  minInvestmentMax?: number;
+  targetIrrMin?: number;
+  targetIrrMax?: number;
+  targetMoicMin?: number;
+  targetMoicMax?: number;
 };
 
 export type DealKanbanColumnPage = {
@@ -61,6 +80,60 @@ function buildSharedConditions(filters: DealKanbanFilters): SQL[] {
 
   if (filters.search?.trim()) {
     conditions.push(dealSearchCondition(filters.search));
+  }
+
+  if (filters.sector) {
+    conditions.push(eq(deal.sector, filters.sector));
+  }
+  if (filters.geography) {
+    conditions.push(eq(deal.geography, filters.geography));
+  }
+  if (filters.dealType) {
+    conditions.push(eq(deal.dealType, filters.dealType));
+  }
+
+  if (filters.createdAtFrom != null) {
+    conditions.push(sql`${deal.createdAt} >= ${filters.createdAtFrom}`);
+  }
+  if (filters.createdAtTo != null) {
+    conditions.push(sql`${deal.createdAt} <= ${filters.createdAtTo}`);
+  }
+  if (filters.launchDateFrom != null) {
+    conditions.push(sql`${deal.launchDate} >= ${filters.launchDateFrom}`);
+  }
+  if (filters.launchDateTo != null) {
+    conditions.push(sql`${deal.launchDate} <= ${filters.launchDateTo}`);
+  }
+  if (filters.closeDateFrom != null) {
+    conditions.push(sql`${deal.closeDate} >= ${filters.closeDateFrom}`);
+  }
+  if (filters.closeDateTo != null) {
+    conditions.push(sql`${deal.closeDate} <= ${filters.closeDateTo}`);
+  }
+
+  if (filters.targetRaiseMin != null) {
+    conditions.push(gte(deal.targetRaise, filters.targetRaiseMin));
+  }
+  if (filters.targetRaiseMax != null) {
+    conditions.push(lte(deal.targetRaise, filters.targetRaiseMax));
+  }
+  if (filters.minInvestmentMin != null) {
+    conditions.push(gte(deal.minInvestment, filters.minInvestmentMin));
+  }
+  if (filters.minInvestmentMax != null) {
+    conditions.push(lte(deal.minInvestment, filters.minInvestmentMax));
+  }
+  if (filters.targetIrrMin != null) {
+    conditions.push(gte(deal.targetIrr, filters.targetIrrMin));
+  }
+  if (filters.targetIrrMax != null) {
+    conditions.push(lte(deal.targetIrr, filters.targetIrrMax));
+  }
+  if (filters.targetMoicMin != null) {
+    conditions.push(gte(deal.targetMoic, filters.targetMoicMin));
+  }
+  if (filters.targetMoicMax != null) {
+    conditions.push(lte(deal.targetMoic, filters.targetMoicMax));
   }
 
   return conditions;

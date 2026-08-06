@@ -129,7 +129,6 @@ function InvestorComplianceInner({
     onboarding,
     permissions,
     auditLog,
-    availableDeals,
   } = data;
 
   const onboardingForComponent = onboarding as Record<string, unknown>;
@@ -279,7 +278,6 @@ function InvestorComplianceInner({
             <DealInvitations
               investorId={investorId}
               invitations={invitations}
-              availableDeals={availableDeals}
               isApproved={!!isApproved}
             />
           </TabsContent>

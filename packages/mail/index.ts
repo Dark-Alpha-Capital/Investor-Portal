@@ -119,6 +119,8 @@ export const renderEmailTemplate = async (
           investorName: jobData.investorName,
           dealName: jobData.dealName,
           documents: jobData.documents,
+          wireInstructionsUrl: jobData.wireInstructionsUrl,
+          dealUrl: jobData.dealUrl,
         })
       );
       return { subject, html };

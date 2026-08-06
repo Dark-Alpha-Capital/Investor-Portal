@@ -75,6 +75,8 @@ export interface ClosingPackageSentJobData extends BaseEmailJobData {
   investorName: string;
   dealName: string;
   documents: Array<{ documentName: string; signingUrl: string }>;
+  wireInstructionsUrl?: string | null;
+  dealUrl: string;
 }
 
 export interface ClosingDocumentsExecutedJobData extends BaseEmailJobData {

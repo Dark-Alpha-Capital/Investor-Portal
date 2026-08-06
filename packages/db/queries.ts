@@ -24,11 +24,14 @@ import {
   isNull,
   ne,
   desc,
+  gte,
+  lte,
   sql,
   inArray,
   notInArray,
   isNotNull,
   count,
+  type SQL,
 } from "drizzle-orm";
 import {
   MARKETPLACE_VISIBLE_STATUSES,
@@ -56,6 +59,23 @@ export const getAdminDeals = async ({
   search,
   status,
   deleted,
+  sector,
+  geography,
+  dealType,
+  createdAtFrom,
+  createdAtTo,
+  launchDateFrom,
+  launchDateTo,
+  closeDateFrom,
+  closeDateTo,
+  targetRaiseMin,
+  targetRaiseMax,
+  minInvestmentMin,
+  minInvestmentMax,
+  targetIrrMin,
+  targetIrrMax,
+  targetMoicMin,
+  targetMoicMax,
 }: {
   page: number;
   limit: number;
@@ -63,12 +83,29 @@ export const getAdminDeals = async ({
   status?: string;
   /** undefined → active deals only; "only" → soft-deleted only; "all" → both. */
   deleted?: "only" | "all";
+  sector?: string;
+  geography?: string;
+  dealType?: string;
+  createdAtFrom?: number;
+  createdAtTo?: number;
+  launchDateFrom?: number;
+  launchDateTo?: number;
+  closeDateFrom?: number;
+  closeDateTo?: number;
+  targetRaiseMin?: number;
+  targetRaiseMax?: number;
+  minInvestmentMin?: number;
+  minInvestmentMax?: number;
+  targetIrrMin?: number;
+  targetIrrMax?: number;
+  targetMoicMin?: number;
+  targetMoicMax?: number;
 }) => {
   try {
     const offset = (page - 1) * limit;
 
     // Build conditions
-    const conditions: ReturnType<typeof eq>[] = [];
+    const conditions: SQL[] = [];
 
     if (deleted === "only") {
       conditions.push(isNotNull(deal.deletedAt));
@@ -103,6 +140,29 @@ export const getAdminDeals = async ({
         )
       );
     }
+
+    // Enum/categorical filters
+    if (sector) conditions.push(eq(deal.sector, sector));
+    if (geography) conditions.push(eq(deal.geography, geography));
+    if (dealType) conditions.push(eq(deal.dealType, dealType));
+
+    // Date range filters (timestamps are unix ms integers)
+    if (createdAtFrom != null) conditions.push(sql`${deal.createdAt} >= ${createdAtFrom}`);
+    if (createdAtTo != null) conditions.push(sql`${deal.createdAt} <= ${createdAtTo}`);
+    if (launchDateFrom != null) conditions.push(sql`${deal.launchDate} >= ${launchDateFrom}`);
+    if (launchDateTo != null) conditions.push(sql`${deal.launchDate} <= ${launchDateTo}`);
+    if (closeDateFrom != null) conditions.push(sql`${deal.closeDate} >= ${closeDateFrom}`);
+    if (closeDateTo != null) conditions.push(sql`${deal.closeDate} <= ${closeDateTo}`);
+
+    // Numeric range filters (real columns)
+    if (targetRaiseMin != null) conditions.push(gte(deal.targetRaise, targetRaiseMin));
+    if (targetRaiseMax != null) conditions.push(lte(deal.targetRaise, targetRaiseMax));
+    if (minInvestmentMin != null) conditions.push(gte(deal.minInvestment, minInvestmentMin));
+    if (minInvestmentMax != null) conditions.push(lte(deal.minInvestment, minInvestmentMax));
+    if (targetIrrMin != null) conditions.push(gte(deal.targetIrr, targetIrrMin));
+    if (targetIrrMax != null) conditions.push(lte(deal.targetIrr, targetIrrMax));
+    if (targetMoicMin != null) conditions.push(gte(deal.targetMoic, targetMoicMin));
+    if (targetMoicMax != null) conditions.push(lte(deal.targetMoic, targetMoicMax));
 
     const whereCondition =
       conditions.length > 0 ? and(...conditions) : undefined;
@@ -1399,6 +1459,252 @@ export const getAllActiveDealsBasic = async () => {
   } catch (error) {
     console.error("Error fetching active deals:", error);
     return [];
+  }
+};
+
+/**
+ * Get distinct sector / geography / dealType values for admin deal filters.
+ */
+export const getAdminDealFilterOptions = async () => {
+  try {
+    const rows = await db
+      .select({
+        sector: deal.sector,
+        geography: deal.geography,
+        dealType: deal.dealType,
+      })
+      .from(deal)
+      .where(isNull(deal.deletedAt));
+
+    const uniqueSorted = (values: (string | null)[]): string[] =>
+      Array.from(
+        new Set(values.filter((v): v is string => Boolean(v?.trim()))),
+      ).sort((a, b) => a.localeCompare(b));
+
+    return {
+      sectors: uniqueSorted(rows.map((r) => r.sector)),
+      geographies: uniqueSorted(rows.map((r) => r.geography)),
+      dealTypes: uniqueSorted(rows.map((r) => r.dealType)),
+    };
+  } catch (error) {
+    console.error("Error fetching deal filter options:", error);
+    return { sectors: [], geographies: [], dealTypes: [] };
+  }
+};
+
+/**
+ * Get distinct sector / dealType values for live deals only (compliance
+ * invitations tab filters).
+ */
+export const getLiveDealFilterOptions = async () => {
+  try {
+    const rows = await db
+      .select({
+        sector: deal.sector,
+        dealType: deal.dealType,
+      })
+      .from(deal)
+      .where(and(eq(deal.status, "live"), isNull(deal.deletedAt)));
+
+    const uniqueSorted = (values: (string | null)[]): string[] =>
+      Array.from(
+        new Set(values.filter((v): v is string => Boolean(v?.trim()))),
+      ).sort((a, b) => a.localeCompare(b));
+
+    return {
+      sectors: uniqueSorted(rows.map((r) => r.sector)),
+      dealTypes: uniqueSorted(rows.map((r) => r.dealType)),
+    };
+  } catch (error) {
+    console.error("Error fetching live deal filter options:", error);
+    return { sectors: [], dealTypes: [] };
+  }
+};
+
+export const invitationParticipationStatuses = [
+  "no_response",
+  "interested",
+  "committed",
+  "funded",
+  "declined",
+] as const;
+
+export type InvitationParticipation =
+  (typeof invitationParticipationStatuses)[number];
+
+export type InvitationAccessFilter =
+  | "no_access"
+  | "teaser"
+  | "data_room";
+
+export type ComplianceInvitationDeal = {
+  dealId: string;
+  dealName: string;
+  sector: string | null;
+  dealType: string | null;
+  geography: string | null;
+  targetRaise: string | null;
+  targetIrr: string | null;
+  targetMoic: string | null;
+  createdAt: string;
+  accessLevel: "teaser" | "data_room" | null;
+  participation: InvitationParticipation;
+  dataRoomRequestedAt: string | null;
+  dataRoomRequestMessage: string | null;
+};
+
+/**
+ * Server-paginated list of live deals for the compliance invitations tab,
+ * enriched with the investor's current access level and participation status.
+ */
+export const getComplianceInvitationDeals = async ({
+  investorId,
+  page = 1,
+  limit = 25,
+  search,
+  sector,
+  dealType,
+  accessLevel,
+  participation,
+}: {
+  investorId: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+  sector?: string;
+  dealType?: string;
+  accessLevel?: InvitationAccessFilter;
+  participation?: InvitationParticipation;
+}) => {
+  try {
+    const participationExpr = sql<string>`CASE
+      WHEN ${investment.id} IS NOT NULL THEN
+        CASE WHEN ${investment.status} = 'funded' THEN 'funded' ELSE 'committed' END
+      WHEN ${dealInterest.id} IS NOT NULL THEN
+        CASE WHEN ${dealInterest.status} = 'pass' THEN 'declined' ELSE 'interested' END
+      ELSE 'no_response'
+    END`;
+
+    const conditions: SQL[] = [
+      eq(deal.status, "live"),
+      isNull(deal.deletedAt),
+    ];
+
+    if (search?.trim()) {
+      const searchCondition = tokenizedSearchCondition(search, [
+        deal.name,
+        deal.description,
+        deal.sector,
+      ]);
+      if (searchCondition) conditions.push(searchCondition);
+    }
+    if (sector) conditions.push(eq(deal.sector, sector));
+    if (dealType) conditions.push(eq(deal.dealType, dealType));
+
+    if (accessLevel === "no_access") {
+      conditions.push(sql`${vehiclePermission.id} IS NULL`);
+    } else if (accessLevel === "teaser" || accessLevel === "data_room") {
+      conditions.push(sql`${vehiclePermission.accessLevel} = ${accessLevel}`);
+    }
+
+    if (participation) {
+      conditions.push(sql`${participationExpr} = ${participation}`);
+    }
+
+    const where = and(...conditions);
+
+    const query = db
+      .select({
+        dealId: deal.id,
+        dealName: deal.name,
+        sector: deal.sector,
+        dealType: deal.dealType,
+        geography: deal.geography,
+        targetRaise: deal.targetRaise,
+        targetIrr: deal.targetIrr,
+        targetMoic: deal.targetMoic,
+        createdAt: deal.createdAt,
+        accessLevel: vehiclePermission.accessLevel,
+        dataRoomRequestedAt: vehiclePermission.dataRoomRequestedAt,
+        dataRoomRequestMessage: vehiclePermission.dataRoomRequestMessage,
+        participation: participationExpr,
+        totalCount: sql<number>`count(*) over ()`,
+      })
+      .from(deal)
+      .leftJoin(
+        vehiclePermission,
+        and(
+          eq(vehiclePermission.dealId, deal.id),
+          eq(vehiclePermission.userId, investorId),
+          isNull(vehiclePermission.revokedAt),
+        ),
+      )
+      .leftJoin(
+        dealInterest,
+        and(
+          eq(dealInterest.dealId, deal.id),
+          eq(dealInterest.userId, investorId),
+        ),
+      )
+      .leftJoin(
+        investment,
+        and(
+          eq(investment.dealId, deal.id),
+          eq(investment.userId, investorId),
+        ),
+      )
+      .where(where)
+      .orderBy(desc(deal.createdAt), desc(deal.id))
+      .limit(limit + 1)
+      .offset((page - 1) * limit);
+
+    const rows = await query;
+
+    const totalCount = Number(rows[0]?.totalCount ?? 0);
+    const hasMore = rows.length > limit;
+    const pageRows = rows.slice(0, limit);
+
+    return {
+      success: true,
+      rows: pageRows.map((row) => ({
+        dealId: row.dealId,
+        dealName: row.dealName,
+        sector: row.sector ?? null,
+        dealType: row.dealType ?? null,
+        geography: row.geography ?? null,
+        targetRaise: row.targetRaise?.toString() ?? null,
+        targetIrr: row.targetIrr?.toString() ?? null,
+        targetMoic: row.targetMoic?.toString() ?? null,
+        createdAt: row.createdAt.toISOString(),
+        accessLevel: (row.accessLevel as "teaser" | "data_room" | null) ?? null,
+        participation: row.participation as InvitationParticipation,
+        dataRoomRequestedAt:
+          row.dataRoomRequestedAt?.toISOString() ?? null,
+        dataRoomRequestMessage: row.dataRoomRequestMessage ?? null,
+      })),
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.max(1, Math.ceil(totalCount / limit)),
+        hasNextPage: hasMore,
+        hasPrevPage: page > 1,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching compliance invitation deals:", error);
+    return {
+      success: false,
+      rows: [],
+      pagination: {
+        page,
+        limit,
+        totalCount: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPrevPage: false,
+      },
+    };
   }
 };
 
